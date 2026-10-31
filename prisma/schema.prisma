@@ -1,0 +1,969 @@
+// AutoMax ERP — Phase 0 core schema (auth, RBAC, audit, notifications, tasks)
+// Кейінгі фазаларда Sales/CRM/Production/Warehouse/Finance т.б. домендер осы схемаға қосылады.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity & Access ----------
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  phone        String?    @unique
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+  mfaEnabled   Boolean    @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  employee      Employee?
+  sessions      Session[]
+  userRoles     UserRole[]
+  auditLogs     AuditLog[]     @relation("AuditActor")
+  notifications Notification[] @relation("NotificationRecipient")
+  tasksAssigned Task[]         @relation("TaskAssignedTo")
+  tasksCreated  Task[]         @relation("TaskAssignedBy")
+  taskComments  TaskComment[]
+
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Department {
+  id       String       @id @default(cuid())
+  name     String
+  slug     String       @unique
+  parentId String?
+  parent   Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children Department[] @relation("DepartmentHierarchy")
+
+  employees     Employee[]
+  userRoles     UserRole[]
+  notifications Notification[]
+  tasks         Task[]
+  leads         Lead[]
+
+  @@map("departments")
+}
+
+model Branch {
+  id       String  @id @default(cuid())
+  name     String
+  address  String?
+  timezone String  @default("Asia/Almaty")
+
+  employees       Employee[]
+  userRoles       UserRole[]
+  deals           Deal[]
+  orders          Order[]
+  salesLedgerRows SalesLedgerRow[]
+
+  @@map("branches")
+}
+
+model Employee {
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  position     String
+  departmentId String?
+  department   Department?    @relation(fields: [departmentId], references: [id])
+  branchId     String?
+  branch       Branch?        @relation(fields: [branchId], references: [id])
+  hireDate     DateTime       @default(now())
+  status       EmployeeStatus @default(ACTIVE)
+
+  assignedLeads           Lead[]
+  assignedDeals           Deal[]
+  dealStageChanges        DealStageHistory[]
+  discountRequestsMade    DiscountRequest[]  @relation("DiscountRequestedBy")
+  discountRequestsDecided DiscountRequest[]  @relation("DiscountApprovedBy")
+  salesLedgerRows         SalesLedgerRow[]
+
+  ordersCreated                Order[]                @relation("OrderCreatedBy")
+  ordersManaged                Order[]                @relation("OrderSalesManager")
+  orderStatusChanges           OrderStatusHistory[]
+  assignedProductionOrders     ProductionOrder[]
+  qualityChecksPerformed       QualityControl[]
+  installationsAssigned        Installation[]
+  deliveriesAssigned           Delivery[]
+  paymentsHandled              Payment[]
+  orderDiscountRequestsMade    OrderDiscountRequest[] @relation("OrderDiscountRequestedBy")
+  orderDiscountRequestsDecided OrderDiscountRequest[] @relation("OrderDiscountApprovedBy")
+  orderComments                OrderComment[]
+  orderAttachmentsUploaded     OrderAttachment[]
+
+  @@index([departmentId])
+  @@index([branchId])
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+model Role {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  isSystem Boolean @default(false)
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id       String           @id @default(cuid())
+  resource String
+  action   PermissionAction
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+enum PermissionAction {
+  VIEW
+  CREATE
+  EDIT
+  APPROVE
+  EXPORT
+  DELETE
+  ADMIN
+}
+
+model RolePermission {
+  roleId       String
+  role         Role            @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission      @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  scope        PermissionScope @default(OWN)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+enum PermissionScope {
+  OWN
+  DEPARTMENT
+  BRANCH
+  ALL
+}
+
+model UserRole {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId       String
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  branchId     String?
+  branch       Branch?     @relation(fields: [branchId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  @@unique([userId, roleId, branchId])
+  @@index([userId])
+  @@map("user_roles")
+}
+
+// ---------- Audit ----------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------- Notifications ----------
+
+model Notification {
+  id           String            @id @default(cuid())
+  recipientId  String?
+  recipient    User?             @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  departmentId String?
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  level        NotificationLevel @default(INFO)
+  type         String
+  title        String
+  body         String?
+  payload      Json?
+  readAt       DateTime?
+  createdAt    DateTime          @default(now())
+
+  @@index([recipientId, readAt])
+  @@index([departmentId])
+  @@map("notifications")
+}
+
+enum NotificationLevel {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+// ---------- Tasks ----------
+
+model Task {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus   @default(NEW)
+  priority     TaskPriority @default(MEDIUM)
+  deadline     DateTime?
+  assignedToId String?
+  assignedTo   User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  assignedById String
+  assignedBy   User         @relation("TaskAssignedBy", fields: [assignedById], references: [id])
+  departmentId String?
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  completedAt  DateTime?
+
+  comments TaskComment[]
+
+  @@index([assignedToId, status])
+  @@index([departmentId])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+// ---------- Sales & CRM (Phase 1) ----------
+
+model Customer {
+  id         String             @id @default(cuid())
+  fullName   String
+  phone      String             @unique
+  whatsapp   String? // Order Module §2
+  city       String? // Order Module §2
+  clientType CustomerClientType @default(INDIVIDUAL) // Order Module §2
+  source     String?
+  segment    CustomerSegment    @default(REGULAR)
+  isVip      Boolean            @default(false)
+  isInactive Boolean            @default(false)
+  npsScore   Int?
+  createdAt  DateTime           @default(now())
+
+  contacts CustomerContact[]
+  cars     CustomerCar[]
+  leads    Lead[]
+  deals    Deal[]
+  orders   Order[]
+
+  @@index([segment])
+  @@map("customers")
+}
+
+enum CustomerSegment {
+  REGULAR
+  VIP
+  WHOLESALE
+}
+
+enum CustomerClientType {
+  INDIVIDUAL
+  COMPANY
+}
+
+model CustomerContact {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channel    String
+  value      String
+
+  @@index([customerId])
+  @@map("customer_contacts")
+}
+
+model CustomerCar {
+  id           String        @id @default(cuid())
+  customerId   String
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  make         String // Vehicle: Brand
+  model        String // Vehicle: Model
+  generation   String? // Order Module §4
+  body         String? // Order Module §4
+  year         Int? // Production Year
+  numberOfRows Int? // Order Module §4
+  steeringSide SteeringSide? // Order Module §4
+  licensePlate String? // Order Module §4
+  vin          String?
+
+  deals      Deal[]
+  orderItems OrderItem[]
+  orders     Order[]
+
+  @@index([customerId])
+  @@map("customer_cars")
+}
+
+enum SteeringSide {
+  LEFT
+  RIGHT
+}
+
+model Lead {
+  id              String      @id @default(cuid())
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  fullName        String
+  phone           String
+  source          String
+  status          LeadStatus  @default(NEW)
+  assignedToId    String?
+  assignedTo      Employee?   @relation(fields: [assignedToId], references: [id])
+  departmentId    String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+  convertedDealId String?     @unique
+  convertedDeal   Deal?       @relation("LeadConvertedDeal", fields: [convertedDealId], references: [id])
+  createdAt       DateTime    @default(now())
+
+  deals Deal[] @relation("DealSourceLead")
+
+  @@index([assignedToId, status])
+  @@index([status])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  LOST
+}
+
+model Deal {
+  id           String       @id @default(cuid())
+  leadId       String?
+  lead         Lead?        @relation("DealSourceLead", fields: [leadId], references: [id])
+  customerId   String
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  carId        String?
+  car          CustomerCar? @relation(fields: [carId], references: [id])
+  stage        DealStage    @default(QUALIFIED)
+  amount       Decimal      @default(0) @db.Decimal(14, 2)
+  discountPct  Decimal      @default(0) @db.Decimal(5, 2)
+  assignedToId String
+  assignedTo   Employee     @relation(fields: [assignedToId], references: [id])
+  branchId     String?
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  closedAt     DateTime?
+
+  sourceLead       Lead?              @relation("LeadConvertedDeal")
+  stageHistory     DealStageHistory[]
+  discountRequests DiscountRequest[]
+  order            Order?
+
+  @@index([assignedToId, stage])
+  @@index([stage])
+  @@index([branchId])
+  @@map("deals")
+}
+
+enum DealStage {
+  QUALIFIED
+  OFFER
+  ORDER
+  PAID
+  WON
+  LOST
+}
+
+model DealStageHistory {
+  id          String     @id @default(cuid())
+  dealId      String
+  deal        Deal       @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  fromStage   DealStage?
+  toStage     DealStage
+  changedById String
+  changedBy   Employee   @relation(fields: [changedById], references: [id])
+  changedAt   DateTime   @default(now())
+
+  @@index([dealId])
+  @@map("deal_stage_history")
+}
+
+model DiscountRequest {
+  id            String         @id @default(cuid())
+  dealId        String
+  deal          Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   Employee       @relation("DiscountRequestedBy", fields: [requestedById], references: [id])
+  requestedPct  Decimal        @db.Decimal(5, 2)
+  status        DiscountStatus @default(PENDING)
+  approvedById  String?
+  approvedBy    Employee?      @relation("DiscountApprovedBy", fields: [approvedById], references: [id])
+  createdAt     DateTime       @default(now())
+  decidedAt     DateTime?
+
+  @@index([dealId])
+  @@index([status])
+  @@map("discount_requests")
+}
+
+enum DiscountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ---------- Orders (Phase 1) ----------
+// Deal — келіссөз/pipeline объектісі; Deal "ORDER" сатысына жеткенде нақты
+// тауар/қызмет құрамы бар Order жазбасы жасалады. Production/Warehouse/Finance
+// келесі фазаларда осы Order-ды тұтынады (§9, §15 архитектура құжатында).
+
+model Product {
+  id        String  @id @default(cuid())
+  sku       String  @unique
+  name      String
+  category  String?
+  type      String? // Order Module §6 (Автополик: 3D/5D/7D/10D/360/Other)
+  class     String? // Order Module §6 (Standard/Premium/Lux/Exclusive)
+  basePrice Decimal @default(0) @db.Decimal(14, 2)
+  isActive  Boolean @default(true)
+
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+// ---------- Order Module (Order Management) ----------
+// Order — жүйенің транзакциялық ядросы (§FINAL REQUIREMENT). dealId әдейі optional:
+// Order я Sales pipeline-нің (Deal ORDER сатысы) жалғасы ретінде, я осы модульдің
+// "Жаңа заказ" flow-ы арқылы тікелей жасалады. Client/Vehicle — бар Customer/
+// CustomerCar модельдерін қолданады (§49: бөлек Client/Vehicle кестесін қайта
+// ойлап таппадық — қайталанбау үшін).
+
+model Order {
+  id              String                @id @default(cuid())
+  orderNumber     String                @unique // AM-2026-000154
+  dealId          String?               @unique
+  deal            Deal?                 @relation(fields: [dealId], references: [id])
+  customerId      String
+  customer        Customer              @relation(fields: [customerId], references: [id])
+  vehicleId       String?
+  vehicle         CustomerCar?          @relation(fields: [vehicleId], references: [id])
+  branchId        String?
+  branch          Branch?               @relation(fields: [branchId], references: [id])
+  createdById     String
+  createdBy       Employee              @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  salesManagerId  String
+  salesManager    Employee              @relation("OrderSalesManager", fields: [salesManagerId], references: [id])
+  status          OrderStatus           @default(NEW)
+  priority        OrderPriority         @default(NORMAL)
+  source          String? // Канал обращения (клиент қалай хабарласты)
+  salesChannel    String? // Канал продаж (сату қай арнада өтті — source-тан бөлек болуы мүмкін)
+  certificateNo   String? // Номер сертификата
+  managerBonus    Decimal?              @db.Decimal(14, 2) // Бонус менеджеров
+  fulfillmentType OrderFulfillmentType?
+  totalAmount     Decimal               @default(0) @db.Decimal(14, 2)
+  discountAmount  Decimal               @default(0) @db.Decimal(14, 2)
+  finalAmount     Decimal               @default(0) @db.Decimal(14, 2)
+  paidAmount      Decimal               @default(0) @db.Decimal(14, 2)
+  deadline        DateTime?
+  comment         String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  items            OrderItem[]
+  payments         Payment[]
+  productionOrders ProductionOrder[]
+  installation     Installation?
+  delivery         Delivery?
+  discountRequests OrderDiscountRequest[]
+  comments         OrderComment[]
+  attachments      OrderAttachment[]
+  statusHistory    OrderStatusHistory[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([branchId])
+  @@index([salesManagerId])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  DRAFT
+  NEW
+  CONFIRMED
+  WAITING_PAYMENT
+  WAITING_PRODUCTION
+  IN_PRODUCTION
+  READY
+  WAITING_INSTALLATION
+  WAITING_DELIVERY
+  IN_DELIVERY
+  COMPLETED
+  CANCELLED
+  RETURNED
+  REWORK
+}
+
+enum OrderPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum OrderFulfillmentType {
+  INSTALLATION
+  DELIVERY
+  PICKUP
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String
+  changedBy   Employee     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime     @default(now())
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+model OrderItem {
+  id              String       @id @default(cuid())
+  orderId         String
+  order           Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id])
+  productCategory String? // snapshot — Product өзгерсе де тапсырыс тарихы бұзылмайды
+  productType     String?
+  productClass    String?
+  carId           String?
+  car             CustomerCar? @relation(fields: [carId], references: [id])
+  qty             Int          @default(1)
+  basePrice       Decimal      @db.Decimal(14, 2)
+  discountAmount  Decimal      @default(0) @db.Decimal(14, 2)
+  unitPrice       Decimal      @db.Decimal(14, 2) // basePrice - discountAmount, дайын мән
+  comment         String?
+
+  configuration ProductConfiguration?
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// §7 — Автополик таңдалғанда ашылатын конфигурация блогы
+model ProductConfiguration {
+  id          String    @id @default(cuid())
+  orderItemId String    @unique
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  complectation String? // Driver only / Front row / Full 2 rows / Full 3 rows / Trunk / Full set
+
+  materialId String?
+  material   Material? @relation("ConfigMaterial", fields: [materialId], references: [id])
+  color      String?
+  pattern    String?
+
+  threadColor String? // Кожа нитка
+
+  edgingColor String? // Кожа окантовка
+
+  removableMatType        String? // EVA / Carpet / Fishing line / Other
+  removableMatColor       String?
+  removableMatThreadColor String? // Сьемный полик нитка (негізгі threadColor-нан бөлек)
+  removableMatEdging      String? // Сьемный полик окантовка
+
+  heelPad          Boolean @default(false)
+  pockets          Boolean @default(false)
+  pocketsPairs     Int? // Кармашки сколько пар
+  pocketsLogo      Boolean @default(false) // Кармашки лого (негізгі logo-дан бөлек)
+  logo             Boolean @default(false)
+  customLogoText   String?
+  embroidery       Boolean @default(false)
+  extraAccessories String?
+  photoUrl         String?
+
+  @@map("product_configurations")
+}
+
+// §8 — материал анықтамалығы (Warehouse модулімен кейін толық байланысады)
+model Material {
+  id            String           @id @default(cuid())
+  sku           String           @unique
+  category      MaterialCategory
+  name          String
+  color         String?
+  type          String?
+  unit          String           @default("м²")
+  currentStock  Decimal          @default(0) @db.Decimal(14, 2)
+  reservedStock Decimal          @default(0) @db.Decimal(14, 2)
+  costPrice     Decimal          @default(0) @db.Decimal(14, 2)
+  supplier      String?
+  isActive      Boolean          @default(true)
+
+  configurations ProductConfiguration[] @relation("ConfigMaterial")
+
+  @@map("materials")
+}
+
+enum MaterialCategory {
+  LEATHER
+  THREAD
+  EDGING
+  EVA
+  CARPET
+  FISHING_LINE
+  ACCESSORIES
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount        Decimal       @db.Decimal(14, 2)
+  method        PaymentMethod @default(CASH)
+  status        PaymentStatus @default(PAID)
+  cashbox       String?
+  employeeId    String?
+  employee      Employee?     @relation(fields: [employeeId], references: [id])
+  transactionId String?
+  receiptUrl    String?
+  comment       String?
+  paidAt        DateTime      @default(now())
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  KASPI_QR
+  KASPI_PAY
+  KASPI_RED
+  KASPI_CREDIT
+  BANK_TRANSFER
+  HALYK
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+// §13-15 — Production. Толық цех workflow UI келесі фазада (Production модулі);
+// осында тек Order-дан "Өндіріске жіберу" арқылы жасалатын жазба.
+model ProductionOrder {
+  id               String           @id @default(cuid())
+  orderId          String
+  order            Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId      String?
+  workshop         String?
+  assignedWorkerId String?
+  assignedWorker   Employee?        @relation(fields: [assignedWorkerId], references: [id])
+  priority         OrderPriority    @default(NORMAL)
+  plannedDate      DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  status           ProductionStatus @default(NEW)
+  createdAt        DateTime         @default(now())
+
+  qualityChecks QualityControl[]
+
+  @@index([orderId])
+  @@index([status])
+  @@map("production_orders")
+}
+
+enum ProductionStatus {
+  NEW
+  QUEUED
+  CUTTING
+  ASSEMBLY
+  EDGING
+  LOGO
+  QUALITY_CHECK
+  READY
+  REWORK
+  DEFECT
+  CANCELLED
+}
+
+model QualityControl {
+  id                String          @id @default(cuid())
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  employeeId        String
+  employee          Employee        @relation(fields: [employeeId], references: [id])
+  date              DateTime        @default(now())
+  result            QCResult
+  comment           String?
+  photoUrl          String?
+
+  @@index([productionOrderId])
+  @@map("quality_controls")
+}
+
+enum QCResult {
+  PASSED
+  FAILED
+  REWORK_REQUIRED
+}
+
+// §16 — Installation
+model Installation {
+  id             String             @id @default(cuid())
+  orderId        String             @unique
+  order          Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  date           DateTime?
+  installerId    String?
+  installer      Employee?          @relation(fields: [installerId], references: [id])
+  branchId       String?
+  status         InstallationStatus @default(SCHEDULED)
+  startTime      DateTime?
+  finishTime     DateTime?
+  comment        String?
+  beforePhotoUrl String?
+  afterPhotoUrl  String?
+
+  @@map("installations")
+}
+
+enum InstallationStatus {
+  SCHEDULED
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  REWORK
+  CANCELLED
+}
+
+// §17 — Delivery
+model Delivery {
+  id           String         @id @default(cuid())
+  orderId      String         @unique
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  phone        String?
+  city         String?
+  address      String?
+  courierId    String?
+  courier      Employee?      @relation(fields: [courierId], references: [id])
+  deliveryDate DateTime?
+  deliveryCost Decimal?       @db.Decimal(14, 2)
+  status       DeliveryStatus @default(NEW)
+  comment      String?
+
+  @@map("deliveries")
+}
+
+enum DeliveryStatus {
+  NEW
+  PLANNED
+  IN_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+// §10 — рөл бойынша скидка лимиті асқанда approval сұралады (Deal-дегі
+// DiscountRequest-тен бөлек, себебі Order енді Deal-сыз да жасалады)
+model OrderDiscountRequest {
+  id            String         @id @default(cuid())
+  orderId       String
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   Employee       @relation("OrderDiscountRequestedBy", fields: [requestedById], references: [id])
+  requestedPct  Decimal        @db.Decimal(5, 2)
+  status        DiscountStatus @default(PENDING)
+  approvedById  String?
+  approvedBy    Employee?      @relation("OrderDiscountApprovedBy", fields: [approvedById], references: [id])
+  createdAt     DateTime       @default(now())
+  decidedAt     DateTime?
+
+  @@index([orderId])
+  @@index([status])
+  @@map("order_discount_requests")
+}
+
+// §23 — Internal comments
+model OrderComment {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    Employee @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@map("order_comments")
+}
+
+// §24 — Files/Photos (URL негізді, сыртқы storage интеграциясы кейінгі фазада)
+model OrderAttachment {
+  id           String         @id @default(cuid())
+  orderId      String
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type         AttachmentType
+  url          String
+  uploadedById String
+  uploadedBy   Employee       @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime       @default(now())
+
+  @@index([orderId])
+  @@map("order_attachments")
+}
+
+enum AttachmentType {
+  PRODUCT_PHOTO
+  VEHICLE_PHOTO
+  CLIENT_REFERENCE
+  PAYMENT_RECEIPT
+  PRODUCTION_PHOTO
+  QC_PHOTO
+  INSTALLATION_PHOTO
+  OTHER
+}
+
+// ---------- Sales Ledger (Алматы филиалының Google Sheets кестесінен) ----------
+// Пайдаланушының нақты сату-есеп кестесінің құрылымын дәлме-дәл қайталайды (45 баған).
+// Deal/Order моделінен әдейі бөлек — бұл кесте филиалдың операциялық журналы,
+// pipeline емес; сату менеджерлері күнделікті осында тікелей жазба енгізеді.
+
+model SalesLedgerRow {
+  id       String @id @default(cuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  no    Int // № — app деңгейінде MAX(бар жол)+1 ретінде есептеледі (§ createLedgerRow)
+  year  Int? // Год
+  month String? // Мес
+  date  DateTime? // Дата
+
+  manager        String? // Менеджер
+  customerPhone  String? // Номер клиента
+  customerName   String? // Имя клиента
+  contactChannel String? // Канал обращения
+  certificateNo  String? // Номер сертификата
+  contactCity    String? // Город обращения
+
+  car     String? // Авто
+  brand   String? // Марка
+  carYear Int? // Год (авто)
+
+  workshop       String? // Цех
+  readyOrderDate DateTime? // Дата готового заказа
+  product        String? // Товар
+
+  leatherType   String? // Кожа вид
+  leatherThread String? // Кожа нитка
+  leatherPiping String? // Кожа окантовка
+  matType       String? // Сьемный полик вид
+  matThread     String? // Сьемный полик нитка
+  matPiping     String? // Сьемный полик окантовка
+  pocketsPairs  Int? // Кармашки сколько пар
+  pocketsLogo   String? // Кармашки лого
+
+  price        Decimal? @db.Decimal(14, 2) // Цена
+  soldFor      Decimal? @db.Decimal(14, 2) // Продали за
+  remainder    Decimal? @db.Decimal(14, 2) // Остаток
+  managerBonus Decimal? @db.Decimal(14, 2) // Бонус менеджеров
+
+  receipt1Amount Decimal?  @db.Decimal(14, 2) // Чек1 сумма
+  receipt1Method String? // Чек 1 способ оплаты
+  receipt1At     DateTime? // Чек 1 дата/время
+  receipt1File   String? // Чек 1
+  receipt2Amount Decimal?  @db.Decimal(14, 2) // Чек 2 сумма
+  receipt2Method String? // Чек 2 способ оплаты
+  receipt2At     DateTime? // Чек 2 дата/время
+  receipt2File   String? // Чек 2
+  receipt3Amount Decimal?  @db.Decimal(14, 2) // Чек 3 сумма
+  receipt3Method String? // Чек 3 способ оплаты
+  receipt3At     DateTime? // Чек 3 дата/время
+  receipt3File   String? // Чек 3
+
+  pickupMethod String? // Способ вывоза
+  production   String? // Производство
+  orderStatus  String? // Статус заказа
+  payments     String? // Оплаты
+  salesChannel String? // Канал продаж
+
+  createdById String?
+  createdBy   Employee? @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([branchId])
+  @@index([date])
+  @@map("sales_ledger_rows")
+}
