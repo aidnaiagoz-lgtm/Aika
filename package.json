@@ -1,0 +1,45 @@
+{
+  "name": "automax-erp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "vercel-build": "prisma generate && prisma db push --skip-generate && tsx prisma/seed-if-empty.ts && next build",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "@prisma/client": "^6.3.1",
+    "@node-rs/argon2": "^2.0.2",
+    "lucide-react": "^0.475.0",
+    "recharts": "^2.15.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "prisma": "^6.3.1",
+    "tailwindcss": "^4",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
