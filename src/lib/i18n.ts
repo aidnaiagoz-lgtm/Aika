@@ -388,6 +388,10 @@ const kk = {
     pageTitle: "Оқыту орталығы",
     pageSubtitle: "Сабақтар мен нұсқаулықтарды көру үшін бөлімді таңдаңыз",
     emptyMessage: (deptName: string) => `«${deptName}» бөлімі бойынша сабақтар мен нұсқаулықтар әлі қосылмаған.`,
+    qualificationLabel: "Біліктілік бөлімі",
+    provisionLabel: "Қамтамасыз ету бөлімі",
+    openInNewTab: "Жаңа бетте ашу",
+    editSheetLabel: "Өзгерту (Google Sheets)",
   },
   roles: {
     CEO: "CEO",
@@ -659,6 +663,10 @@ const ru = {
     pageTitle: "Центр обучения",
     pageSubtitle: "Выберите отдел, чтобы посмотреть уроки и инструкции",
     emptyMessage: (deptName: string) => `Уроки и инструкции по разделу «${deptName}» пока не добавлены.`,
+    qualificationLabel: "Отдел квалификации",
+    provisionLabel: "Отдел обеспечения",
+    openInNewTab: "Открыть в новой вкладке",
+    editSheetLabel: "Изменить (Google Sheets)",
   },
   roles: {
     CEO: "CEO",
