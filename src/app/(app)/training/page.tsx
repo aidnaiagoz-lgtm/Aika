@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, GraduationCap } from "lucide-react";
+import { ChevronRight, GraduationCap, Award, PackageCheck } from "lucide-react";
 import { DEPARTMENT_SLUGS, getDictionary } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 
@@ -30,6 +30,32 @@ export default async function TrainingPage() {
             <ChevronRight size={16} className="shrink-0 text-text-secondary" />
           </Link>
         ))}
+
+        <Link
+          href="/training/qualification"
+          className="shadow-card flex items-center justify-between gap-3 rounded-card bg-surface p-4 transition-colors hover:bg-accent-tint"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent">
+              <Award size={18} />
+            </span>
+            <span className="text-sm font-semibold text-text-primary">{t.training.qualificationLabel}</span>
+          </span>
+          <ChevronRight size={16} className="shrink-0 text-text-secondary" />
+        </Link>
+
+        <Link
+          href="/training/provision"
+          className="shadow-card flex items-center justify-between gap-3 rounded-card bg-surface p-4 transition-colors hover:bg-accent-tint"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent">
+              <PackageCheck size={18} />
+            </span>
+            <span className="text-sm font-semibold text-text-primary">{t.training.provisionLabel}</span>
+          </span>
+          <ChevronRight size={16} className="shrink-0 text-text-secondary" />
+        </Link>
       </div>
     </div>
   );
