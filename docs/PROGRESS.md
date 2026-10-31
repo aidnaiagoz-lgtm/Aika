@@ -28,6 +28,17 @@
 **Келесі қадам:** …
 -->
 
+### 2026-10-31 — sulejmenovedil (Claude) #3
+**Не жасалды:**
+- "Обучение → Біліктілік бөлімі" ішіне папка құру функциясы қосылды: жаңа `TrainingFolder` кестесі (аты, бөлім, кім жасады), домен қабаты (`src/lib/domain/training`), server action, кішкентай toggle-форма компоненті. Нақты браузерде (Playwright) толық тексерілді — жұмыс істейді.
+- Схема өзгерісі тек **қосымша** (жаңа кесте), ешнәрсе өшірілген/бұзылған жоқ.
+
+**Өзгерген файлдар/бөлімдер:** `prisma/schema.prisma` (+TrainingFolder), `src/lib/domain/training/index.ts`, `src/app/(app)/training/actions.ts`, `src/app/(app)/training/CreateFolderForm.tsx`, `src/app/(app)/training/qualification/page.tsx`, `src/lib/i18n.ts`.
+
+**Аяқталмаған / ескерту:** rbac-та "training" ресурсы тіркелмеген (бүкіл Обучение бөлімі секілді) — яғни кез келген кірген қолданушы папка құра алады, рөлге қарап шектеу жоқ. "Қамтамасыз ету" бетіне әлі қосылмаған (сұралмады).
+
+**Келесі қадам:** PR merge болғаннан кейін, Vercel-де де `prisma db push` (vercel-build ішінде автоматты) жаңа кестені қосады — деректі жоймайды.
+
 ### 2026-10-31 — aidnaiagoz-lgtm (Claude)
 **Не жасалды:**
 - #3 PR (Оқыту: Біліктілік / Қамтамасыз ету карточкалары) тексерілді, Vercel Preview Ready — `main`-ға merge жасалды.
