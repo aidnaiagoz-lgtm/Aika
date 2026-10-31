@@ -48,11 +48,12 @@
 ```bash
 pnpm install
 docker compose up -d        # немесе өз Postgres-ің; DATABASE_URL → .env
+# SEED_DEFAULT_PASSWORD="..." деп .env-ге де қос
 pnpm db:push && pnpm db:seed
 pnpm dev                    # http://localhost:3000
 ```
 
-Demo кіру: `sulejmenovedil@gmail.com` / `Automax2026!`
+Demo кіру: `sulejmenovedil@gmail.com` / (`.env`-дегі `SEED_DEFAULT_PASSWORD` мәні)
 
 ## Екі адам — ережелер
 
