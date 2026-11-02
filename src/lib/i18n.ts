@@ -23,6 +23,8 @@ export const DEPARTMENT_SLUGS = [
   "branches",
   "knowledge-base",
   "it",
+  "qualification",
+  "provision",
 ] as const;
 
 export type OrgNode = {
@@ -368,6 +370,8 @@ const kk = {
       branches: "Филиалдар",
       "knowledge-base": "Құжаттар / Білім базасы",
       it: "IT / Автоматтандыру",
+      qualification: "Біліктілік бөлімі",
+      provision: "Қамтамасыз ету бөлімі",
     } as Record<string, string>,
   },
   departmentTabs: {
@@ -649,6 +653,8 @@ const ru = {
       branches: "Филиалы",
       "knowledge-base": "Документы / База знаний",
       it: "IT / Автоматизация",
+      qualification: "Отдел квалификации",
+      provision: "Отдел обеспечения",
     } as Record<string, string>,
   },
   departmentTabs: {
