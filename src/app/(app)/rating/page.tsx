@@ -1,39 +1,82 @@
 import Link from "next/link";
+import {
+  TrendingUp,
+  TrendingDown,
+  Zap,
+  ShieldCheck,
+  Repeat,
+  CalendarCheck,
+  Flame,
+  Target,
+  Trophy,
+  Award,
+  Lightbulb,
+  Lock,
+  ArrowUpRight,
+  Crown,
+  CheckCircle2,
+  type LucideIcon,
+} from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeader } from "@/lib/access";
 import { getRatingData, PERIODS, type Period, type BoardRow, type RatingData } from "@/lib/domain/rating";
 
-// Бренд түстері (AutoMax логотипі — көк)
+// Дизайн: AutoMax бренді — қою көк (#0b1a45) + көк (#1f4fd8), бейтарап сұр фон, эмодзисіз.
 const BRAND = "#1f4fd8";
+const NAVY = "#0b1a45";
+const MEDAL: Record<number, { ring: string; fill: string; text: string; label: string }> = {
+  1: { ring: "#d4a017", fill: "linear-gradient(135deg,#f7d774,#d4a017)", text: "#5c4300", label: "1" },
+  2: { ring: "#a8b0bd", fill: "linear-gradient(135deg,#e9edf2,#a8b0bd)", text: "#3b4350", label: "2" },
+  3: { ring: "#c07a45", fill: "linear-gradient(135deg,#f1c19c,#c07a45)", text: "#4d2a10", label: "3" },
+};
 
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n)) + " ₸";
-const PERIOD_LABEL: Record<Period, string> = { day: "Бүгін", week: "Апта", month: "Ай", year: "Жыл" };
+const num = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
+const PERIOD_LABEL: Record<Period, string> = { day: "Бүгін", week: "Апта", month: "Ай", lastMonth: "Өткен ай", year: "Жыл" };
 const MONTHS = ["Қаңтар", "Ақпан", "Наурыз", "Сәуір", "Мамыр", "Маусым", "Шілде", "Тамыз", "Қыркүйек", "Қазан", "Қараша", "Желтоқсан"];
 const WEEKDAYS = ["Жексенбі", "Дүйсенбі", "Сейсенбі", "Сәрсенбі", "Бейсенбі", "Жұма", "Сенбі"];
 const monthName = (ym: string) => MONTHS[Number(ym.slice(5, 7)) - 1];
 const dayLabel = (d: string) => `${Number(d.slice(8, 10))} ${monthName(d).toLowerCase()}`;
 
+function initials(name: string) {
+  const parts = name.replace(/\d+/g, "").trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || name.charAt(0).toUpperCase();
+}
+
 function Avatar({ name, size = 36, me = false, ring }: { name: string; size?: number; me?: boolean; ring?: string }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-bold text-white"
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-wide"
       style={{
         width: size,
         height: size,
-        fontSize: size * 0.42,
-        background: me ? "linear-gradient(135deg,#22c55e,#16a34a)" : "linear-gradient(135deg,#3d7bff,#1f4fd8)",
-        boxShadow: ring ? `0 0 0 4px ${ring}` : undefined,
+        fontSize: size * 0.36,
+        color: me ? "#fff" : NAVY,
+        background: me ? BRAND : "#e3e9f7",
+        boxShadow: ring ? `0 0 0 3px ${ring}` : undefined,
       }}
     >
-      {name.charAt(0).toUpperCase()}
+      {initials(name)}
     </span>
   );
 }
 
 function Change({ n }: { n: number }) {
-  if (n > 0) return <span className="text-xs font-bold text-[#16a34a]">▲ {n}</span>;
-  if (n < 0) return <span className="text-xs font-bold text-danger">▼ {-n}</span>;
+  if (n > 0) return <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-[#15803d]"><TrendingUp size={13} />{n}</span>;
+  if (n < 0) return <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-[#b42318]"><TrendingDown size={13} />{-n}</span>;
   return <span className="text-xs text-text-secondary">—</span>;
+}
+
+function SectionTitle({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2 text-[15px] font-semibold text-text-primary">
+        <Icon size={17} className="text-[#1f4fd8]" strokeWidth={2} />
+        {title}
+      </h2>
+      {hint && <span className="text-xs text-text-secondary">{hint}</span>}
+    </div>
+  );
 }
 
 export default async function RatingPage({ searchParams }: { searchParams: Promise<{ p?: string; pw?: string }> }) {
@@ -44,12 +87,14 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
   const leader = isLeader(user);
   const data = await getRatingData({ period, employeeId: user.employee?.id ?? null });
   const myId = user.employee?.id ?? null;
-  const firstName = (user.employee?.fullName ?? "").split(" ")[0] || "құрметті әріптес";
+  const firstName = (user.employee?.fullName ?? "").split(" ")[0] || "әріптес";
 
   return (
-    <div className="mx-auto flex max-w-[1240px] flex-col gap-4">
+    <div className="mx-auto flex max-w-[1240px] flex-col gap-5">
       {sp.pw === "ok" && (
-        <div className="rounded-card bg-[#e7f7ec] px-4 py-3 text-sm font-semibold text-[#16a34a]">✅ Пароль сәтті өзгертілді</div>
+        <div className="flex items-center gap-2 rounded-[14px] border border-[#bbe5c8] bg-[#f0faf3] px-4 py-3 text-sm font-medium text-[#15803d]">
+          <CheckCircle2 size={16} /> Пароль сәтті өзгертілді
+        </div>
       )}
 
       <Hero data={data} firstName={firstName} leader={leader} />
@@ -59,7 +104,7 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
       <Nominations data={data} myId={myId} />
 
       {data.me && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.55fr_1fr]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
           <SelfCard data={data} />
           <NearMe data={data} myId={myId!} />
         </div>
@@ -77,74 +122,101 @@ function Hero({ data, firstName, leader }: { data: RatingData; firstName: string
   const goal = data.team.goal;
   const pct = goal ? Math.min(100, Math.round((data.team.monthItems / goal.teamItems) * 100)) : 0;
   const me = data.me;
+  const champ = data.lastMonthChampion;
   return (
     <section
-      className="rating-rise relative overflow-hidden rounded-[24px] px-6 py-5 text-white"
-      style={{ background: "radial-gradient(900px 300px at 85% -40%, #3d7bff 0%, transparent 60%), linear-gradient(120deg,#0b1a45,#13286b)" }}
+      className="rating-rise relative overflow-hidden rounded-[22px] px-7 py-6 text-white"
+      style={{ background: `linear-gradient(115deg, ${NAVY} 0%, #12275f 60%, #183a8c 100%)` }}
     >
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+      <div
+        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-25"
+        style={{ background: "radial-gradient(circle, #3d7bff 0%, transparent 70%)" }}
+      />
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center">
         <div className="flex-1">
-          <h1 className="text-2xl font-extrabold">Сәлем, {firstName} 👋</h1>
-          <p className="mt-1 text-sm text-[#a9b8e6]">
-            {WEEKDAYS[t.getUTCDay()]}, {dayLabel(data.today)} ·{" "}
+          <div className="text-[13px] font-medium uppercase tracking-[0.12em] text-[#9fb1e3]">
+            {WEEKDAYS[t.getUTCDay()]}, {dayLabel(data.today)}
+          </div>
+          <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Қайырлы күн, {firstName}</h1>
+          <p className="mt-1 text-sm text-[#b8c5ec]">
             {me
               ? me.todayItems > 0
-                ? `Бүгін ${me.todayItems} тауар сатылды — жақсы бастадыңыз!`
-                : "Бүгінгі бірінші сатылым сізден болсын 💪"
+                ? `Бүгін ${me.todayItems} тауар сатылды · ${money(me.todayRevenue)}`
+                : "Бүгін әзірге сатылым жоқ — күнді бірінші болып бастаңыз"
               : `Айдың соңына ${data.team.daysLeft} күн қалды`}
           </p>
-          <div className="mt-4 max-w-xl">
+
+          <div className="mt-5 max-w-xl">
             {goal ? (
               <>
-                <div className="flex justify-between text-sm">
-                  <span>
-                    🤝 <b>Команда мақсаты:</b> айына {goal.teamItems} тауар
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="flex items-center gap-1.5 text-[#d6def6]">
+                    <Target size={15} /> Команда мақсаты · {num(goal.teamItems)} тауар
                   </span>
-                  <b>
-                    {data.team.monthItems} / {goal.teamItems} · {pct}%
-                  </b>
+                  <span className="font-semibold">
+                    {num(data.team.monthItems)} / {num(goal.teamItems)} <span className="text-[#9fb1e3]">· {pct}%</span>
+                  </span>
                 </div>
-                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/15">
-                  <i className="rating-bar block h-full rounded-full bg-gradient-to-r from-[#5ee38b] to-[#22c55e]" style={{ width: `${pct}%` }} />
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/12">
+                  <i className="rating-bar block h-full rounded-full bg-[#4ade80]" style={{ width: `${pct}%` }} />
                 </div>
-                <p className="mt-1.5 text-xs text-[#a9b8e6]">
-                  {data.team.monthItems >= goal.teamItems
-                    ? "🎉 Мақсат орындалды!"
-                    : `Тағы ${goal.teamItems - data.team.monthItems} тауар`}
-                  {goal.reward ? ` — орындалса: ${goal.reward}` : ""}
-                  {me ? ` · Сіздің үлесіңіз: ${me.monthItems} тауар` : ""}
+                <p className="mt-2 text-xs text-[#9fb1e3]">
+                  {data.team.monthItems >= goal.teamItems ? "Мақсат орындалды" : `Тағы ${num(goal.teamItems - data.team.monthItems)} тауар`}
+                  {goal.reward ? ` · Сыйлық: ${goal.reward}` : ""}
+                  {me ? ` · Сіздің үлесіңіз: ${num(me.monthItems)} тауар` : ""}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-[#a9b8e6]">
-                🤝 Команданың осы айғы мақсаты әлі қойылмаған{leader ? " — «Мақсаттар» бетінде қойыңыз" : ""}.
+              <p className="flex items-center gap-1.5 text-sm text-[#9fb1e3]">
+                <Target size={15} /> Осы айдың команда мақсаты әлі қойылмаған{leader ? " — «Мақсаттар» бетінде қойыңыз" : ""}
               </p>
             )}
           </div>
         </div>
-        {me && (
-          <div className="flex gap-3">
-            <HeroStat label="Өткен айдан" value={me.growthPct === null ? "жаңа" : `${me.growthPct >= 0 ? "↑" : "↓"} ${Math.abs(me.growthPct)}%`} color={me.growthPct !== null && me.growthPct < 0 ? "#ffb4b4" : "#5ee38b"} />
-            <HeroStat label="Серия" value={`${me.streak} күн${me.streak > 0 ? " 🔥" : ""}`} />
-            <HeroStat label="Апталық орын" value={String(me.weekRank)} extra={<Change n={me.weekRankChange} />} />
-          </div>
-        )}
-        {!me && leader && (
-          <div className="flex gap-3">
-            <HeroStat label="Ай · тауар" value={String(data.team.monthItems)} />
-            <HeroStat label="Менеджер" value={String(data.board.length)} />
-          </div>
-        )}
+
+        <div className="flex flex-wrap gap-3">
+          {champ && (
+            <div className="min-w-[190px] rounded-[16px] border border-white/12 bg-white/[0.06] px-4 py-3">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-[#e9c46a]">
+                <Crown size={13} /> {monthName(champ.month)} чемпионы
+              </div>
+              <div className="mt-1 text-lg font-semibold">{champ.name}</div>
+              <div className="text-xs text-[#b8c5ec]">
+                {money(champ.revenue)} · {num(champ.items)} тауар
+              </div>
+            </div>
+          )}
+          {me && (
+            <>
+              <HeroStat
+                label="Өткен айдан"
+                value={me.growthPct === null ? "жаңа" : `${me.growthPct >= 0 ? "+" : ""}${me.growthPct}%`}
+                tone={me.growthPct !== null && me.growthPct < 0 ? "neg" : "pos"}
+              />
+              <HeroStat label="Серия" value={`${me.streak} күн`} icon={Flame} />
+              <HeroStat label="Апталық орын" value={`#${me.weekRank}`} extra={<Change n={me.weekRankChange} />} />
+            </>
+          )}
+          {!me && leader && (
+            <>
+              <HeroStat label="Ай · тауар" value={num(data.team.monthItems)} />
+              <HeroStat label="Менеджер" value={String(data.board.length)} />
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-function HeroStat({ label, value, color, extra }: { label: string; value: string; color?: string; extra?: React.ReactNode }) {
+function HeroStat({ label, value, tone, icon: Icon, extra }: { label: string; value: string; tone?: "pos" | "neg"; icon?: LucideIcon; extra?: React.ReactNode }) {
   return (
-    <div className="min-w-[130px] rounded-[18px] border border-white/15 bg-white/10 px-4 py-3">
-      <div className="text-[11px] uppercase tracking-wider text-[#a9b8e6]">{label}</div>
-      <div className="mt-0.5 text-2xl font-extrabold" style={color ? { color } : undefined}>
+    <div className="min-w-[120px] rounded-[16px] border border-white/12 bg-white/[0.06] px-4 py-3">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[#9fb1e3]">{label}</div>
+      <div
+        className={`mt-1 flex items-center gap-1.5 text-[22px] font-semibold ${tone === "pos" ? "text-[#4ade80]" : tone === "neg" ? "text-[#fca5a5]" : ""}`}
+      >
+        {Icon && <Icon size={18} className="text-[#fbbf24]" />}
         {value} {extra}
       </div>
     </div>
@@ -152,54 +224,73 @@ function HeroStat({ label, value, color, extra }: { label: string; value: string
 }
 
 function LeaderKpis({ data }: { data: RatingData }) {
-  const tag = <span className="ml-1 rounded-full bg-[#fff4d6] px-1.5 py-0.5 text-[10px] font-bold text-[#8a5a00]">ТЕК CEO</span>;
+  const tag = (
+    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-md bg-[#fff6e0] px-1.5 py-0.5 text-[10px] font-semibold text-[#8a5a00]">
+      <Lock size={9} /> CEO
+    </span>
+  );
   const items = [
-    { l: "Команда сатты (ай)", v: money(data.team.monthRevenue), s: data.team.monthGrowthPct === null ? "" : `${data.team.monthGrowthPct >= 0 ? "↑" : "↓"} ${Math.abs(data.team.monthGrowthPct)}% өткен айдан`, ceo: true },
-    { l: "Клиент қарызы", v: money(data.team.debt), s: "төленбеген қалдық", ceo: true, danger: true },
-    { l: "Бонус қоры (ай)", v: money(data.team.bonus), s: `${data.board.length} менеджерге`, ceo: true },
-    { l: "Орташа чек", v: money(data.team.avgCheck), s: "осы ай", ceo: false },
+    {
+      l: "Айналым (ай)",
+      v: money(data.team.monthRevenue),
+      s: data.team.monthGrowthPct === null ? "өткен ай деректері жоқ" : `${data.team.monthGrowthPct >= 0 ? "+" : ""}${data.team.monthGrowthPct}% өткен айдың осы кезеңінен`,
+    },
+    { l: "Клиент қарызы", v: money(data.team.debt), s: "төленбеген қалдық", danger: data.team.debt > 0 },
+    { l: "Бонус қоры (ай)", v: money(data.team.bonus), s: `${data.board.length} менеджер` },
+    { l: "Орташа чек", v: money(data.team.avgCheck), s: "осы ай" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {items.map((k) => (
-        <div key={k.l} className="rounded-[18px] bg-surface px-4 py-3.5">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-text-secondary">
+        <div key={k.l} className="rounded-[16px] border border-border bg-surface px-4 py-3.5">
+          <div className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
             {k.l}
-            {k.ceo && tag}
+            {tag}
           </div>
-          <div className={`mt-1 text-xl font-extrabold ${k.danger ? "text-danger" : "text-text-primary"}`}>{k.v}</div>
-          <div className="text-xs text-text-secondary">{k.s}</div>
+          <div className={`mt-1.5 text-xl font-semibold ${k.danger ? "text-[#b42318]" : "text-text-primary"}`}>{k.v}</div>
+          <div className="mt-0.5 text-xs text-text-secondary">{k.s}</div>
         </div>
       ))}
     </div>
   );
 }
 
-const NOM_BG: Record<string, string> = { grower: "#22c55e", first: "#fff3cc", debtfree: "#e8efff", oldclient: "#ffe6e6", steady: "#f0e8ff" };
+const NOM_ICON: Record<string, LucideIcon> = {
+  grower: TrendingUp,
+  first: Zap,
+  debtfree: ShieldCheck,
+  oldclient: Repeat,
+  steady: CalendarCheck,
+};
 
 function Nominations({ data, myId }: { data: RatingData; myId: string | null }) {
   return (
     <section>
-      <div className="mb-2 flex items-baseline gap-2">
-        <h2 className="text-base font-bold text-text-primary">🏅 Апта номинациялары</h2>
-        <span className="text-xs text-text-secondary">жеңудің 5 жолы — әр дүйсенбі жаңаланады</span>
-      </div>
+      <SectionTitle icon={Award} title="Апта номинациялары" hint="әр дүйсенбі жаңаланады" />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {data.nominations.map((n, i) => {
           const mine = n.winnerEmployeeId !== null && n.winnerEmployeeId === myId;
+          const Icon = NOM_ICON[n.id] ?? Award;
           return (
             <div
               key={n.id}
-              className={`rating-rise relative flex items-center gap-3 rounded-[20px] p-3.5 ${mine ? "bg-gradient-to-br from-[#e7f7ec] to-[#d2f3dd] outline outline-2 outline-[#22c55e]" : "bg-surface"}`}
-              style={{ animationDelay: `${i * 70}ms` }}
+              className={`rating-rise relative flex items-center gap-3 rounded-[16px] border p-3.5 ${
+                mine ? "border-[#86d19e] bg-[#f0faf3]" : "border-border bg-surface"
+              }`}
+              style={{ animationDelay: `${i * 60}ms` }}
             >
-              {mine && <span className="absolute -top-2.5 right-3 rounded-full bg-[#16a34a] px-2 py-0.5 text-[11px] font-bold text-white">Сіз! 🎉</span>}
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-xl" style={{ background: NOM_BG[n.id] }}>
-                {n.emoji}
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                style={{ background: mine ? "#16a34a" : "#eef2fb", color: mine ? "#fff" : BRAND }}
+              >
+                <Icon size={19} strokeWidth={2} />
               </span>
               <div className="min-w-0">
-                <div className="text-[10.5px] font-bold uppercase tracking-wide text-text-secondary">{n.title}</div>
-                <div className="truncate text-sm font-bold text-text-primary">{n.winner ?? "—"}</div>
+                <div className="text-[10.5px] font-semibold uppercase tracking-wide text-text-secondary">{n.title}</div>
+                <div className="truncate text-sm font-semibold text-text-primary">
+                  {n.winner ?? "—"}
+                  {mine && <span className="ml-1.5 text-xs font-medium text-[#15803d]">· сіз</span>}
+                </div>
                 <div className="truncate text-xs text-text-secondary">{n.detail}</div>
               </div>
             </div>
@@ -215,69 +306,66 @@ function SelfCard({ data }: { data: RatingData }) {
   const max = Math.max(1, ...me.months.map((m) => m.revenue));
   const toRecord = me.record ? me.record.items - me.todayItems + 1 : null;
   return (
-    <section className="flex flex-col rounded-[22px] bg-surface p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-bold text-text-primary">📈 Сіз vs өткен айдағы өзіңіз</h2>
-        <span className="text-xs text-text-secondary">тек сізге көрінеді 🔒</span>
-      </div>
+    <section className="flex flex-col rounded-[20px] border border-border bg-surface p-5">
+      <SectionTitle icon={TrendingUp} title="Менің нәтижем" hint="тек сізге көрінеді" />
       <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
-        <div>
+        <div className="sm:w-[46%]">
           {me.growthPct === null ? (
-            <div className="text-2xl font-extrabold text-[#1f4fd8]">Жаңа бастама 🚀</div>
+            <div className="text-2xl font-semibold text-[#1f4fd8]">Жаңа бастама</div>
           ) : (
-            <div className={`text-5xl font-black tracking-tight ${me.growthPct < 0 ? "text-danger" : "text-[#16a34a]"}`}>
+            <div className={`text-[44px] font-semibold leading-none tracking-tight ${me.growthPct < 0 ? "text-[#b42318]" : "text-[#15803d]"}`}>
               {`${me.growthPct >= 0 ? "+" : ""}${me.growthPct}%`}
             </div>
           )}
-          <div className="mt-1 text-sm text-text-secondary">
-            Өткен айдың осы кезеңі {money(me.lastMonthSamePeriod)} → қазір {money(me.monthRevenue)}
+          <div className="mt-2 text-[13px] text-text-secondary">
+            өткен айдың осы кезеңі {money(me.lastMonthSamePeriod)} → қазір {money(me.monthRevenue)}
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-text-secondary">
-            <div className="rounded-xl bg-page-bg p-2">Бүгін<b className="block text-sm text-text-primary">{money(me.todayRevenue)}</b>{me.todayItems} тауар</div>
-            <div className="rounded-xl bg-page-bg p-2">Апта<b className="block text-sm text-text-primary">{money(me.weekRevenue)}</b>{me.weekItems} тауар</div>
-            <div className="rounded-xl bg-page-bg p-2">Ай<b className="block text-sm text-text-primary">{money(me.monthRevenue)}</b>{me.monthItems} тауар</div>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-text-secondary">
+            {[
+              ["Бүгін", me.todayRevenue, me.todayItems],
+              ["Апта", me.weekRevenue, me.weekItems],
+              ["Ай", me.monthRevenue, me.monthItems],
+            ].map(([l, r, it]) => (
+              <div key={l as string} className="rounded-xl bg-page-bg px-2.5 py-2">
+                {l}
+                <b className="mt-0.5 block text-[13px] font-semibold text-text-primary">{money(r as number)}</b>
+                {it as number} тауар
+              </div>
+            ))}
           </div>
         </div>
-        <div className="flex h-[180px] flex-1 items-end gap-3">
+        <div className="flex h-[170px] flex-1 items-end gap-3">
           {me.months.map((m, i) => {
             const cur = i === me.months.length - 1;
             return (
               <div key={m.month} className="flex flex-1 flex-col items-center gap-1.5 text-[11px] text-text-secondary">
+                <span className={`text-[10.5px] ${cur ? "font-semibold text-[#1f4fd8]" : ""}`}>{m.revenue ? `${Math.round(m.revenue / 1000)}k` : ""}</span>
                 <i
-                  className="rating-grow block w-full rounded-t-[10px] rounded-b-[4px]"
-                  style={{
-                    height: `${Math.max(6, (m.revenue / max) * 150)}px`,
-                    background: cur ? `linear-gradient(180deg,#3d7bff,${BRAND})` : "#dbe5ff",
-                    animationDelay: `${i * 80}ms`,
-                  }}
-                  title={money(m.revenue)}
+                  className="rating-grow block w-full rounded-t-md"
+                  style={{ height: `${Math.max(4, (m.revenue / max) * 130)}px`, background: cur ? BRAND : "#d9e2f6", animationDelay: `${i * 70}ms` }}
                 />
-                <span className={cur ? "font-bold text-[#1f4fd8]" : ""}>{monthName(m.month)}</span>
+                <span className={cur ? "font-semibold text-[#1f4fd8]" : ""}>{monthName(m.month).slice(0, 3)}</span>
               </div>
             );
           })}
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <div className="flex flex-1 items-center gap-2 rounded-[14px] bg-[#fff8e1] px-3 py-2.5 text-[13px]">
-          🏆
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+        <div className="flex items-center gap-2.5 rounded-xl border border-[#f3e2b3] bg-[#fffaf0] px-3 py-2.5 text-[13px] text-text-primary">
+          <Trophy size={16} className="shrink-0 text-[#b7791f]" />
           <span>
             {me.record ? (
               <>
-                <b>Жеке рекорд:</b> бір күнде {me.record.items} тауар ({dayLabel(me.record.day)}). Бүгін — {me.todayItems}.
-                {toRecord !== null && toRecord > 0 && (
-                  <>
-                    {" "}Тағы <b>{toRecord} тауар</b> — жаңа рекорд!
-                  </>
-                )}
+                Жеке рекорд: бір күнде <b>{me.record.items}</b> тауар ({dayLabel(me.record.day)}). Бүгін — {me.todayItems}.
+                {toRecord !== null && toRecord > 0 && <> Рекордқа тағы <b>{toRecord}</b>.</>}
               </>
             ) : (
-              "Бірінші сатылымыңыз — бірінші рекордыңыз!"
+              "Бірінші сатылым — бірінші рекорд."
             )}
           </span>
         </div>
-        <div className="flex items-center gap-2 rounded-[14px] bg-[#e7f7ec] px-3 py-2.5 text-[13px]">
-          💰 <span>Бонусым (ай): <b>{money(me.bonusMonth)}</b> 🔒</span>
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-page-bg px-3 py-2.5 text-[13px]">
+          <Lock size={14} className="text-text-secondary" /> Бонус (ай): <b>{money(me.bonusMonth)}</b>
         </div>
       </div>
     </section>
@@ -292,36 +380,37 @@ function NearMe({ data, myId }: { data: RatingData; myId: string }) {
   const me = board[idx];
   const above = idx > 0 ? board[idx - 1] : null;
   return (
-    <section className="flex flex-col rounded-[22px] bg-surface p-5">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-base font-bold text-text-primary">🏁 Рейтинг · {PERIOD_LABEL[data.period].toLowerCase()}</h2>
-        <span className="text-xs text-text-secondary">маңайыңыздағылар</span>
-      </div>
-      {slice.map((r) => {
-        const isMe = r.employeeId === myId;
-        return (
-          <div
-            key={r.employeeId}
-            className={`grid grid-cols-[24px_36px_1fr_auto_34px] items-center gap-2.5 px-1.5 py-2.5 text-sm ${isMe ? "rounded-[14px] bg-[#e7f7ec]" : "border-b border-border"}`}
-          >
-            <b style={{ color: isMe ? "#16a34a" : BRAND }}>{r.rank}</b>
-            <Avatar name={r.name} size={34} me={isMe} />
-            <div className="min-w-0">
-              <b className="truncate">{isMe ? "Сіз" : r.name}</b>
-              {isMe && above && (
-                <div className="text-xs font-semibold text-[#16a34a]">
-                  ↑ {above.rank}-орынға {money(Math.max(0, above.revenue - me.revenue))} қалды
-                </div>
-              )}
-              {isMe && !above && <div className="text-xs font-semibold text-[#16a34a]">👑 Сіз көшбасшысыз!</div>}
+    <section className="flex flex-col rounded-[20px] border border-border bg-surface p-5">
+      <SectionTitle icon={Trophy} title={`Рейтинг · ${PERIOD_LABEL[data.period].toLowerCase()}`} hint="маңайыңыздағылар" />
+      <div className="flex flex-col">
+        {slice.map((r) => {
+          const isMe = r.employeeId === myId;
+          return (
+            <div
+              key={r.employeeId}
+              className={`grid grid-cols-[22px_34px_1fr_auto] items-center gap-3 px-2 py-2.5 text-sm ${isMe ? "rounded-xl bg-[#eef3ff]" : "border-b border-border last:border-0"}`}
+            >
+              <span className="font-semibold" style={{ color: isMe ? BRAND : "#8a8f9c" }}>{r.rank}</span>
+              <Avatar name={r.name} size={32} me={isMe} />
+              <div className="min-w-0">
+                <div className="truncate font-semibold">{isMe ? `${r.name} · сіз` : r.name}</div>
+                {isMe && above && (
+                  <div className="flex items-center gap-1 text-xs text-[#1f4fd8]">
+                    <ArrowUpRight size={12} /> {above.rank}-орынға {money(Math.max(0, above.revenue - me.revenue))}
+                  </div>
+                )}
+                {isMe && !above && <div className="text-xs font-medium text-[#15803d]">Көшбасшысыз</div>}
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">{money(r.revenue)}</div>
+                <div className="text-xs text-text-secondary">{r.items} тауар</div>
+              </div>
             </div>
-            <span className="text-right font-bold">{money(r.revenue)}</span>
-            <span className="text-right text-text-secondary">{r.items}</span>
-          </div>
-        );
-      })}
-      <a href="#leaderboard" className="mt-auto rounded-[14px] bg-[#e8efff] p-2.5 text-center text-sm font-bold text-[#1f4fd8]">
-        🏆 Толық рейтинг және подиум ↓
+          );
+        })}
+      </div>
+      <a href="#leaderboard" className="mt-auto pt-3 text-center text-sm font-semibold text-[#1f4fd8] hover:underline">
+        Толық рейтинг ↓
       </a>
     </section>
   );
@@ -331,52 +420,53 @@ function Tip({ data }: { data: RatingData }) {
   const me = data.me!;
   const team = data.team.avgCheck;
   let text: React.ReactNode;
-  if (!me.avgCheck || !team) text = "Осы айдың алғашқы сатылымдарынан кейін мұнда сізге жеке кеңес шығады.";
+  if (!me.avgCheck || !team) text = "Осы айдың алғашқы сатылымдарынан кейін мұнда жеке ұсыныс шығады.";
   else if (me.avgCheck < team * 0.9)
     text = (
       <>
-        Орташа чегіңіз <b>{money(me.avgCheck)}</b>, команданікі — <b>{money(team)}</b>. Салонмен бірге <b>багаж төсенішін</b> немесе{" "}
-        <b>съемный полик</b> ұсынып көріңіз — чек тез өседі.
+        Орташа чегіңіз <b>{money(me.avgCheck)}</b>, команда бойынша — <b>{money(team)}</b>. Салонмен бірге багаж төсенішін немесе съемный
+        полик ұсыну — чекті арттырудың ең жылдам жолы.
       </>
     );
   else
     text = (
       <>
-        Орташа чегіңіз <b>{money(me.avgCheck)}</b> — команданың орташасынан ({money(team)}) жоғары 👏 Енді тауар санын арттыру — рейтингте жоғарылаудың ең жылдам жолы.
+        Орташа чегіңіз <b>{money(me.avgCheck)}</b> — команданың орташасынан ({money(team)}) жоғары. Рейтингте көтерілудің келесі қадамы —
+        тауар санын арттыру.
       </>
     );
   return (
-    <section className="flex items-center gap-3.5 rounded-[20px] bg-gradient-to-r from-[#e8efff] to-[#f3f6ff] px-4 py-3.5 text-sm leading-relaxed text-text-primary">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-white" style={{ background: BRAND }}>
-        💡
-      </span>
-      <div>
-        <b>Сізге кеңес:</b> {text}
-      </div>
+    <section className="flex items-start gap-3.5 rounded-[18px] border border-[#d6e0fa] bg-[#f5f8ff] px-5 py-4 text-sm leading-relaxed text-text-primary">
+      <Lightbulb size={18} className="mt-0.5 shrink-0 text-[#1f4fd8]" />
+      <div>{text}</div>
     </section>
   );
 }
 
 function Leaderboard({ data, myId, leader, period }: { data: RatingData; myId: string | null; leader: boolean; period: Period }) {
   const top = data.board.slice(0, 3);
-  const rest = data.board.slice(3);
   const maxRev = Math.max(1, ...data.board.map((r) => r.revenue));
   const podiumOrder = [top[1], top[0], top[2]].filter(Boolean) as BoardRow[];
-  const heights: Record<number, number> = { 1: 120, 2: 86, 3: 62 };
-  const rings: Record<number, string> = { 1: "#ffcf4a", 2: "#d7dbe4", 3: "#e3a06f" };
-  const medals: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+  const heights: Record<number, number> = { 1: 96, 2: 70, 3: 52 };
+  const rangeLabel =
+    period === "lastMonth" ? `${monthName(data.range[0])} ${data.range[0].slice(0, 4)} — толық ай` : `${dayLabel(data.range[0])} — ${dayLabel(data.range[1])}`;
 
   return (
-    <section id="leaderboard" className="flex flex-col gap-4 scroll-mt-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-text-primary">🏆 Толық рейтинг</h2>
-        <div className="flex gap-1 rounded-full bg-surface p-1">
+    <section id="leaderboard" className="flex scroll-mt-4 flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
+            <Trophy size={19} className="text-[#1f4fd8]" /> Толық рейтинг
+          </h2>
+          <div className="text-xs text-text-secondary">{rangeLabel}</div>
+        </div>
+        <div className="flex gap-1 rounded-xl border border-border bg-surface p-1">
           {PERIODS.map((p) => (
             <Link
               key={p}
               href={`/rating?p=${p}#leaderboard`}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold ${p === period ? "text-white" : "text-text-secondary hover:text-text-primary"}`}
-              style={p === period ? { background: BRAND } : undefined}
+              className={`rounded-lg px-3.5 py-1.5 text-sm font-medium ${p === period ? "text-white" : "text-text-secondary hover:text-text-primary"}`}
+              style={p === period ? { background: NAVY } : undefined}
             >
               {PERIOD_LABEL[p]}
             </Link>
@@ -385,104 +475,97 @@ function Leaderboard({ data, myId, leader, period }: { data: RatingData; myId: s
       </div>
 
       {data.board.length === 0 ? (
-        <div className="rounded-[22px] bg-surface p-8 text-center text-sm text-text-secondary">
-          Әзірге менеджер тіркелмеген.{leader ? " «Менеджерлер» бетінде аккаунт ашыңыз." : ""}
+        <div className="rounded-[20px] border border-border bg-surface p-8 text-center text-sm text-text-secondary">
+          Әзірге менеджер тіркелмеген.{leader ? " «Excel импорт» немесе «Менеджерлер» бетінде аккаунт ашыңыз." : ""}
         </div>
       ) : (
         <>
-          <div
-            className="flex items-end justify-center gap-4 overflow-hidden rounded-[24px] px-4 pt-6"
-            style={{ background: "radial-gradient(1000px 360px at 50% -10%, #3b5bd8 0%, #13286b 55%, #0b1a45 100%)" }}
-          >
-            {podiumOrder.map((r) => (
-              <div key={r.employeeId} className="rating-rise flex w-[200px] flex-col items-center text-center text-white" style={{ animationDelay: `${(r.rank - 1) * 120}ms` }}>
-                {r.rank === 1 && <div className="-mb-1 text-3xl">👑</div>}
-                <div className="relative">
-                  <Avatar name={r.name} size={r.rank === 1 ? 92 : 72} me={r.employeeId === myId} ring={rings[r.rank]} />
-                  <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#0b1a45] text-base">
-                    {medals[r.rank]}
-                  </span>
+          <div className="flex items-end justify-center gap-5 overflow-hidden rounded-[22px] px-4 pt-7" style={{ background: `linear-gradient(180deg, #12275f 0%, ${NAVY} 100%)` }}>
+            {podiumOrder.map((r) => {
+              const m = MEDAL[r.rank];
+              return (
+                <div key={r.employeeId} className="rating-rise flex w-[210px] flex-col items-center text-center text-white" style={{ animationDelay: `${(r.rank - 1) * 110}ms` }}>
+                  <div className="relative">
+                    <Avatar name={r.name} size={r.rank === 1 ? 84 : 66} me={r.employeeId === myId} ring={m.ring} />
+                    <span
+                      className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0b1a45] text-xs font-bold"
+                      style={{ background: m.fill, color: m.text }}
+                    >
+                      {m.label}
+                    </span>
+                  </div>
+                  <div className="mt-3 text-base font-semibold">{r.employeeId === myId ? `${r.name} · сіз` : r.name}</div>
+                  <div className="text-lg font-semibold" style={{ color: r.rank === 1 ? "#f7d774" : "#fff" }}>{money(r.revenue)}</div>
+                  <div className="text-xs text-[#9fb1e3]">{r.items} тауар</div>
+                  <div
+                    className="rating-grow mt-3 flex w-full justify-center rounded-t-xl border-x border-t border-white/10 bg-white/[0.07] pt-2 text-2xl font-semibold text-white/70"
+                    style={{ height: heights[r.rank] }}
+                  >
+                    {r.rank}
+                  </div>
                 </div>
-                <div className="mt-3 text-[17px] font-extrabold">{r.employeeId === myId ? `${r.name} (сіз)` : r.name}</div>
-                <div className={`text-xl font-extrabold ${r.rank === 1 ? "text-[#ffd76a]" : ""}`}>{money(r.revenue)}</div>
-                <div className="text-xs text-[#b9c6f0]">{r.items} тауар</div>
-                <div
-                  className="rating-grow mt-3 flex w-full justify-center rounded-t-2xl bg-gradient-to-b from-white/20 to-white/5 pt-2 text-3xl font-black text-white/85"
-                  style={{ height: heights[r.rank] }}
-                >
-                  {r.rank}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {rest.length > 0 && (
-            <div className="overflow-x-auto rounded-[22px] bg-surface px-4 py-2">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-text-secondary">
-                    <th className="py-2 pr-2">#</th>
-                    <th className="py-2 pr-2">Менеджер</th>
-                    <th className="w-[35%] py-2 pr-2">Сатылым</th>
-                    <th className="py-2 pr-2 text-right">Сома</th>
-                    <th className="py-2 pr-2 text-right">Тауар</th>
-                    {leader && <th className="py-2 pr-2 text-right">Бонус</th>}
-                    {leader && <th className="py-2 pr-2 text-right">Қарыз</th>}
-                    <th className="py-2 text-right">Өзгеріс</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rest.map((r) => {
-                    const isMe = r.employeeId === myId;
-                    return (
-                      <tr key={r.employeeId} className={`border-t border-border ${isMe ? "bg-[#e7f7ec]" : ""}`}>
-                        <td className="py-2.5 pr-2 font-bold" style={{ color: isMe ? "#16a34a" : BRAND }}>{r.rank}</td>
-                        <td className="py-2.5 pr-2">
-                          <span className="flex items-center gap-2.5 font-semibold">
-                            <Avatar name={r.name} size={32} me={isMe} />
-                            {isMe ? `${r.name} (сіз)` : r.name}
+          <div className="overflow-x-auto rounded-[20px] border border-border bg-surface px-4 py-2">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-text-secondary">
+                  <th className="py-2.5 pr-2">#</th>
+                  <th className="py-2.5 pr-2">Менеджер</th>
+                  <th className="w-[30%] py-2.5 pr-2">Үлесі</th>
+                  <th className="py-2.5 pr-2 text-right">Сома</th>
+                  <th className="py-2.5 pr-2 text-right">Тауар</th>
+                  <th className="py-2.5 pr-2 text-right">Орташа чек</th>
+                  {leader && <th className="py-2.5 pr-2 text-right">Бонус</th>}
+                  {leader && <th className="py-2.5 pr-2 text-right">Қарыз</th>}
+                  <th className="py-2.5 text-right">Өзгеріс</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.board.map((r) => {
+                  const isMe = r.employeeId === myId;
+                  const medal = MEDAL[r.rank];
+                  return (
+                    <tr key={r.employeeId} className={`border-t border-border ${isMe ? "bg-[#f5f8ff]" : ""}`}>
+                      <td className="py-2.5 pr-2">
+                        {medal && r.revenue > 0 ? (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold" style={{ background: medal.fill, color: medal.text }}>
+                            {r.rank}
                           </span>
-                        </td>
-                        <td className="py-2.5 pr-2">
-                          <div className="h-2.5 overflow-hidden rounded-full bg-page-bg">
-                            <i className="rating-bar block h-full rounded-full bg-gradient-to-r from-[#3d7bff] to-[#1f4fd8]" style={{ width: `${(r.revenue / maxRev) * 100}%` }} />
-                          </div>
-                        </td>
-                        <td className="py-2.5 pr-2 text-right font-bold">{money(r.revenue)}</td>
-                        <td className="py-2.5 pr-2 text-right text-text-secondary">
-                          {r.items}
-                          {r.goalItems ? <span className="text-xs"> / {r.goalItems}</span> : null}
-                        </td>
-                        {leader && <td className="py-2.5 pr-2 text-right">{money(r.bonus)}</td>}
-                        {leader && <td className={`py-2.5 pr-2 text-right ${r.remainder > 0 ? "text-danger" : ""}`}>{money(r.remainder)}</td>}
-                        <td className="py-2.5 text-right"><Change n={r.rankChange} /></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {leader && top.length > 0 && (
-            <div className="overflow-x-auto rounded-[22px] bg-surface px-4 py-2">
-              <div className="py-2 text-xs font-bold uppercase tracking-wide text-text-secondary">
-                Үздік 3 · бонус пен қарыз <span className="ml-1 rounded-full bg-[#fff4d6] px-1.5 py-0.5 text-[10px] text-[#8a5a00]">ТЕК CEO</span>
-              </div>
-              <table className="w-full text-sm">
-                <tbody>
-                  {top.map((r) => (
-                    <tr key={r.employeeId} className="border-t border-border">
-                      <td className="py-2 pr-2 font-bold">{medals[r.rank]} {r.name}</td>
-                      <td className="py-2 pr-2 text-right">{r.items}{r.goalItems ? ` / ${r.goalItems}` : ""} тауар</td>
-                      <td className="py-2 pr-2 text-right">Бонус {money(r.bonus)}</td>
-                      <td className={`py-2 text-right ${r.remainder > 0 ? "text-danger" : ""}`}>Қарыз {money(r.remainder)}</td>
+                        ) : (
+                          <span className="pl-1.5 font-semibold text-text-secondary">{r.rank}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        <span className="flex items-center gap-2.5 font-semibold">
+                          <Avatar name={r.name} size={30} me={isMe} />
+                          {isMe ? `${r.name} · сіз` : r.name}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        <div className="h-2 overflow-hidden rounded-full bg-page-bg">
+                          <i className="rating-bar block h-full rounded-full" style={{ width: `${(r.revenue / maxRev) * 100}%`, background: isMe ? BRAND : "#7d9ae6" }} />
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-2 text-right font-semibold">{money(r.revenue)}</td>
+                      <td className="py-2.5 pr-2 text-right text-text-secondary">
+                        {r.items}
+                        {r.goalItems && period === "month" ? <span className="text-xs"> / {r.goalItems}</span> : null}
+                      </td>
+                      <td className="py-2.5 pr-2 text-right text-text-secondary">{r.avgCheck ? money(r.avgCheck) : "—"}</td>
+                      {leader && <td className="py-2.5 pr-2 text-right">{money(r.bonus)}</td>}
+                      {leader && <td className={`py-2.5 pr-2 text-right ${r.remainder > 0 ? "text-[#b42318]" : ""}`}>{money(r.remainder)}</td>}
+                      <td className="py-2.5 text-right">
+                        <Change n={r.rankChange} />
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </section>

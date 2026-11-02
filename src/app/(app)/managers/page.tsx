@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeader } from "@/lib/access";
-import { listManagers, formatPhone } from "@/lib/domain/managers";
+import { listManagers } from "@/lib/domain/managers";
+import { displayLogin } from "@/lib/access";
 import { CreateManagerForm, ResetPasswordButton } from "./ManagerForms";
 import { toggleBlockAction } from "./actions";
 
@@ -52,7 +53,7 @@ export default async function ManagersPage() {
                     <tr key={m.id} className="border-b border-border align-top last:border-0">
                       <td className="py-3 pr-3 font-semibold text-text-primary">{m.fullName}</td>
                       <td className="py-3 pr-3 font-mono text-text-primary">
-                        {m.user.phone ? formatPhone(m.user.phone) : m.user.email}
+                        {displayLogin(m.user)}
                       </td>
                       <td className="py-3 pr-3 text-text-secondary">{senior ? "Аға менеджер" : "Менеджер"}</td>
                       <td className="py-3 pr-3 text-text-secondary">

@@ -22,7 +22,7 @@ export default async function LoginPage({
       <form action={loginAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium text-text-primary">
-            Телефон немесе email
+            Логин, телефон немесе email
           </label>
           <input
             id="email"
@@ -30,7 +30,7 @@ export default async function LoginPage({
             type="text"
             required
             autoComplete="username"
-            placeholder="8 701 123 45 67"
+            placeholder="zere немесе 8 701 123 45 67"
             className="rounded-icon border border-border bg-page-bg px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>

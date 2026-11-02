@@ -2,7 +2,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/session";
-import { isLeader, normalizePhone, MANAGER_ROLES } from "@/lib/access";
+import { isLeader, normalizePhone, MANAGER_ROLES, LOGIN_DOMAIN, loginSlug, displayLogin } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 
 // Менеджер аккаунттарын басқару — тек CEO / ADMIN / РОП (isLeader).
@@ -30,21 +30,39 @@ export async function listManagers() {
   });
 }
 
+async function uniqueSlugEmail(name: string): Promise<{ slug: string; email: string }> {
+  const base = loginSlug(name);
+  for (let i = 0; i < 50; i++) {
+    const slug = i === 0 ? base : `${base}${i + 1}`;
+    const email = `${slug}@${LOGIN_DOMAIN}`;
+    if (!(await prisma.user.findUnique({ where: { email } }))) return { slug, email };
+  }
+  throw new ManagerError("Логин құру мүмкін болмады");
+}
+
+/**
+ * Менеджер аккаунтын ашады. Телефон берілсе — телефонмен де кіре алады; әрқашан қысқа логин
+ * ("zere") жасалады. Уақытша пароль тек осы жауапта қайтарылады (базада тек хэш).
+ */
 export async function createManager(
   actor: SessionUser,
-  input: { fullName: string; phone: string; email?: string; senior?: boolean }
+  input: { fullName: string; phone?: string; email?: string; senior?: boolean }
 ) {
   assertLeader(actor);
   const fullName = input.fullName.trim();
   if (!fullName) throw new ManagerError("Аты-жөнін жазыңыз");
-  const phone = normalizePhone(input.phone);
-  if (!phone) throw new ManagerError("Телефон нөмірі дұрыс емес (мысалы: 8 701 123 45 67)");
-  const email = (input.email?.trim().toLowerCase() || `m${phone}@automax.local`);
+  let phone: string | null = null;
+  if (input.phone && input.phone.trim()) {
+    phone = normalizePhone(input.phone);
+    if (!phone) throw new ManagerError("Телефон нөмірі дұрыс емес (мысалы: 8 701 123 45 67)");
+  }
+  const customEmail = input.email?.trim().toLowerCase();
+  const { slug, email } = customEmail ? { slug: customEmail, email: customEmail } : await uniqueSlugEmail(fullName);
 
-  const dup = await prisma.user.findFirst({ where: { OR: [{ phone }, { email }] } });
+  const dup = await prisma.user.findFirst({ where: { OR: [...(phone ? [{ phone }] : []), { email }] } });
   if (dup) throw new ManagerError("Бұл телефон немесе email бұрын тіркелген");
   const nameDup = await prisma.employee.findFirst({ where: { fullName: { equals: fullName, mode: "insensitive" } } });
-  if (nameDup) throw new ManagerError("Мұндай атпен қызметкер бар — Excel-дегідей бөлек ат беріңіз (мыс. «Жанерке 2»)");
+  if (nameDup) throw new ManagerError(`«${fullName}» атты қызметкер бар — Excel-дегідей бөлек ат беріңіз (мыс. «Жанерке 2»)`);
 
   const roleName = input.senior ? "SENIOR_SALES_MANAGER" : "SALES_MANAGER";
   const [role, dept, branch] = await Promise.all([
@@ -73,9 +91,31 @@ export async function createManager(
     },
   });
   await prisma.auditLog.create({
-    data: { actorId: actor.id, action: "CREATE", entityType: "User", entityId: user.id, newValue: { fullName, phone, roleName } },
+    data: { actorId: actor.id, action: "CREATE", entityType: "User", entityId: user.id, newValue: { fullName, roleName, login: slug } },
   });
-  return { login: formatPhone(phone), tempPassword, fullName };
+  return { login: displayLogin({ email, phone }), tempPassword, fullName };
+}
+
+/**
+ * Excel импорты үшін: берілген аттар бойынша аккаунты жоқ менеджерлерге аккаунт ашады.
+ * Бар болса — өткізіп жібереді (паролін өзгертпейді).
+ */
+export async function ensureManagers(actor: SessionUser, names: string[]) {
+  assertLeader(actor);
+  const created: Array<{ fullName: string; login: string; tempPassword: string }> = [];
+  const existing: Array<{ fullName: string; login: string }> = [];
+  for (const raw of [...new Set(names.map((n) => n.trim()).filter(Boolean))]) {
+    const emp = await prisma.employee.findFirst({
+      where: { fullName: { equals: raw, mode: "insensitive" } },
+      include: { user: true },
+    });
+    if (emp) {
+      existing.push({ fullName: emp.fullName, login: displayLogin(emp.user) });
+      continue;
+    }
+    created.push(await createManager(actor, { fullName: raw }));
+  }
+  return { created, existing };
 }
 
 export async function resetManagerPassword(actor: SessionUser, userId: string) {
@@ -90,7 +130,7 @@ export async function resetManagerPassword(actor: SessionUser, userId: string) {
   await prisma.session.deleteMany({ where: { userId } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "PASSWORD_RESET", entityType: "User", entityId: userId } });
   return {
-    login: target.phone ? formatPhone(target.phone) : target.email,
+    login: displayLogin(target),
     tempPassword,
     fullName: target.employee?.fullName ?? target.email,
   };
@@ -111,4 +151,14 @@ export function formatPhone(phone: string): string {
   const d = phone.replace(/\D/g, "");
   if (d.length !== 11) return phone;
   return `8 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}`;
+}
+
+/** Seed-тегі demo сатушы (рейтингке кірмеуі үшін) — бар болса бұғаттайды. */
+export const DEMO_MANAGER_EMAIL = "sales.manager@automax.kz";
+export async function blockDemoManager(actor: SessionUser) {
+  assertLeader(actor);
+  const demo = await prisma.user.findUnique({ where: { email: DEMO_MANAGER_EMAIL } });
+  if (!demo || demo.status !== "ACTIVE") return false;
+  await setManagerBlocked(actor, demo.id, true);
+  return true;
 }

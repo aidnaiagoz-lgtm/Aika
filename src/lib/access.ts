@@ -45,3 +45,47 @@ export function normalizePhone(raw: string): string | null {
   if (digits.length === 10) return "7" + digits;
   return null;
 }
+
+/** Ішкі логиндер үшін домен: менеджер "zere" деп жазады → zere@automax.local. */
+export const LOGIN_DOMAIN = "automax.local";
+
+/** Кіру өрісіндегі мәтін → қай пайдаланушыны іздеу керек (email / телефон / қысқа логин). */
+export function loginLookup(raw: string): { email: string } | { phone: string } | null {
+  const login = raw.trim().toLowerCase();
+  if (!login) return null;
+  if (login.includes("@")) return { email: login };
+  const phone = normalizePhone(login);
+  if (phone) return { phone };
+  if (/^[a-z0-9._-]+$/.test(login)) return { email: `${login}@${LOGIN_DOMAIN}` };
+  return null;
+}
+
+/** Пайдаланушыға көрсетілетін логин: қысқа логин / телефон / email. */
+export function displayLogin(user: { email: string; phone: string | null }): string {
+  if (user.email.endsWith("@" + LOGIN_DOMAIN)) {
+    const local = user.email.slice(0, -(LOGIN_DOMAIN.length + 1));
+    // ескі форматтағы m7701...@automax.local — телефон логин
+    if (/^m7\d{10}$/.test(local) && user.phone) return formatPhoneLogin(user.phone);
+    return local;
+  }
+  return user.phone ? formatPhoneLogin(user.phone) : user.email;
+}
+
+export function formatPhoneLogin(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  if (d.length !== 11) return phone;
+  return `8 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}`;
+}
+
+const TRANSLIT: Record<string, string> = {
+  а: "a", ә: "a", б: "b", в: "v", г: "g", ғ: "g", д: "d", е: "e", ё: "yo", ж: "zh", з: "z", и: "i", й: "y",
+  к: "k", қ: "q", л: "l", м: "m", н: "n", ң: "n", о: "o", ө: "o", п: "p", р: "r", с: "s", т: "t", у: "u",
+  ұ: "u", ү: "u", ф: "f", х: "h", һ: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sh", ъ: "", ы: "y", і: "i", ь: "",
+  э: "e", ю: "yu", я: "ya",
+};
+
+/** "Жанерке 2" → "zhanerke2" — менеджердің қысқа логині. */
+export function loginSlug(name: string): string {
+  const s = [...name.trim().toLowerCase()].map((ch) => TRANSLIT[ch] ?? ch).join("");
+  return s.replace(/[^a-z0-9]/g, "") || "manager";
+}
