@@ -31,6 +31,7 @@ model User {
   tasksAssigned Task[]         @relation("TaskAssignedTo")
   tasksCreated  Task[]         @relation("TaskAssignedBy")
   taskComments  TaskComment[]
+  trainingFolders TrainingFolder[]
 
   @@map("users")
 }
@@ -966,4 +967,20 @@ model SalesLedgerRow {
   @@index([branchId])
   @@index([date])
   @@map("sales_ledger_rows")
+}
+
+// ---------- Training (Обучение) ----------
+// Әр бөлімнің (мыс. "qualification", "provision") ішінде қолданушылар еркін
+// топтастыру үшін жасайтын папкалар. Файл/сабақ жүктеу әлі жоқ — тек ат қою.
+
+model TrainingFolder {
+  id          String   @id @default(cuid())
+  section     String // "qualification" | "provision" — src/lib/i18n.ts DEPARTMENT_SLUGS тізіміне тәуелді емес
+  name        String
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([section])
+  @@map("training_folders")
 }

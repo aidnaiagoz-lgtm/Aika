@@ -23,6 +23,8 @@ export const DEPARTMENT_SLUGS = [
   "branches",
   "knowledge-base",
   "it",
+  "qualification",
+  "provision",
 ] as const;
 
 export type OrgNode = {
@@ -368,6 +370,8 @@ const kk = {
       branches: "Филиалдар",
       "knowledge-base": "Құжаттар / Білім базасы",
       it: "IT / Автоматтандыру",
+      qualification: "Біліктілік бөлімі",
+      provision: "Қамтамасыз ету бөлімі",
     } as Record<string, string>,
   },
   departmentTabs: {
@@ -392,6 +396,12 @@ const kk = {
     provisionLabel: "Қамтамасыз ету бөлімі",
     openInNewTab: "Жаңа бетте ашу",
     editSheetLabel: "Өзгерту (Google Sheets)",
+    foldersTitle: "Папкалар",
+    createFolder: "Жаңа папка",
+    folderNamePlaceholder: "Папка атауы",
+    create: "Құру",
+    cancel: "Болдырмау",
+    noFolders: "Әлі папка жасалмаған.",
   },
   roles: {
     CEO: "CEO",
@@ -643,6 +653,8 @@ const ru = {
       branches: "Филиалы",
       "knowledge-base": "Документы / База знаний",
       it: "IT / Автоматизация",
+      qualification: "Отдел квалификации",
+      provision: "Отдел обеспечения",
     } as Record<string, string>,
   },
   departmentTabs: {
@@ -667,6 +679,12 @@ const ru = {
     provisionLabel: "Отдел обеспечения",
     openInNewTab: "Открыть в новой вкладке",
     editSheetLabel: "Изменить (Google Sheets)",
+    foldersTitle: "Папки",
+    createFolder: "Новая папка",
+    folderNamePlaceholder: "Название папки",
+    create: "Создать",
+    cancel: "Отмена",
+    noFolders: "Папок пока нет.",
   },
   roles: {
     CEO: "CEO",
