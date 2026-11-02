@@ -84,3 +84,39 @@ export function ResetPasswordButton({ userId }: { userId: string }) {
     </div>
   );
 }
+
+/** Қате басып қалмау үшін растау сұрайтын батырма (архив / толық өшіру). */
+export function ConfirmButton({
+  action,
+  fields,
+  label,
+  confirmText,
+  danger = false,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  fields: Record<string, string>;
+  label: string;
+  confirmText: string;
+  danger?: boolean;
+}) {
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!window.confirm(confirmText)) e.preventDefault();
+      }}
+    >
+      {Object.entries(fields).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+      <button
+        type="submit"
+        className={`rounded-pill border px-3 py-1.5 text-xs font-semibold hover:bg-page-bg ${
+          danger ? "border-danger/40 bg-surface text-danger" : "border-border bg-surface text-text-primary"
+        }`}
+      >
+        {label}
+      </button>
+    </form>
+  );
+}

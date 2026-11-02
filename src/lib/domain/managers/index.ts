@@ -174,3 +174,51 @@ export async function blockDemoManager(actor: SessionUser) {
   await setManagerBlocked(actor, demo.id, true);
   return true;
 }
+
+/**
+ * «Жұмыстан шықты»: аккаунт жабылады (ARCHIVED), тізімнен және рейтингтен жоғалады,
+ * бірақ сатылымдары тарихта қалады (өткен айлардың рейтингі, бонус есебі). Қайта қалпына келтіруге болады.
+ */
+export async function archiveManager(actor: SessionUser, userId: string, archived: boolean) {
+  assertLeader(actor);
+  if (userId === actor.id) throw new ManagerError("Өзіңізді архивке жібере алмайсыз");
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      status: archived ? "ARCHIVED" : "ACTIVE",
+      employee: { update: { status: archived ? "TERMINATED" : "ACTIVE" } },
+    },
+  });
+  if (archived) await prisma.session.deleteMany({ where: { userId } });
+  await prisma.auditLog.create({
+    data: { actorId: actor.id, action: archived ? "ARCHIVE" : "RESTORE", entityType: "User", entityId: userId },
+  });
+}
+
+/** Менеджердің сатылым саны (createdBy немесе «Менеджер» бағанындағы аты бойынша). */
+export async function managerSalesCount(employee: { id: string; fullName: string }) {
+  return prisma.salesLedgerRow.count({
+    where: { OR: [{ createdById: employee.id }, { manager: { equals: employee.fullName, mode: "insensitive" } }] },
+  });
+}
+
+/** Толық өшіру — тек бір де бір сатылымы жоқ аккаунтқа (қате ашылған / тест). */
+export async function deleteManagerPermanently(actor: SessionUser, userId: string) {
+  assertLeader(actor);
+  if (userId === actor.id) throw new ManagerError("Өзіңізді өшіре алмайсыз");
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { employee: true } });
+  if (user.employee && (await managerSalesCount(user.employee)) > 0) {
+    throw new ManagerError("Бұл менеджердің сатылымдары бар — тарих сақталуы үшін тек «Жұмыстан шықты» (архив) мүмкін");
+  }
+  try {
+    await prisma.$transaction([
+      prisma.session.deleteMany({ where: { userId } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
+  } catch {
+    throw new ManagerError("Бұл аккаунтқа басқа деректер (тапсырма, мәміле т.б.) байланысты — оның орнына архивке жіберіңіз");
+  }
+  await prisma.auditLog.create({
+    data: { actorId: actor.id, action: "DELETE", entityType: "User", entityId: userId, oldValue: { email: user.email, fullName: user.employee?.fullName ?? null } },
+  });
+}
