@@ -238,23 +238,21 @@ function OrgTreeNode({
             ))}
           </ul>
         )}
-        {node.person && (
-          <div className="mt-1 border-t border-current/15 pt-1">
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => setCkpOpen((v) => !v)}
-              className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
-            >
-              {ckpLabel}
-            </button>
-            {ckpOpen && (
-              <p className="mt-1 max-w-[220px] whitespace-normal text-[10px] font-normal leading-snug opacity-90">
-                {node.ckp || ckpEmpty}
-              </p>
-            )}
-          </div>
-        )}
+        <div className="mt-1 border-t border-current/15 pt-1">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setCkpOpen((v) => !v)}
+            className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
+          >
+            {ckpLabel}
+          </button>
+          {ckpOpen && (
+            <p className="mt-1 max-w-[220px] whitespace-normal text-[10px] font-normal leading-snug opacity-90">
+              {node.ckp || ckpEmpty}
+            </p>
+          )}
+        </div>
       </div>
       {node.children && node.children.length > 0 && (
         <ul className="org-branches">
