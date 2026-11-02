@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, AccessDenied } from "@/lib/ui";
 import { ForbiddenError } from "@/lib/rbac";
-import { listLedgerRows } from "@/lib/domain/sales-ledger";
+import { listLedgerRows, canEditLedgerRow, canDeleteLedgerRow } from "@/lib/domain/sales-ledger";
 import { LEDGER_COLUMNS } from "@/lib/domain/sales-ledger/fields";
 import { prisma } from "@/lib/db";
 import { getDictionary } from "@/lib/i18n";
@@ -41,6 +41,8 @@ export default async function SalesAlmatyPage() {
     }
 
     const rows = await listLedgerRows(user, branch.id);
+    const canDelete = canDeleteLedgerRow(user);
+    const myEmployeeId = user.employee?.id ?? null;
 
     return (
       <div className="flex flex-col gap-6">
@@ -71,19 +73,30 @@ export default async function SalesAlmatyPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id} className="border-t border-border">
-                      <td className="sticky left-0 z-10 whitespace-nowrap bg-surface py-2 pr-3">
+                  {rows.map((row) => {
+                    const editable = canEditLedgerRow(user, row);
+                    const mine = myEmployeeId !== null && row.createdById === myEmployeeId;
+                    return (
+                    <tr key={row.id} className={`border-t border-border ${mine ? "bg-[#f3f6ff]" : ""}`}>
+                      <td className={`sticky left-0 z-10 whitespace-nowrap py-2 pr-3 ${mine ? "bg-[#f3f6ff] shadow-[inset_3px_0_0_#1f4fd8]" : "bg-surface"}`}>
                         <div className="flex gap-2">
-                          <Link href={`/departments/sales/almaty/${row.id}`} className="text-accent hover:underline">
-                            Өзгерту
-                          </Link>
-                          <form action={deleteLedgerRowAction}>
-                            <input type="hidden" name="id" value={row.id} />
-                            <button type="submit" className="text-danger hover:underline">
-                              Өшіру
-                            </button>
-                          </form>
+                          {editable ? (
+                            <Link href={`/departments/sales/almaty/${row.id}`} className="text-accent hover:underline">
+                              Өзгерту
+                            </Link>
+                          ) : (
+                            <span className="text-text-secondary" title="Тек жазбаны енгізген менеджер өзгерте алады">
+                              🔒
+                            </span>
+                          )}
+                          {canDelete && (
+                            <form action={deleteLedgerRowAction}>
+                              <input type="hidden" name="id" value={row.id} />
+                              <button type="submit" className="text-danger hover:underline">
+                                Өшіру
+                              </button>
+                            </form>
+                          )}
                         </div>
                       </td>
                       {LEDGER_COLUMNS.map((col) => (
@@ -92,7 +105,8 @@ export default async function SalesAlmatyPage() {
                         </td>
                       ))}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

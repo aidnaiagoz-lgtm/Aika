@@ -1,14 +1,23 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { Sidebar, Header } from "@/lib/ui";
 import { prisma } from "@/lib/db";
 import { getDictionary, INTL_LOCALE } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
+import { isSalesManagerOnly, isLeader, managerCanOpen } from "@/lib/access";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  if (user.mustChangePassword && pathname !== "/change-password") redirect("/change-password");
+
+  // Сатушы-менеджер тек өз бөлімдерін ашады (Рейтинг, Продажи, пароль). Қалғаны — серверде жабық.
+  const managerMode = isSalesManagerOnly(user);
+  if (managerMode && pathname && !managerCanOpen(pathname)) redirect("/rating");
 
   const locale = await getLocale();
   const t = getDictionary(locale);
@@ -33,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-page-bg">
-      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} />
+      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} mode={managerMode ? "manager" : isLeader(user) ? "leader" : "staff"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           userName={displayName}
