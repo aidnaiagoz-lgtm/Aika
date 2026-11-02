@@ -22,7 +22,17 @@ function formatCell(type: string, value: unknown): string {
 
 // Пайдаланушының Google Sheets кестесінің дәл көшірмесі — филиалдың сату журналы.
 // Клиенттердің нақты жеке деректері көшірілмеді, тек кесте құрылымы (45 баған).
-export default async function SalesAlmatyPage() {
+const MONTHS = ["Қаңтар", "Ақпан", "Наурыз", "Сәуір", "Мамыр", "Маусым", "Шілде", "Тамыз", "Қыркүйек", "Қазан", "Қараша", "Желтоқсан"];
+function shiftMonth(m: string, n: number) {
+  const [y, mm] = m.split("-").map(Number);
+  return new Date(Date.UTC(y, mm - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+export default async function SalesAlmatyPage({ searchParams }: { searchParams: Promise<{ m?: string; mine?: string }> }) {
+  const sp = await searchParams;
+  const month = /^\d{4}-\d{2}$/.test(sp.m ?? "") ? sp.m! : new Date(Date.now() + 5 * 3600 * 1000).toISOString().slice(0, 7);
+  const onlyMine = sp.mine === "1";
+  const qs = (m: string, mine: boolean) => `/departments/sales/almaty?m=${m}${mine ? "&mine=1" : ""}`;
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -40,7 +50,7 @@ export default async function SalesAlmatyPage() {
       );
     }
 
-    const rows = await listLedgerRows(user, branch.id);
+    const rows = await listLedgerRows(user, branch.id, { month, onlyMine });
     const canDelete = canDeleteLedgerRow(user);
     const myEmployeeId = user.employee?.id ?? null;
 
@@ -54,6 +64,26 @@ export default async function SalesAlmatyPage() {
           >
             + Жаңа жазба
           </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={qs(shiftMonth(month, -1), onlyMine)} className="rounded-xl border border-border bg-surface px-3 py-1.5 text-sm font-bold">
+            ◀
+          </Link>
+          <span className="rounded-xl bg-[#0b1a45] px-4 py-1.5 text-sm font-bold text-white">
+            {MONTHS[Number(month.slice(5, 7)) - 1]} {month.slice(0, 4)}
+          </span>
+          <Link href={qs(shiftMonth(month, 1), onlyMine)} className="rounded-xl border border-border bg-surface px-3 py-1.5 text-sm font-bold">
+            ▶
+          </Link>
+          {myEmployeeId && (
+            <Link
+              href={qs(month, !onlyMine)}
+              className={`ml-2 rounded-xl border px-3 py-1.5 text-sm font-semibold ${onlyMine ? "border-[#1f4fd8] bg-[#e8efff] text-[#1f4fd8]" : "border-border bg-surface text-text-primary"}`}
+            >
+              {onlyMine ? "✓ Тек менікі" : "Тек менікі"}
+            </Link>
+          )}
         </div>
 
         <Card title={`Жазбалар (${rows.length})`}>

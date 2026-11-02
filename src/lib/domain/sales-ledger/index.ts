@@ -63,10 +63,20 @@ export async function previewNextNo(branchId: string): Promise<number> {
  * Бизнес шешімі (2026-11): кестені барлық менеджер толық көреді (бір-бірімен жарысу үшін),
  * бірақ ӨЗГЕРТУ — тек өз жолын (scope=OWN). Сондықтан VIEW мұнда scope бойынша сүзілмейді.
  */
-export async function listLedgerRows(user: ActingUser, branchId: string) {
+export async function listLedgerRows(user: ActingUser, branchId: string, opts: { month?: string; onlyMine?: boolean } = {}) {
   assertPermission(user, "deals", PermissionAction.VIEW);
+  // Ай бойынша сүзу — 12 мың жол бір бетке сыймайды. month = "2026-11".
+  const dateFilter = opts.month
+    ? {
+        date: {
+          gte: new Date(opts.month + "-01T00:00:00Z"),
+          lt: new Date(new Date(opts.month + "-01T00:00:00Z").setUTCMonth(Number(opts.month.slice(5, 7)))),
+        },
+      }
+    : {};
+  const mine = opts.onlyMine && user.employee ? { createdById: user.employee.id } : {};
   return prisma.salesLedgerRow.findMany({
-    where: { branchId },
+    where: { branchId, ...dateFilter, ...mine },
     include: { createdBy: true },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });

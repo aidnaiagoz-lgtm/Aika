@@ -964,11 +964,14 @@ model SalesLedgerRow {
 
   createdById String?
   createdBy   Employee? @relation(fields: [createdById], references: [id])
+  // Excel-ден импортталған жолдың кілті ("excel:<№>") — қайта импортта қайталанбау үшін.
+  importKey   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([branchId])
   @@index([date])
+  @@index([importKey])
   @@map("sales_ledger_rows")
 }
 

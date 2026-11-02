@@ -37,12 +37,12 @@ export function CreateManagerForm() {
           <input name="fullName" required className={inputCls} placeholder="Зере" />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
-          Телефон — кіру логині
-          <input name="phone" required className={inputCls} placeholder="8 701 123 45 67" inputMode="tel" />
+          Телефон (міндетті емес)
+          <input name="phone" className={inputCls} placeholder="8 701 123 45 67" inputMode="tel" />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
-          Email (міндетті емес)
-          <input name="email" type="email" className={inputCls} placeholder="zere@mail.kz" />
+          Логин аттан автоматты жасалады
+          <input disabled className={inputCls} placeholder="мыс. Зере → zere" />
         </label>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">

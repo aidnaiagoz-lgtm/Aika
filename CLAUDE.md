@@ -32,7 +32,7 @@
   - `src/lib/ui` — ортақ компоненттер (Sidebar, Card, StatCard, ComingSoon…)
   - `prisma/schema.prisma` — DB схемасы; `prisma/seed.ts` — demo деректер
 - **Менеджерлер жүйесі (2026-11):** `/rating` (Рейтинг — менеджердің бірінші беті), `/managers` (CEO: аккаунт/пароль/бұғаттау),
-  `/goals` (CEO: айлық мақсаттар), `/change-password`. Шешімдер мен ережелер — [`docs/decisions/sales-managers.md`](docs/decisions/sales-managers.md).
+  `/goals` (CEO: айлық мақсаттар), `/import` (CEO: Excel «продажи» импорты + аккаунттар), `/change-password`. Шешімдер мен ережелер — [`docs/decisions/sales-managers.md`](docs/decisions/sales-managers.md).
 - **Дайын бөлімдер:** Dashboard, Orders, Sales (+ Алматы ledger), CRM, Warehouse, Production, Finance, Training, Org-structure.
 - **Әлі бос (`ComingSoon`):** HR, Accounting, Logistics, Marketing, Content, Procurement, IT, Knowledge-base, Branches.
 

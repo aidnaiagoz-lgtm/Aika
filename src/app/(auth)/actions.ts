@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { verifyPassword, createSession, SESSION_COOKIE } from "@/lib/session";
-import { homePathFor, normalizePhone, isSalesManagerOnly, MODE_COOKIE } from "@/lib/access";
+import { homePathFor, loginLookup, isSalesManagerOnly, MODE_COOKIE } from "@/lib/access";
 
 export async function loginAction(formData: FormData) {
   // Логин — email немесе телефон нөмірі (менеджерлер телефонмен кіреді).
@@ -15,9 +15,11 @@ export async function loginAction(formData: FormData) {
     redirect("/login?error=empty");
   }
 
-  const phone = login.includes("@") ? null : normalizePhone(login);
+  // email / телефон / қысқа логин ("zere")
+  const lookup = loginLookup(login);
+  if (!lookup) redirect("/login?error=invalid");
   const user = await prisma.user.findFirst({
-    where: phone ? { phone } : { email: login },
+    where: lookup,
     include: { userRoles: { include: { role: true } } },
   });
   const passwordOk = user ? await verifyPassword(user.passwordHash, password) : false;

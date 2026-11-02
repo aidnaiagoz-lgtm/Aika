@@ -6,8 +6,8 @@ import { MANAGER_ROLES } from "@/lib/access";
 // 1 жол = 1 тауар (Excel-дегідей). "Возврат" статусындағы жолдар есепке кірмейді.
 // Уақыт белдеуі — Алматы (UTC+5); күн "YYYY-MM-DD" жолымен салыстырылады.
 
-export type Period = "day" | "week" | "month" | "year";
-export const PERIODS: Period[] = ["day", "week", "month", "year"];
+export type Period = "day" | "week" | "month" | "lastMonth" | "year";
+export const PERIODS: Period[] = ["day", "week", "month", "lastMonth", "year"];
 
 const TZ_OFFSET_MS = 5 * 60 * 60 * 1000;
 
@@ -46,6 +46,10 @@ export function periodRange(period: Period, today: string): [string, string] {
       return [weekStart(today), today];
     case "month":
       return [monthKey(today) + "-01", today];
+    case "lastMonth": {
+      const pm = shiftMonth(monthKey(today), -1);
+      return [pm + "-01", `${pm}-${String(daysInMonth(pm)).padStart(2, "0")}`];
+    }
     case "year":
       return [today.slice(0, 4) + "-01-01", today];
   }
@@ -65,6 +69,10 @@ function previousRange(period: Period, today: string): [string, string] {
       const pm = shiftMonth(monthKey(today), -1);
       const day = Math.min(Number(today.slice(8, 10)), daysInMonth(pm));
       return [pm + "-01", `${pm}-${String(day).padStart(2, "0")}`];
+    }
+    case "lastMonth": {
+      const pm = shiftMonth(monthKey(today), -2);
+      return [pm + "-01", `${pm}-${String(daysInMonth(pm)).padStart(2, "0")}`];
     }
     case "year": {
       const py = String(Number(today.slice(0, 4)) - 1);
@@ -238,6 +246,21 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
   let lastMonthSamePeriodRevenue = 0;
   for (const a of aggregate(sales, lmFrom, lmTo).values()) lastMonthSamePeriodRevenue += a.revenue;
 
+  // Өткен айдың қорытындысы (толық ай) — чемпион
+  const [lmFullFrom, lmFullTo] = periodRange("lastMonth", today);
+  const lmFull = aggregate(sales, lmFullFrom, lmFullTo);
+  const lmRank = rankOf(lmFull, keys);
+  const champKey = keys.find((k) => lmRank.get(k) === 1 && (lmFull.get(k)?.revenue ?? 0) > 0);
+  const lastMonthChampion = champKey
+    ? {
+        name: people.find((p) => p.key === champKey)!.name,
+        employeeId: people.find((p) => p.key === champKey)!.id,
+        month: monthKey(lmFullFrom),
+        revenue: lmFull.get(champKey)!.revenue,
+        items: lmFull.get(champKey)!.items,
+      }
+    : null;
+
   const team = {
     monthItems: teamMonthItems,
     monthRevenue: teamMonthRevenue,
@@ -374,7 +397,7 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
     };
   }
 
-  return { today, period: opts.period, range: [from, to] as const, board, team, nominations, me };
+  return { today, period: opts.period, range: [from, to] as const, board, team, nominations, me, lastMonthChampion };
 }
 
 export type RatingData = Awaited<ReturnType<typeof getRatingData>>;

@@ -21,6 +21,7 @@ import {
   KeyRound,
   Target,
   Users,
+  FileUp,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { getDictionary, DEPARTMENT_SLUGS, type Locale } from "@/lib/i18n";
@@ -132,6 +133,7 @@ export function Sidebar({
           <>
             <NavLink href="/goals" label="Мақсаттар" icon={Target} active={pathname.startsWith("/goals")} />
             <NavLink href="/managers" label="Менеджерлер" icon={Users} active={pathname.startsWith("/managers")} />
+            <NavLink href="/import" label="Excel импорт" icon={FileUp} active={pathname.startsWith("/import")} />
           </>
         )}
 
