@@ -8,15 +8,18 @@ export function OrgChart({
   node,
   ckpLabel = "ЦКП",
   ckpEmpty = "ЦКП әлі енгізілмеген.",
+  allCkpLabel = "Барлық ЦКП",
 }: {
   node: OrgNode;
   ckpLabel?: string;
   ckpEmpty?: string;
+  allCkpLabel?: string;
 }) {
   const [zoom, setZoom] = useState(100);
   const scrollRef = useRef<HTMLDivElement>(null);
   const treeRef = useRef<HTMLUListElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [ckpOpen, setCkpOpen] = useState(false);
 
   // Айналасына бос кеңістік (px-[50vw] py-[50vh]) қосылған соң, бет жүктелгенде
   // scrollLeft/scrollTop әдепкі бойынша 0-ден басталады — бұл диаграмманы сол
@@ -122,12 +125,28 @@ export function OrgChart({
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
         >
           <ul ref={treeRef} className="org-branches">
-            <OrgTreeNode node={node} depth={0} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} />
+            <OrgTreeNode
+              node={node}
+              depth={0}
+              ckpLabel={ckpLabel}
+              ckpEmpty={ckpEmpty}
+              ckpOpen={ckpOpen}
+              onToggleCkp={() => setCkpOpen((v) => !v)}
+            />
           </ul>
         </div>
       </div>
 
       <div className="fixed bottom-6 right-6 z-10 flex flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setCkpOpen((v) => !v)}
+          className={`rounded-pill border border-border px-3.5 py-2 text-xs font-semibold shadow-card transition-colors ${
+            ckpOpen ? "bg-accent text-white" : "bg-surface text-text-primary hover:bg-page-bg"
+          }`}
+        >
+          {allCkpLabel}
+        </button>
         <div className="grid grid-cols-3 grid-rows-3 gap-0.5 rounded-icon border border-border bg-surface p-1.5 shadow-card">
           <div />
           <PanButton onClick={() => pan(0, -200)}>
@@ -206,13 +225,16 @@ function OrgTreeNode({
   depth,
   ckpLabel,
   ckpEmpty,
+  ckpOpen,
+  onToggleCkp,
 }: {
   node: OrgNode;
   depth: number;
   ckpLabel: string;
   ckpEmpty: string;
+  ckpOpen: boolean;
+  onToggleCkp: () => void;
 }) {
-  const [ckpOpen, setCkpOpen] = useState(false);
   const isVacant = node.name === "ФИО";
   const cardClass = isVacant
     ? "border border-danger/40 bg-danger/10 text-danger"
@@ -242,7 +264,7 @@ function OrgTreeNode({
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setCkpOpen((v) => !v)}
+            onClick={onToggleCkp}
             className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
           >
             {ckpLabel}
@@ -257,7 +279,15 @@ function OrgTreeNode({
       {node.children && node.children.length > 0 && (
         <ul className="org-branches">
           {node.children.map((child, i) => (
-            <OrgTreeNode key={`${child.name}-${i}`} node={child} depth={depth + 1} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} />
+            <OrgTreeNode
+              key={`${child.name}-${i}`}
+              node={child}
+              depth={depth + 1}
+              ckpLabel={ckpLabel}
+              ckpEmpty={ckpEmpty}
+              ckpOpen={ckpOpen}
+              onToggleCkp={onToggleCkp}
+            />
           ))}
         </ul>
       )}

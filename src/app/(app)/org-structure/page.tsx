@@ -14,7 +14,12 @@ export default async function OrgStructurePage() {
         <p className="mt-1 text-sm text-text-primary">{t.orgStructure.companyCkp}</p>
       </div>
       <div className="shadow-card min-h-[70vh] border-t border-border bg-surface py-5">
-        <OrgChart node={t.orgStructure.ceo} ckpLabel={t.orgStructure.ckpLabel} ckpEmpty={t.orgStructure.ckpEmpty} />
+        <OrgChart
+          node={t.orgStructure.ceo}
+          ckpLabel={t.orgStructure.ckpLabel}
+          ckpEmpty={t.orgStructure.ckpEmpty}
+          allCkpLabel={t.orgStructure.allCkpLabel}
+        />
       </div>
     </div>
   );
