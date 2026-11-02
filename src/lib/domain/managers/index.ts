@@ -120,12 +120,18 @@ export async function ensureManagers(actor: SessionUser, names: string[]) {
 
 export async function resetManagerPassword(actor: SessionUser, userId: string) {
   assertLeader(actor);
-  const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { employee: true } });
+  const target = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    include: { employee: true, userRoles: { include: { role: true } } },
+  });
   const tempPassword = generateTempPassword();
-  // Телефонмен ашылған ескі аккаунт (m7XXXXXXXXXX@automax.local) → аттан қысқа логин ("zere").
-  // Телефонмен кіру бұрынғыдай жұмыс істей береді.
+  // Менеджердің логині әлі қысқа логин болмаса (телефонмен/басқа email-мен ашылған) — аттан қысқа логинге
+  // ("zere") ауыстырамыз, бәрінде бірдей болсын. Телефонмен кіру бұрынғыдай жұмыс істей береді.
+  // Тек сатушы-менеджерлерге (басшылардың email-і өзгермейді).
   let email = target.email;
-  if (/^m7\d{10}@/.test(email) && email.endsWith("@" + LOGIN_DOMAIN) && target.employee?.fullName) {
+  const isManagerOnly = target.userRoles.length > 0 && target.userRoles.every((r) => (MANAGER_ROLES as readonly string[]).includes(r.role.name));
+  const isShortLogin = email.endsWith("@" + LOGIN_DOMAIN) && !/^m7\d{10}@/.test(email);
+  if (isManagerOnly && !isShortLogin && target.employee?.fullName) {
     email = (await uniqueSlugEmail(target.employee.fullName)).email;
   }
   await prisma.user.update({
