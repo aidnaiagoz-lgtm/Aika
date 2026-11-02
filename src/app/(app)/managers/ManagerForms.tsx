@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Trash2 } from "lucide-react";
 import { createManagerAction, resetPasswordAction, type CredentialState } from "./actions";
 
 const inputCls =
@@ -92,12 +93,15 @@ export function ConfirmButton({
   label,
   confirmText,
   danger = false,
+  icon,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   fields: Record<string, string>;
   label: string;
   confirmText: string;
   danger?: boolean;
+  /** "trash" — мәтінсіз қызыл қоқыс белгішесі (label — tooltip ретінде) */
+  icon?: "trash";
 }) {
   return (
     <form
@@ -109,14 +113,25 @@ export function ConfirmButton({
       {Object.entries(fields).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />
       ))}
-      <button
-        type="submit"
-        className={`rounded-pill border px-3 py-1.5 text-xs font-semibold hover:bg-page-bg ${
-          danger ? "border-danger/40 bg-surface text-danger" : "border-border bg-surface text-text-primary"
-        }`}
-      >
-        {label}
-      </button>
+      {icon === "trash" ? (
+        <button
+          type="submit"
+          title={label}
+          aria-label={label}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-page-bg text-danger transition-colors hover:bg-danger/10"
+        >
+          <Trash2 size={17} strokeWidth={2} />
+        </button>
+      ) : (
+        <button
+          type="submit"
+          className={`rounded-pill border px-3 py-1.5 text-xs font-semibold hover:bg-page-bg ${
+            danger ? "border-danger/40 bg-surface text-danger" : "border-border bg-surface text-text-primary"
+          }`}
+        >
+          {label}
+        </button>
+      )}
     </form>
   );
 }

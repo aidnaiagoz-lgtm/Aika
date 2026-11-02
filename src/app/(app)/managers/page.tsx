@@ -135,9 +135,9 @@ export default async function ManagersPage({ searchParams }: { searchParams: Pro
                               <ConfirmButton
                                 action={archiveAction}
                                 fields={{ userId: m.userId, archive: "1" }}
-                                label="Жұмыстан шықты"
-                                danger
-                                confirmText={`${m.fullName} жұмыстан шықты ма? Аккаунты жабылады, рейтингтен жоғалады, сатылымдары тарихта қалады.`}
+                                label="Өшіру (жұмыстан шықты)"
+                                icon="trash"
+                                confirmText={`${m.fullName} өшірілсін бе? Аккаунты жабылады, рейтингтен жоғалады. Сатылымдары тарихта қалады, қажет болса «Жұмыстан шыққандар» бөлімінен қалпына келтіруге болады.`}
                               />
                             </>
                           )}
