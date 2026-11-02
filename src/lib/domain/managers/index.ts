@@ -122,15 +122,21 @@ export async function resetManagerPassword(actor: SessionUser, userId: string) {
   assertLeader(actor);
   const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { employee: true } });
   const tempPassword = generateTempPassword();
+  // Телефонмен ашылған ескі аккаунт (m7XXXXXXXXXX@automax.local) → аттан қысқа логин ("zere").
+  // Телефонмен кіру бұрынғыдай жұмыс істей береді.
+  let email = target.email;
+  if (/^m7\d{10}@/.test(email) && email.endsWith("@" + LOGIN_DOMAIN) && target.employee?.fullName) {
+    email = (await uniqueSlugEmail(target.employee.fullName)).email;
+  }
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
+    data: { email, passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
   });
   // Ескі сессияларды жабамыз — ескі пароль біліп қалған адам кіре алмасын.
   await prisma.session.deleteMany({ where: { userId } });
   await prisma.auditLog.create({ data: { actorId: actor.id, action: "PASSWORD_RESET", entityType: "User", entityId: userId } });
   return {
-    login: displayLogin(target),
+    login: displayLogin({ email, phone: target.phone }),
     tempPassword,
     fullName: target.employee?.fullName ?? target.email,
   };
