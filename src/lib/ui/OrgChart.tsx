@@ -4,7 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Minus, Plus, UserRound } from "lucide-react";
 import type { OrgNode } from "@/lib/i18n";
 
-export function OrgChart({ node }: { node: OrgNode }) {
+export function OrgChart({
+  node,
+  ckpLabel = "ЦКП",
+  ckpEmpty = "ЦКП әлі енгізілмеген.",
+}: {
+  node: OrgNode;
+  ckpLabel?: string;
+  ckpEmpty?: string;
+}) {
   const [zoom, setZoom] = useState(100);
   const scrollRef = useRef<HTMLDivElement>(null);
   const treeRef = useRef<HTMLUListElement>(null);
@@ -114,7 +122,7 @@ export function OrgChart({ node }: { node: OrgNode }) {
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
         >
           <ul ref={treeRef} className="org-branches">
-            <OrgTreeNode node={node} depth={0} />
+            <OrgTreeNode node={node} depth={0} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} />
           </ul>
         </div>
       </div>
@@ -193,7 +201,18 @@ function PanButton({ onClick, children }: { onClick: () => void; children: React
   );
 }
 
-function OrgTreeNode({ node, depth }: { node: OrgNode; depth: number }) {
+function OrgTreeNode({
+  node,
+  depth,
+  ckpLabel,
+  ckpEmpty,
+}: {
+  node: OrgNode;
+  depth: number;
+  ckpLabel: string;
+  ckpEmpty: string;
+}) {
+  const [ckpOpen, setCkpOpen] = useState(false);
   const isVacant = node.name === "ФИО";
   const cardClass = isVacant
     ? "border border-danger/40 bg-danger/10 text-danger"
@@ -219,11 +238,28 @@ function OrgTreeNode({ node, depth }: { node: OrgNode; depth: number }) {
             ))}
           </ul>
         )}
+        {node.person && !isVacant && (
+          <div className="mt-1 border-t border-current/15 pt-1">
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setCkpOpen((v) => !v)}
+              className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
+            >
+              {ckpLabel}
+            </button>
+            {ckpOpen && (
+              <p className="mt-1 max-w-[220px] whitespace-normal text-[10px] font-normal leading-snug opacity-90">
+                {node.ckp || ckpEmpty}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       {node.children && node.children.length > 0 && (
         <ul className="org-branches">
           {node.children.map((child, i) => (
-            <OrgTreeNode key={`${child.name}-${i}`} node={child} depth={depth + 1} />
+            <OrgTreeNode key={`${child.name}-${i}`} node={child} depth={depth + 1} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} />
           ))}
         </ul>
       )}
