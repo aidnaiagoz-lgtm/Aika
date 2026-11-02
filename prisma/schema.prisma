@@ -13,24 +13,26 @@ datasource db {
 // ---------- Identity & Access ----------
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  phone        String?    @unique
-  passwordHash String
-  status       UserStatus @default(ACTIVE)
-  mfaEnabled   Boolean    @default(false)
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  phone              String?    @unique
+  passwordHash       String
+  status             UserStatus @default(ACTIVE)
+  mfaEnabled         Boolean    @default(false)
+  // Уақытша пароль берілгенде true — келесі кіруде пайдаланушы өз паролін қоюы керек.
+  mustChangePassword Boolean    @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
-  employee      Employee?
-  sessions      Session[]
-  userRoles     UserRole[]
-  auditLogs     AuditLog[]     @relation("AuditActor")
-  notifications Notification[] @relation("NotificationRecipient")
-  tasksAssigned Task[]         @relation("TaskAssignedTo")
-  tasksCreated  Task[]         @relation("TaskAssignedBy")
-  taskComments  TaskComment[]
+  employee        Employee?
+  sessions        Session[]
+  userRoles       UserRole[]
+  auditLogs       AuditLog[]       @relation("AuditActor")
+  notifications   Notification[]   @relation("NotificationRecipient")
+  tasksAssigned   Task[]           @relation("TaskAssignedTo")
+  tasksCreated    Task[]           @relation("TaskAssignedBy")
+  taskComments    TaskComment[]
   trainingFolders TrainingFolder[]
 
   @@map("users")
@@ -103,9 +105,10 @@ model Employee {
   assignedLeads           Lead[]
   assignedDeals           Deal[]
   dealStageChanges        DealStageHistory[]
-  discountRequestsMade    DiscountRequest[]  @relation("DiscountRequestedBy")
-  discountRequestsDecided DiscountRequest[]  @relation("DiscountApprovedBy")
+  discountRequestsMade    DiscountRequest[]   @relation("DiscountRequestedBy")
+  discountRequestsDecided DiscountRequest[]   @relation("DiscountApprovedBy")
   salesLedgerRows         SalesLedgerRow[]
+  salesGoalsPersonal      SalesGoalPersonal[]
 
   ordersCreated                Order[]                @relation("OrderCreatedBy")
   ordersManaged                Order[]                @relation("OrderSalesManager")
@@ -983,4 +986,33 @@ model TrainingFolder {
 
   @@index([section])
   @@map("training_folders")
+}
+
+// ---------- Sales goals (айлық мақсаттар, CEO/РОП қояды) ----------
+
+// Команданың айлық мақсаты — ТАУАР санымен (менеджерлерге ақша мақсаты көрсетілмейді).
+model SalesGoal {
+  id          String   @id @default(cuid())
+  month       String   @unique // "2026-11"
+  teamItems   Int
+  reward      String? // менеджерлерге көрінетін сыйлық мәтіні
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  personal SalesGoalPersonal[]
+
+  @@map("sales_goals")
+}
+
+model SalesGoalPersonal {
+  id         String    @id @default(cuid())
+  goalId     String
+  goal       SalesGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  items      Int
+
+  @@unique([goalId, employeeId])
+  @@map("sales_goals_personal")
 }

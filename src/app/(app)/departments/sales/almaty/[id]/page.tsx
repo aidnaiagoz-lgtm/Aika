@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { AccessDenied } from "@/lib/ui";
 import { ForbiddenError } from "@/lib/rbac";
-import { getLedgerRow } from "@/lib/domain/sales-ledger";
+import { getLedgerRow, canEditLedgerRow } from "@/lib/domain/sales-ledger";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { LedgerForm } from "../LedgerForm";
+import { isSalesManagerOnly } from "@/lib/access";
 import { updateLedgerRowAction } from "../actions";
 
 export default async function EditLedgerRowPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +16,16 @@ export default async function EditLedgerRowPage({ params }: { params: Promise<{ 
 
   try {
     const row = await getLedgerRow(user, id);
+    if (!canEditLedgerRow(user, row)) {
+      return (
+        <div className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary">
+          🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады.{" "}
+          <Link href="/departments/sales/almaty" className="font-semibold text-accent hover:underline">
+            Кестеге оралу
+          </Link>
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-col gap-4">
@@ -24,7 +35,13 @@ export default async function EditLedgerRowPage({ params }: { params: Promise<{ 
             ← Кестеге оралу
           </Link>
         </div>
-        <LedgerForm action={updateLedgerRowAction} defaultValues={row} rowId={row.id} submitLabel="Сақтау" />
+        <LedgerForm
+          action={updateLedgerRowAction}
+          defaultValues={row}
+          rowId={row.id}
+          submitLabel="Сақтау"
+          lockedManager={isSalesManagerOnly(user) ? user.employee?.fullName : undefined}
+        />
       </div>
     );
   } catch (e) {

@@ -3,6 +3,9 @@ import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE = "automax_session";
 const PUBLIC_PATHS = ["/login"];
+const MODE_COOKIE = "automax_mode";
+// access.ts-тегі MANAGER_ALLOWED_PREFIXES-пен бірдей болуы керек
+const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/change-password"];
 
 // Жеңіл gate: тек cookie бар/жоғын тексереді. Нақты сессия/RBAC тексеруі
 // (§26 талабы бойынша) әр Server Component/Server Action ішінде getSessionUser()
@@ -17,7 +20,8 @@ export function proxy(request: NextRequest) {
 
   if (PUBLIC_PATHS.includes(pathname)) {
     if (hasSession) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      const home = request.cookies.get(MODE_COOKIE)?.value === "manager" ? "/rating" : "/dashboard";
+      return NextResponse.redirect(new URL(home, request.url));
     }
     return NextResponse.next();
   }
@@ -28,7 +32,16 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // Сатушы-менеджер: тек өз беттері (клиенттік навигацияда да).
+  if (request.cookies.get(MODE_COOKIE)?.value === "manager") {
+    const allowed = MANAGER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!allowed) return NextResponse.redirect(new URL("/rating", request.url));
+  }
+
+  // Layout рөлге қарай беттерді шектей алуы үшін ағымдағы жолды серверге жібереміз.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

@@ -61,3 +61,22 @@ body {
 .shadow-card {
   box-shadow: var(--shadow-card);
 }
+
+/* Рейтинг беті — жеңіл анимациялар (prefers-reduced-motion құрметтеледі) */
+@keyframes rating-rise {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes rating-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes rating-bar {
+  from { width: 0; }
+}
+.rating-rise { animation: rating-rise 0.6s cubic-bezier(.2,.8,.2,1) both; }
+.rating-grow { transform-origin: bottom; animation: rating-grow 0.8s cubic-bezier(.2,.8,.2,1) both; }
+.rating-bar { animation: rating-bar 1s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .rating-rise, .rating-grow, .rating-bar { animation: none; }
+}

@@ -10,6 +10,7 @@ export async function logoutAction() {
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
   if (sessionId) await destroySession(sessionId);
   cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete("automax_mode");
   redirect("/login");
 }
 

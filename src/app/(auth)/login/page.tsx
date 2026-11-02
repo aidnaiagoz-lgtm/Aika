@@ -2,8 +2,8 @@ import { Logo } from "@/lib/ui";
 import { loginAction } from "../actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  empty: "Email және құпиясөзді толтырыңыз",
-  invalid: "Қате email немесе құпиясөз",
+  empty: "Логин мен құпиясөзді толтырыңыз",
+  invalid: "Қате логин немесе құпиясөз",
 };
 
 export default async function LoginPage({
@@ -22,14 +22,15 @@ export default async function LoginPage({
       <form action={loginAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium text-text-primary">
-            Email
+            Телефон немесе email
           </label>
           <input
             id="email"
             name="email"
-            type="email"
+            type="text"
             required
-            autoComplete="email"
+            autoComplete="username"
+            placeholder="8 701 123 45 67"
             className="rounded-icon border border-border bg-page-bg px-3.5 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>

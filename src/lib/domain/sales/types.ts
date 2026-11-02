@@ -2,7 +2,7 @@ import type { PermissionAction, PermissionScope } from "@/lib/db";
 
 export interface ActingUser {
   id: string;
-  employee?: { id: string; departmentId: string | null; branchId: string | null } | null;
+  employee?: { id: string; departmentId: string | null; branchId: string | null; fullName?: string } | null;
   userRoles: Array<{
     branchId: string | null;
     departmentId: string | null;
