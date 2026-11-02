@@ -1,17 +1,22 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeader } from "@/lib/access";
 import { listManagers } from "@/lib/domain/managers";
 import { displayLogin } from "@/lib/access";
-import { CreateManagerForm, ResetPasswordButton } from "./ManagerForms";
-import { toggleBlockAction } from "./actions";
+import { CreateManagerForm, ResetPasswordButton, ConfirmButton } from "./ManagerForms";
+import { toggleBlockAction, archiveAction, deleteAction } from "./actions";
 
-export default async function ManagersPage() {
+export default async function ManagersPage({ searchParams }: { searchParams: Promise<{ view?: string; msg?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!isLeader(user)) redirect("/rating");
 
-  const managers = await listManagers();
+  const sp = await searchParams;
+  const archiveView = sp.view === "archive";
+  const all = await listManagers();
+  const archivedCount = all.filter((m) => m.user.status === "ARCHIVED").length;
+  const managers = all.filter((m) => (archiveView ? m.user.status === "ARCHIVED" : m.user.status !== "ARCHIVED"));
   const fmt = new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" });
 
   return (
@@ -29,9 +34,33 @@ export default async function ManagersPage() {
       </div>
 
       <div className="shadow-card rounded-card bg-surface p-5">
-        <h2 className="mb-3 text-base font-semibold text-text-primary">Барлығы: {managers.length}</h2>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Link
+            href="/managers"
+            className={`rounded-xl px-3.5 py-1.5 text-sm font-semibold ${!archiveView ? "bg-[#0b1a45] text-white" : "border border-border text-text-secondary"}`}
+          >
+            Белсенді · {all.length - archivedCount}
+          </Link>
+          <Link
+            href="/managers?view=archive"
+            className={`rounded-xl px-3.5 py-1.5 text-sm font-semibold ${archiveView ? "bg-[#0b1a45] text-white" : "border border-border text-text-secondary"}`}
+          >
+            Жұмыстан шыққандар · {archivedCount}
+          </Link>
+        </div>
+        {sp.msg && (
+          <p className={`mb-3 rounded-xl px-3.5 py-2.5 text-sm ${sp.msg === "deleted" ? "bg-[#e7f7ec] text-[#15803d]" : "bg-danger/10 text-danger"}`}>
+            {sp.msg === "deleted" ? "Аккаунт толық өшірілді" : sp.msg}
+          </p>
+        )}
+        {archiveView && (
+          <p className="mb-3 text-xs text-text-secondary">
+            Жұмыстан шыққандар жүйеге кіре алмайды және рейтингте көрінбейді, бірақ сатылымдары тарихта сақталады.
+            «Толық өшіру» — тек бір де бір сатылымы жоқ аккаунттарға (қате ашылған, тест).
+          </p>
+        )}
         {managers.length === 0 ? (
-          <p className="py-6 text-center text-sm text-text-secondary">Әзірге менеджер жоқ — жоғарыдағы формамен қосыңыз.</p>
+          <p className="py-6 text-center text-sm text-text-secondary">{archiveView ? "Архив бос." : "Әзірге менеджер жоқ — жоғарыдағы формамен қосыңыз."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -47,7 +76,8 @@ export default async function ManagersPage() {
               </thead>
               <tbody>
                 {managers.map((m) => {
-                  const blocked = m.user.status !== "ACTIVE";
+                  const blocked = m.user.status === "SUSPENDED";
+                  const archived = m.user.status === "ARCHIVED";
                   const senior = m.user.userRoles.some((r) => r.role.name === "SENIOR_SALES_MANAGER");
                   return (
                     <tr key={m.id} className="border-b border-border align-top last:border-0">
@@ -65,25 +95,52 @@ export default async function ManagersPage() {
                       <td className="py-3 pr-3">
                         <span
                           className={`rounded-pill px-2.5 py-1 text-xs font-semibold ${
-                            blocked ? "bg-danger/10 text-danger" : "bg-[#e7f7ec] text-[#16a34a]"
+                            archived ? "bg-page-bg text-text-secondary" : blocked ? "bg-danger/10 text-danger" : "bg-[#e7f7ec] text-[#16a34a]"
                           }`}
                         >
-                          {blocked ? "Бұғатталған" : "Белсенді"}
+                          {archived ? "Жұмыстан шықты" : blocked ? "Бұғатталған" : "Белсенді"}
                         </span>
                       </td>
                       <td className="py-3">
                         <div className="flex items-start justify-end gap-2">
-                          <ResetPasswordButton userId={m.userId} />
-                          <form action={toggleBlockAction}>
-                            <input type="hidden" name="userId" value={m.userId} />
-                            <input type="hidden" name="block" value={blocked ? "0" : "1"} />
-                            <button
-                              type="submit"
-                              className="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-page-bg"
-                            >
-                              {blocked ? "Ашу" : "Бұғаттау"}
-                            </button>
-                          </form>
+                          {archived ? (
+                            <>
+                              <ConfirmButton
+                                action={archiveAction}
+                                fields={{ userId: m.userId, archive: "0" }}
+                                label="Қалпына келтіру"
+                                confirmText={`${m.fullName} қайта жұмысқа қабылдансын ба? Аккаунты ашылады.`}
+                              />
+                              <ConfirmButton
+                                action={deleteAction}
+                                fields={{ userId: m.userId }}
+                                label="Толық өшіру"
+                                danger
+                                confirmText={`${m.fullName} аккаунтын ТОЛЫҚ өшіру керек пе? Бұл әрекетті қайтару мүмкін емес.`}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <ResetPasswordButton userId={m.userId} />
+                              <form action={toggleBlockAction}>
+                                <input type="hidden" name="userId" value={m.userId} />
+                                <input type="hidden" name="block" value={blocked ? "0" : "1"} />
+                                <button
+                                  type="submit"
+                                  className="rounded-pill border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-page-bg"
+                                >
+                                  {blocked ? "Ашу" : "Бұғаттау"}
+                                </button>
+                              </form>
+                              <ConfirmButton
+                                action={archiveAction}
+                                fields={{ userId: m.userId, archive: "1" }}
+                                label="Жұмыстан шықты"
+                                danger
+                                confirmText={`${m.fullName} жұмыстан шықты ма? Аккаунты жабылады, рейтингтен жоғалады, сатылымдары тарихта қалады.`}
+                              />
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
