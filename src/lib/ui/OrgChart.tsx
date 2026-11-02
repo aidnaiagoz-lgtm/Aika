@@ -238,7 +238,7 @@ function OrgTreeNode({
             ))}
           </ul>
         )}
-        {node.person && !isVacant && (
+        {node.person && (
           <div className="mt-1 border-t border-current/15 pt-1">
             <button
               type="button"
