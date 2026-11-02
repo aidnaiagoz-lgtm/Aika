@@ -236,7 +236,11 @@ async function main() {
   }
 
   console.log("Demo users...");
-  const passwordHash = await hash("Automax2026!", { memoryCost: 19456, timeCost: 2, parallelism: 1 });
+  const seedPassword = process.env.SEED_DEFAULT_PASSWORD;
+  if (!seedPassword) {
+    throw new Error("SEED_DEFAULT_PASSWORD орнатылмаған (.env немесе Vercel env). Қауіпсіздік үшін бұл мән кодта жазылмайды.");
+  }
+  const passwordHash = await hash(seedPassword, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
 
   const ceoUser = await prisma.user.upsert({
     where: { email: "sulejmenovedil@gmail.com" },
@@ -419,7 +423,7 @@ async function main() {
     ],
   });
 
-  console.log("Seed дайын. CEO логин: sulejmenovedil@gmail.com / Automax2026!");
+  console.log("Seed дайын. CEO логин: sulejmenovedil@gmail.com (пароль SEED_DEFAULT_PASSWORD-та).");
 }
 
 main()
