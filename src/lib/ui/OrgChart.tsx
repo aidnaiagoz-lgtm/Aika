@@ -103,18 +103,18 @@ export function OrgChart({
           .org-tree .org-branches > li { list-style: none; position: relative; padding: 22px 4px 0 4px; text-align: center; flex-shrink: 0; }
           .org-tree .org-branches > li::before, .org-tree .org-branches > li::after {
             content: ""; position: absolute; top: 0; right: 50%;
-            border-top: 2px solid #b3b9c6; width: 50%; height: 22px;
+            border-top: 3px solid #6b7280; width: 50%; height: 22px;
           }
-          .org-tree .org-branches > li::after { right: auto; left: 50%; border-left: 2px solid #b3b9c6; }
+          .org-tree .org-branches > li::after { right: auto; left: 50%; border-left: 3px solid #6b7280; }
           .org-tree .org-branches > li:only-child { padding-top: 0; }
           .org-tree .org-branches > li:only-child::before, .org-tree .org-branches > li:only-child::after { display: none; }
           .org-tree .org-branches > li:first-child::before { border: none; }
           .org-tree .org-branches > li:last-child::after { border: none; }
           .org-tree .org-branches > li:first-child::after { border-radius: 8px 0 0 0; }
-          .org-tree .org-branches > li:last-child::before { border-right: 2px solid #b3b9c6; border-radius: 0 8px 0 0; }
+          .org-tree .org-branches > li:last-child::before { border-right: 3px solid #6b7280; border-radius: 0 8px 0 0; }
           .org-tree .org-branches .org-branches::before {
             content: ""; position: absolute; top: 0; left: 50%;
-            border-left: 2px solid #b3b9c6; width: 0; height: 22px;
+            border-left: 3px solid #6b7280; width: 0; height: 22px;
           }
         `}</style>
         <div
