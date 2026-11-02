@@ -10,7 +10,7 @@ export default async function OrgStructurePage() {
     <div className="-m-8 flex flex-col gap-6">
       <h1 className="px-8 pt-8 text-center text-xl font-bold text-text-primary">{t.orgStructure.pageTitle}</h1>
       <div className="shadow-card min-h-[70vh] border-t border-border bg-surface py-5">
-        <OrgChart node={t.orgStructure.ceo} />
+        <OrgChart node={t.orgStructure.ceo} ckpLabel={t.orgStructure.ckpLabel} ckpEmpty={t.orgStructure.ckpEmpty} />
       </div>
     </div>
   );

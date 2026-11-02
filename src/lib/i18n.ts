@@ -32,6 +32,7 @@ export type OrgNode = {
   roles?: string[];
   children?: OrgNode[];
   person?: boolean;
+  ckp?: string;
 };
 
 const kkOrgChart: OrgNode = {
@@ -386,6 +387,8 @@ const kk = {
   orgStructure: {
     navLabel: "Ұйым құрылымы",
     pageTitle: "Компанияның ұйымдастыру құрылымы",
+    ckpLabel: "ЦКП",
+    ckpEmpty: "ЦКП әлі енгізілмеген.",
     ceo: kkOrgChart,
   },
   training: {
@@ -669,6 +672,8 @@ const ru = {
   orgStructure: {
     navLabel: "Оргструктура",
     pageTitle: "Организационная структура компании",
+    ckpLabel: "ЦКП",
+    ckpEmpty: "ЦКП пока не заполнен.",
     ceo: ruOrgChart,
   },
   training: {
