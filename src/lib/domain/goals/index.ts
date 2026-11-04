@@ -18,11 +18,11 @@ async function itemsByManager(month: string) {
   const to = new Date(shiftMonth(month, 1) + "-01T00:00:00Z");
   const rows = await prisma.salesLedgerRow.findMany({
     where: { date: { gte: from, lt: to }, NOT: { orderStatus: { contains: "возврат", mode: "insensitive" } } },
-    select: { manager: true, product: true, createdBy: { select: { fullName: true } } },
+    select: { manager: true, product: true, soldFor: true, createdBy: { select: { fullName: true } } },
   });
   const map = new Map<string, number>();
   for (const r of rows) {
-    if (!r.product?.trim()) continue;
+    if (!r.product?.trim() && !(Number(r.soldFor ?? 0) > 0)) continue; // рейтингтегідей: товар немесе сома
     const key = (r.manager || r.createdBy?.fullName || "").trim().toLocaleLowerCase("ru");
     map.set(key, (map.get(key) ?? 0) + 1);
   }

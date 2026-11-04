@@ -188,7 +188,8 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
     sales.push({
       day,
       key: norm(r.manager) || norm(r.createdBy?.fullName),
-      item: Boolean(r.product && r.product.trim()),
+      // 1 жол = 1 тауар: «Товар» толтырылған НЕМЕСЕ сатылым сомасы бар (менеджер товарды жазбай кетуі мүмкін)
+      item: Boolean(r.product && r.product.trim()) || Number(r.soldFor ?? 0) > 0,
       revenue: Number(r.soldFor ?? 0),
       remainder: Math.max(0, Number(r.remainder ?? 0)),
       bonus: Number(r.managerBonus ?? 0),
