@@ -132,6 +132,11 @@
 
 **Өзгерген файлдар/бөлімдер:** `src/lib/ui/OrgChart.tsx`.
 
+### 2026-11-04 — aidnaiagoz-lgtm (Claude) · Google таблицаны сайт өзі тартады
+**Не жасалды:** Пайдаланушы таблицаны сілтеме арқылы ашты → `sheet-sync.ts`: CSV экспорты (соңғы 40 күн) → upsert + өшірілгендерді тазалау. Іске қосылу: Рейтинг ашылғанда 10 минутта бір рет (`after`, SYNC_START құлпы), күнделікті Vercel Cron (`vercel.json`, `/api/cron/sheet-sync`, `CRON_SECRET`), `/import`-та «Қазір жаңарту». Env: `SALES_SHEET_ID`, `CRON_SECRET` (production). CSV түзетулері: "04.11.2026" күні UTC түн ортасы; "22 500" сан-мәтін Остатокта 0-ге айналмайды.
+**Тексеру:** жергілікті — нақты таблицадан 902 жол 3.4 сек, бүгінгі сатылымдар 7 менеджерде, жалпы 12 171 (таблицамен бірдей).
+**Ескерту:** Apps Script (push) балама ретінде қалды, қажет емес.
+
 ### 2026-11-04 — aidnaiagoz-lgtm (Claude) · Google Sheets → сайт автоматты синхрондау
 **Не жасалды:** `POST /api/sync/sales` (Bearer `SALES_SYNC_TOKEN`) + таблицаға қойылатын Apps Script `docs/integrations/google-sheets-sync.gs` (әр 10 мин, соңғы 40 күн, өшірілген жолдарды да тазалайды). Импорт логикасы `upsertLedgerRows` / `reconcileSyncedWindow` болып ортақталды. `SALES_SYNC_TOKEN` Vercel production env-ке қойылды.
 **Тексеру:** жергілікті API-ге скрипттің payload-ын симуляция — қате токен 401, жаңа бүгінгі жол түсті, өшірілген жол өшті, қайталану жоқ.

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { after } from "next/server";
+import { maybeSyncFromGoogleSheet, lastSheetSyncAt } from "@/lib/domain/sales-ledger/sheet-sync";
 import {
   TrendingUp,
   TrendingDown,
@@ -85,7 +87,9 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const period: Period = PERIODS.includes(sp.p as Period) ? (sp.p as Period) : "month";
   const leader = isLeader(user);
-  const data = await getRatingData({ period, employeeId: user.employee?.id ?? null });
+  const [data, lastSync] = await Promise.all([getRatingData({ period, employeeId: user.employee?.id ?? null }), lastSheetSyncAt()]);
+  // Google таблицадан жаңарту — жауап жіберілгеннен кейін, 10 минутта ең көбі бір рет
+  after(maybeSyncFromGoogleSheet);
   const myId = user.employee?.id ?? null;
   const firstName = (user.employee?.fullName ?? "").split(" ")[0] || "әріптес";
 
@@ -98,6 +102,20 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
       )}
 
       <Hero data={data} firstName={firstName} leader={leader} />
+      {lastSync && (
+        <div className="-mt-2 text-right text-xs text-text-secondary">
+          Google таблицадан жаңартылды:{" "}
+          {new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Almaty", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(lastSync)}
+          {leader && (
+            <>
+              {" · "}
+              <Link href="/import#sheet-sync" className="font-semibold text-[#1f4fd8] hover:underline">
+                қазір жаңарту
+              </Link>
+            </>
+          )}
+        </div>
+      )}
 
       {leader && <LeaderKpis data={data} />}
 
