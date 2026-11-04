@@ -17,6 +17,10 @@
 - Соңғы 30 күнде жұмыс істеген менеджерлерге аккаунт автоматты ашылады; парольдер бір рет көрсетіледі. Demo «Асхат Нұрланов» бұғатталады (белгі арқылы).
 
 ## Google Sheets синхрондауы
+- **Негізгі (2026-11-04):** таблица "сілтемесі бар адам көре алады" режимінде; сайт CSV экспортын өзі тартады
+  (`SALES_SHEET_ID`, gid 0 = «продажи»): Рейтинг ашылғанда 10 минутта бір рет (`after()`), күн сайын 22:50 (Алматы) Vercel Cron,
+  CEO `/import` бетінде «Қазір жаңарту». Код: `src/lib/domain/sales-ledger/sheet-sync.ts`.
+- Балама (таблица жабық болса): Apps Script push —
 - Менеджерлер әзірге Google таблицаны толтыра береді. Таблицадағы Apps Script ([`docs/integrations/google-sheets-sync.gs`](../integrations/google-sheets-sync.gs))
   әр 10 минут сайын «продажи» парағының соңғы 40 күнін `POST /api/sync/sales`-қа жібереді.
 - Қорғау: `Authorization: Bearer SALES_SYNC_TOKEN` (Vercel env, production; скриптте Script Properties → `SYNC_TOKEN`). Токен кодта жоқ.

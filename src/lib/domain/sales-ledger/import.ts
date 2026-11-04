@@ -41,7 +41,10 @@ function toDate(v: ExcelCell): Date | null {
     const m = v.trim().match(/^(\d{1,2})[.,](\d{1,2})[.,](\d{2,4})(?:\s+(\d{1,2})[-:.](\d{2}))?/);
     if (m) {
       const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-      const d = new Date(Date.UTC(year, Number(m[2]) - 1, Number(m[1]), Number(m[4] ?? 0) - 5, Number(m[5] ?? 0)));
+      // Тек күн ("04.11.2026") → UTC түн ортасы (жүйедегі күн белгісі); уақыты бар болса — Алматы → UTC
+      const d = m[4]
+        ? new Date(Date.UTC(year, Number(m[2]) - 1, Number(m[1]), Number(m[4]) - 5, Number(m[5] ?? 0)))
+        : new Date(Date.UTC(year, Number(m[2]) - 1, Number(m[1])));
       return Number.isNaN(+d) ? null : d;
     }
   }
@@ -72,7 +75,8 @@ function mapRow(row: ExcelRow): Record<string, unknown> | null {
   });
   // Excel-де "Остаток" бағаны мәтін болуы мүмкін: "Төленді" → 0, "Возврат" → 0 + статус.
   const rawRemainder = row[26];
-  if (typeof rawRemainder === "string") {
+  // Мәтін (сан емес) болса ғана: CSV-де сандар да мәтін түрінде келеді ("22 500")
+  if (typeof rawRemainder === "string" && rawRemainder.trim() !== "" && toNumber(rawRemainder) === null) {
     data.remainder = 0;
     if (/возврат/i.test(rawRemainder) && !data.orderStatus) data.orderStatus = "возврат";
   }
