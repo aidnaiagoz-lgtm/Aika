@@ -28,6 +28,15 @@ function toDate(v: ExcelCell): Date | null {
     return Number.isNaN(+d) ? null : d;
   }
   if (typeof v === "string") {
+    // Google Sheets синхрондауы: "2026-11-04" (күн) немесе "2026-11-04 14:30" (Алматы уақыты)
+    const iso = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (iso) {
+      const [, y, mo, d, h, mi, se] = iso;
+      const date = h
+        ? new Date(Date.UTC(+y, +mo - 1, +d, +h - 5, +mi, +(se ?? 0)))
+        : new Date(Date.UTC(+y, +mo - 1, +d));
+      return Number.isNaN(+date) ? null : date;
+    }
     // Excel-дегі қолмен жазылған "25,09,25 16-46" форматы
     const m = v.trim().match(/^(\d{1,2})[.,](\d{1,2})[.,](\d{2,4})(?:\s+(\d{1,2})[-:.](\d{2}))?/);
     if (m) {
@@ -71,8 +80,11 @@ function mapRow(row: ExcelRow): Record<string, unknown> | null {
   return data;
 }
 
-export async function importLedgerChunk(actor: SessionUser, rows: ExcelRow[]) {
-  if (!isLeader(actor)) throw new Error("Импортты тек CEO мен РОП жасай алады");
+/**
+ * Жолдарды Продажи кестесіне жазады (importKey = "excel:<№>" бойынша ауыстырады).
+ * Excel импорты мен Google Sheets синхрондауы осыны қолданады.
+ */
+export async function upsertLedgerRows(rows: ExcelRow[]) {
   if (rows.length > 1000) throw new Error("Бір бөлікте 1000 жолдан аспауы керек");
 
   const branch = await prisma.branch.findFirst({ where: { name: { contains: "Алматы" } } });
@@ -91,13 +103,34 @@ export async function importLedgerChunk(actor: SessionUser, rows: ExcelRow[]) {
       createdById: typeof d.manager === "string" ? byName.get(d.manager.trim().toLocaleLowerCase("ru")) ?? null : null,
     }));
 
-  // Қайта импорт: Excel — шындық көзі; бұрын импортталған сол жолдарды жаңасымен ауыстырамыз.
+  // Excel/Sheets — шындық көзі; бұрын импортталған сол жолдарды жаңасымен ауыстырамыз.
   const keys = prepared.map((d) => d.importKey);
   await prisma.$transaction([
     prisma.salesLedgerRow.deleteMany({ where: { importKey: { in: keys } } }),
     prisma.salesLedgerRow.createMany({ data: prepared as never }),
   ]);
   return { imported: prepared.length, skipped: rows.length - prepared.length };
+}
+
+export async function importLedgerChunk(actor: SessionUser, rows: ExcelRow[]) {
+  if (!isLeader(actor)) throw new Error("Импортты тек CEO мен РОП жасай алады");
+  return upsertLedgerRows(rows);
+}
+
+/**
+ * Синхрондау терезесінде (from күнінен бастап) таблицадан өшірілген жолдарды сайттан да алып тастайды.
+ * Тек импортталған (importKey бар) жолдарға тиеді — сайтта қолмен енгізілгендер қалады.
+ */
+export async function reconcileSyncedWindow(fromDay: string, nos: number[]) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDay)) throw new Error("from форматы қате");
+  const keep = new Set(nos.map((n) => `excel:${n}`));
+  const existing = await prisma.salesLedgerRow.findMany({
+    where: { importKey: { startsWith: "excel:" }, date: { gte: new Date(fromDay + "T00:00:00Z") } },
+    select: { id: true, importKey: true },
+  });
+  const stale = existing.filter((r) => r.importKey && !keep.has(r.importKey)).map((r) => r.id);
+  if (stale.length) await prisma.salesLedgerRow.deleteMany({ where: { id: { in: stale } } });
+  return { removed: stale.length };
 }
 
 export async function logImport(actor: SessionUser, summary: Record<string, unknown>) {
