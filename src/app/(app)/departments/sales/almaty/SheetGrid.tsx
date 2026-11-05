@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Lock, Plus, Search } from "lucide-react";
-import { SHEET_WIDTHS, SHEET_THICK_RIGHT, SHEET_HEADERS, COMPUTED_FIELDS, rowColor, columnLetter } from "@/lib/domain/sales-ledger/sheet-layout";
+import { SHEET_WIDTHS, SHEET_THICK_RIGHT, SHEET_HEADERS, COMPUTED_FIELDS, cellColor, columnLetter, CHECKBOX_FIELDS, isChecked, SHEET_ALIGN } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { ClientRow } from "./client-row";
 import { updateCellAction, createRowAction } from "./sheet-actions";
 
@@ -122,6 +122,9 @@ export function SheetGrid({
     return [...visibleRows, ...blanks];
   }, [visibleRows, canAdd, query, columns]);
 
+  const statusIdx = columns.findIndex((c) => c.name === "orderStatus");
+  const remainderIdx = columns.findIndex((c) => c.name === "remainder");
+
   // Соңғы мәліметтер — асинхронды сақтау кезінде ескі көшірмеге сүйенбеу үшін
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -227,12 +230,16 @@ export function SheetGrid({
     [gridRows, columns, priceByProduct]
   );
 
-  const startEdit = (r: number, c: number, initial?: string) => {
+  const startEdit = (r: number, c: number, initial?: string): void => {
     if (!cellEditable(r, c)) {
       const row = gridRows[r];
       if (readOnlyReason) flash(readOnlyReason, true);
       else if (row && !row.editable) flash("🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады", true);
       else flash("Бұл баған өздігінен толады", true);
+      return;
+    }
+    if (CHECKBOX_FIELDS.has(columns[c].name)) {
+      toggleBox(r, c);
       return;
     }
     setEdit({ r, c, value: initial ?? editValue(columns[c].type, gridRows[r].values[c]) });
@@ -279,6 +286,16 @@ export function SheetGrid({
     const pending = editRef.current;
     if (pending) setEdit({ ...pending, value: pending.value + text });
     else startEdit(sel.r, sel.c, text);
+  };
+
+  /** Құсбелгіні ауыстыру (басу / Enter / бос орын). */
+  const toggleBox = (r: number, c: number): void => {
+    if (!cellEditable(r, c)) {
+      const row = gridRows[r];
+      flash(readOnlyReason ?? (row && !row.editable ? "🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады" : "Бұл баған өздігінен толады"), true);
+      return;
+    }
+    commit(r, c, isChecked(gridRows[r]?.values[c]) ? "false" : "true");
   };
 
   /** Бос жолға жазылды — жаңа сатылым ашамыз (Дата — бүгін, Менеджер — өзі) және сол мәнді сақтаймыз. */
@@ -413,8 +430,8 @@ export function SheetGrid({
           {gridRows.slice(first, last).map((row, i) => {
             const r = first + i;
             const blank = isBlank(row);
-            const statusIdx = columns.findIndex((c) => c.name === "orderStatus");
-            const bg = blank ? "#ffffff" : rowColor(row.values[statusIdx] as string | null);
+            const status = row.values[statusIdx] as string | null;
+            const remainder = row.values[remainderIdx];
             return (
               <div key={row.id} className="absolute flex" style={{ top: LETTER_H + HEAD_H + r * ROW_H, height: ROW_H, width: lefts.total }}>
                 <div
@@ -427,8 +444,8 @@ export function SheetGrid({
                 {columns.map((col, c) => {
                   const isSel = sel?.r === r && sel?.c === c;
                   const isEdit = edit?.r === r && edit?.c === c;
-                  const isNum = col.type === "number";
-                  const cellBg = blank ? "#ffffff" : c === 0 ? "#f4c7c3" : col.name === "salesChannel" ? "#fff2cc" : col.name === "year" || col.name === "month" || col.name === "payments" ? "#ffffff" : bg;
+                  const cellBg = cellColor(c, status, remainder);
+                  const isBox = CHECKBOX_FIELDS.has(col.name);
                   return (
                     <div
                       key={col.name}
@@ -437,9 +454,11 @@ export function SheetGrid({
                         e.preventDefault();
                         setSel({ r, c });
                         focusGrid();
+                        // Таблицадағыдай — құсбелгіні бір басқанда ауыстырады
+                        if (isBox && (e.target as HTMLElement).dataset.box) toggleBox(r, c);
                       }}
                       onDoubleClick={() => startEdit(r, c)}
-                      className={`relative overflow-hidden whitespace-nowrap px-[3px] leading-[21px] ${isNum ? "text-right" : c <= 4 || col.name === "carYear" ? "text-center" : "text-left"}`}
+                      className={`relative overflow-hidden whitespace-nowrap px-[3px] leading-[21px] ${isBox ? "flex items-center justify-center" : SHEET_ALIGN[c] === "right" ? "text-right" : SHEET_ALIGN[c] === "center" ? "text-center" : "text-left"}`}
                       style={{
                         width: SHEET_WIDTHS[c],
                         minWidth: SHEET_WIDTHS[c],
@@ -449,7 +468,7 @@ export function SheetGrid({
                         outline: isSel ? "2px solid #1a73e8" : undefined,
                         outlineOffset: -2,
                         zIndex: isSel ? 10 : undefined,
-                        color: !row.editable ? "#3c4043" : "#000",
+                        color: "#000",
                       }}
                       title={!isEdit ? display(col.type, row.values[c], col.name) : undefined}
                     >
@@ -469,6 +488,8 @@ export function SheetGrid({
                             focusGrid();
                           }}
                         />
+                      ) : isBox ? (
+                        <CheckBox checked={isChecked(row.values[c])} bg={cellBg} />
                       ) : (
                         display(col.type, row.values[c], col.name)
                       )}
@@ -551,5 +572,23 @@ function CellEditor({
       className="absolute inset-0 z-20 h-full w-full min-w-[160px] border-2 border-[#1a73e8] bg-white px-[3px] text-[11px] outline-none"
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     />
+  );
+}
+
+/** Google таблицадағы құсбелгі: түсі жол түсіне қарай (сары — алтын, жасыл — жасыл). */
+function CheckBox({ checked, bg }: { checked: boolean; bg: string }) {
+  const color = bg === "#b7e1cd" ? "#1e7145" : bg === "#f4c7c3" ? "#a61c00" : "#b78700";
+  return (
+    <span
+      data-box="1"
+      className="flex h-[13px] w-[13px] cursor-pointer items-center justify-center rounded-[2px]"
+      style={{ border: `1.5px solid ${checked ? color : bg === "#ffffff" ? "#5f6368" : color}`, background: checked ? color : "transparent" }}
+    >
+      {checked && (
+        <svg data-box="1" viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#fff" strokeWidth="2">
+          <path data-box="1" d="M2.5 6.2l2.3 2.3 4.7-5" />
+        </svg>
+      )}
+    </span>
   );
 }
