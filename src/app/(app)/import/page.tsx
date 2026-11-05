@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { isLeader } from "@/lib/access";
 import { ImportClient } from "./ImportClient";
 import { lastSheetSyncAt, sheetSyncConfigured } from "@/lib/domain/sales-ledger/sheet-sync";
-import { syncSheetNowAction } from "./actions";
+import { syncSheetNowAction, setSourceAction } from "./actions";
+import { getSalesSource } from "@/lib/domain/settings";
 
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ sync?: string }> }) {
   const user = await getCurrentUser();
@@ -12,6 +13,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const last = await lastSheetSyncAt();
   const configured = sheetSyncConfigured();
+  const source = await getSalesSource();
   const fmt = new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Almaty", dateStyle: "short", timeStyle: "short" });
 
   return (
@@ -23,6 +25,31 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           рейтинг бірден есептеледі. Тек CEO мен РОП.
         </p>
       </div>
+      <section id="source" className="rounded-[20px] border border-border bg-surface p-5">
+        <h2 className="text-base font-semibold text-text-primary">Деректер көзі — менеджерлер қайда толтырады?</h2>
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {([
+            ["sheet", "Google таблица", "Менеджерлер бұрынғыдай Google таблицаны толтырады. Сайт одан өздігінен жаңарады, сайттағы «Продажи» — тек оқу."],
+            ["site", "Сайт", "Менеджерлер сайттағы «Продажи» кестесін толтырады (Google таблицадағыдай). Google таблица синхрондауы тоқтайды — таблицаны енді толтырмау керек."],
+          ] as const).map(([v, title, text]) => (
+            <form key={v} action={setSourceAction} className={`flex flex-col gap-2 rounded-2xl border-2 p-4 ${source === v ? "border-[#1f4fd8] bg-[#f5f8ff]" : "border-border"}`}>
+              <input type="hidden" name="source" value={v} />
+              <div className="flex items-center justify-between">
+                <b className="text-text-primary">{title}</b>
+                {source === v ? (
+                  <span className="rounded-full bg-[#1f4fd8] px-2.5 py-0.5 text-xs font-semibold text-white">Қазір осы</span>
+                ) : (
+                  <button type="submit" className="rounded-lg border border-[#1f4fd8] px-3 py-1 text-xs font-semibold text-[#1f4fd8] hover:bg-[#e8efff]">
+                    Осыған ауыстыру
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-text-secondary">{text}</p>
+            </form>
+          ))}
+        </div>
+      </section>
+
       <section id="sheet-sync" className="rounded-[20px] border border-border bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

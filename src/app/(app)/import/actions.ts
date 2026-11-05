@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { ensureManagers, blockDemoManager, ManagerError } from "@/lib/domain/managers";
 import { importLedgerChunk, logImport, type ExcelRow } from "@/lib/domain/sales-ledger/import";
 import { syncFromGoogleSheet } from "@/lib/domain/sales-ledger/sheet-sync";
+import { setSalesSource } from "@/lib/domain/settings";
 import { isLeader } from "@/lib/access";
 import { redirect } from "next/navigation";
 
@@ -51,4 +52,24 @@ export async function syncSheetNowAction() {
   revalidatePath("/rating");
   revalidatePath("/departments/sales/almaty");
   redirect(`/import?sync=${encodeURIComponent(msg)}#sheet-sync`);
+}
+
+export async function setSourceAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || !isLeader(user)) return;
+  const v = formData.get("source") === "site" ? "site" : "sheet";
+  if (v === "sheet") {
+    await setSalesSource(user, "sheet");
+  } else {
+    // Сайтқа көшер алдында соңғы рет таблицадан тартып аламыз — ешнәрсе жоғалмасын
+    try {
+      await syncFromGoogleSheet();
+    } catch {
+      /* таблица қолжетімсіз болса да ауыстыра береміз */
+    }
+    await setSalesSource(user, "site");
+  }
+  revalidatePath("/import");
+  revalidatePath("/departments/sales/almaty");
+  redirect("/import#source");
 }
