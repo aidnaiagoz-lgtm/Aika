@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { after } from "next/server";
+import { maybeSyncFromGoogleSheet } from "@/lib/domain/sales-ledger/sheet-sync";
 import { AccessDenied } from "@/lib/ui";
 import { ForbiddenError } from "@/lib/rbac";
 import { listLedgerRows, canEditLedgerRow, getLedgerOptions } from "@/lib/domain/sales-ledger";
@@ -39,9 +41,9 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
     const sorted = [...rows].sort((a, b) => a.no - b.no);
     const clientRows = sorted.map((r) => toClientRow(r as never, canEditLedgerRow(user, r)));
     const readOnlyReason =
-      source === "sheet"
-        ? "Кесте уақытша тек оқу режимінде (CEO деректер көзін Google таблицаға қайтарған)."
-        : null;
+      source === "sheet" ? "Бұл — Google таблицаның көшірмесі: өзгерту үшін Google таблицада толтырыңыз, мұнда өзі түседі." : null;
+    // Таблицадан жаңа жолдарды тартып алу (2 минутта бір реттен жиі емес)
+    if (source === "sheet") after(maybeSyncFromGoogleSheet);
 
     return (
       <div className="flex flex-col gap-3">
@@ -56,14 +58,6 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
           <Link href={qs(shiftMonth(month, 1), onlyMine)} className="rounded-lg border border-border bg-surface px-2.5 py-1 text-sm font-bold">
             ▶
           </Link>
-          {user.employee && (
-            <Link
-              href={qs(month, !onlyMine)}
-              className={`ml-1 rounded-lg border px-3 py-1 text-sm font-semibold ${onlyMine ? "border-[#1f4fd8] bg-[#e8efff] text-[#1f4fd8]" : "border-border bg-surface text-text-primary"}`}
-            >
-              {onlyMine ? "✓ Тек менікі" : "Тек менікі"}
-            </Link>
-          )}
         </div>
 
         <SheetGrid

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Lock, Plus, Search } from "lucide-react";
-import { SHEET_WIDTHS, SHEET_THICK_RIGHT, SHEET_HEADERS, COMPUTED_FIELDS, cellColor, columnLetter, CHECKBOX_FIELDS, isChecked, SHEET_ALIGN } from "@/lib/domain/sales-ledger/sheet-layout";
+import { useRouter } from "next/navigation";
+import { SHEET_WIDTHS, SHEET_THICK_RIGHT, SHEET_HEADERS, COMPUTED_FIELDS, LIST_FIELDS, cellColor, columnLetter, CHECKBOX_FIELDS, isChecked, SHEET_ALIGN } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { ClientRow } from "./client-row";
 import { updateCellAction, createRowAction } from "./sheet-actions";
 
@@ -19,6 +19,8 @@ const OVERSCAN = 15;
 // Google таблицадағыдай — деректердің астында бос жолдар: жаза бастасаң, жаңа сатылым өзі ашылады
 const BLANK_ROWS = 40;
 const isBlank = (row: ClientRow) => row.id.startsWith("blank:");
+// Таблицадағыдай ашылмалы тізім белгісі (▾) бар бағандар
+const DROPDOWN = new Set<string>([...LIST_FIELDS, "manager", "carYear"]);
 
 const fmtNum = new Intl.NumberFormat("ru-RU");
 
@@ -83,7 +85,7 @@ export function SheetGrid({
   readOnlyReason: string | null;
 }) {
   const [rows, setRows] = useState(initialRows);
-  const [query, setQuery] = useState("");
+  const query = "";
   const [sel, setSel] = useState<{ r: number; c: number } | null>(null);
   const [edit, setEditState] = useState<{ r: number; c: number; value: string } | null>(null);
   // Синхронды көшірме: редактор ашылып үлгергенше жылдам басылған әріптер жоғалмауы үшін
@@ -103,7 +105,19 @@ export function SheetGrid({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewH, setViewH] = useState(600);
 
-  // Сервер бетті жаңартқанда (revalidate) жергілікті өзгерістер үстінен жазылмасын — кесте өз күйін өзі ұстайды.
+  // Сайттағы толтыру режимінде сервер жаңартуы жергілікті өзгерістердің үстінен жазылмасын.
+  // Google таблица режимінде — кесте таблицаның көшірмесі: әр минут сайын жаңа жолдарды өзі тартады.
+  const router = useRouter();
+  useEffect(() => {
+    if (readOnlyReason) setRows(initialRows);
+  }, [initialRows, readOnlyReason]);
+  useEffect(() => {
+    if (!readOnlyReason) return;
+    const t = window.setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 60_000);
+    return () => window.clearInterval(t);
+  }, [readOnlyReason, router]);
 
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -123,6 +137,7 @@ export function SheetGrid({
   }, [visibleRows, canAdd, query, columns]);
 
   const statusIdx = columns.findIndex((c) => c.name === "orderStatus");
+  const lastNo = Number(visibleRows[visibleRows.length - 1]?.values[0] ?? 0);
   const remainderIdx = columns.findIndex((c) => c.name === "remainder");
 
   // Соңғы мәліметтер — асинхронды сақтау кезінде ескі көшірмеге сүйенбеу үшін
@@ -346,36 +361,10 @@ export function SheetGrid({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm">
-          <Search size={15} className="text-text-secondary" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Іздеу: телефон, клиент, авто, тауар…"
-            className="w-full bg-transparent outline-none"
-          />
-        </div>
-        <span className="text-xs text-text-secondary">
-          {visibleRows.length} жол{saving > 0 ? " · сақталуда…" : " · ✓ сақталды"}
-        </span>
-        {canAdd && (
-          <span className="rounded-lg bg-[#e6f4ea] px-3 py-1.5 text-xs font-semibold text-[#137333]">
-            Жаңа сатылым — кестенің ең астындағы бос жолға жаза беріңіз
-          </span>
-        )}
-      </div>
-
-      {readOnlyReason && (
-        <div className="flex items-center gap-2 rounded-lg border border-[#f3e2b3] bg-[#fffaf0] px-3 py-2 text-xs text-[#8a5a00]">
-          <Lock size={13} /> {readOnlyReason}
-        </div>
-      )}
-
       <div
         ref={scrollRef}
         onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
-        className="relative h-[calc(100vh-260px)] min-h-[420px] overflow-auto border border-[#c0c0c0] bg-white outline-none"
+        className="relative h-[calc(100vh-200px)] min-h-[420px] overflow-auto border border-[#c0c0c0] bg-white outline-none"
         style={{ fontFamily: "Arial, Helvetica, sans-serif", fontSize: 11 }}
       >
         <div style={{ width: lefts.total, height: totalH, position: "relative" }}>
@@ -439,7 +428,7 @@ export function SheetGrid({
                   style={{ width: NUM_W, minWidth: NUM_W }}
                   title={blank ? "Жаза бастаңыз — жаңа сатылым ашылады" : row.editable ? "Сіздің жолыңыз" : "Тек оқу"}
                 >
-                  {row.editable ? r + 2 : <span className="flex items-center gap-0.5">{r + 2}<Lock size={8} /></span>}
+                  {blank ? lastNo + 2 + (r - visibleRows.length) : Number(row.values[0]) + 1}
                 </div>
                 {columns.map((col, c) => {
                   const isSel = sel?.r === r && sel?.c === c;
@@ -490,6 +479,11 @@ export function SheetGrid({
                         />
                       ) : isBox ? (
                         <CheckBox checked={isChecked(row.values[c])} bg={cellBg} />
+                      ) : DROPDOWN.has(col.name) ? (
+                        <>
+                          <span className="block overflow-hidden pr-3">{display(col.type, row.values[c], col.name)}</span>
+                          <span className="pointer-events-none absolute right-[3px] top-0 text-[9px] text-[#5f6368]">▼</span>
+                        </>
                       ) : (
                         display(col.type, row.values[c], col.name)
                       )}
@@ -509,11 +503,6 @@ export function SheetGrid({
           ))}
         </datalist>
       ))}
-
-      <div className="text-[11px] text-text-secondary">
-        Ұяшықты екі рет басыңыз немесе жаза бастаңыз · Enter — сақтау және төмен · Tab — оңға · Esc — бас тарту · жебелермен жылжу ·
-        Год, Мес, Остаток, Менеджер өздігінен толады · 🔒 басқа менеджердің жолы
-      </div>
 
       {toast && (
         <div
