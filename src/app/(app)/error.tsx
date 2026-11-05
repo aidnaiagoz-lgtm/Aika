@@ -1,7 +1,13 @@
 "use client";
 
 // Беттегі күтпеген қате — ақ бет орнына түсінікті хабар және «Қайта ашу» батырмасы.
+import { useEffect } from "react";
+
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    const body = JSON.stringify({ kind: "boundary", message: error.message, digest: error.digest, stack: error.stack?.slice(0, 2000), url: location.pathname });
+    navigator.sendBeacon?.("/api/client-error", body);
+  }, [error]);
   return (
     <div className="mx-auto mt-16 flex max-w-md flex-col items-center gap-3 rounded-[20px] border border-border bg-surface p-8 text-center">
       <h2 className="text-lg font-semibold text-text-primary">Бет ашылмай қалды</h2>

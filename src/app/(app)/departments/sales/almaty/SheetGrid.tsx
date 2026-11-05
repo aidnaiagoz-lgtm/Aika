@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { Lock, Plus, Search } from "lucide-react";
 import { SHEET_WIDTHS, SHEET_THICK_RIGHT, SHEET_HEADERS, COMPUTED_FIELDS, rowColor, columnLetter } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { ClientRow } from "./client-row";
-import { updateCellAction, addRowAction } from "./sheet-actions";
+import { updateCellAction, createRowAction } from "./sheet-actions";
 
 // Google Sheets-ке ұқсас кесте: 45 баған (A..AS), таблицадағы ені/түстері, ұяшықты басып өзгерту,
 // жебелер / Enter / Tab / Esc, ашылмалы тізімдер. Тек көрінетін жолдар салынады (виртуализация).
@@ -16,6 +16,9 @@ const HEAD_H = 40;
 const LETTER_H = 20;
 const NUM_W = 46;
 const OVERSCAN = 15;
+// Google таблицадағыдай — деректердің астында бос жолдар: жаза бастасаң, жаңа сатылым өзі ашылады
+const BLANK_ROWS = 40;
+const isBlank = (row: ClientRow) => row.id.startsWith("blank:");
 
 const fmtNum = new Intl.NumberFormat("ru-RU");
 
@@ -100,13 +103,30 @@ export function SheetGrid({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewH, setViewH] = useState(600);
 
-  useEffect(() => setRows(initialRows), [initialRows]);
+  // Сервер бетті жаңартқанда (revalidate) жергілікті өзгерістер үстінен жазылмасын — кесте өз күйін өзі ұстайды.
 
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) => r.values.some((v) => v !== null && String(v).toLowerCase().includes(q)));
   }, [rows, query]);
+
+  const gridRows = useMemo(() => {
+    if (!canAdd || query.trim()) return visibleRows;
+    const blanks: ClientRow[] = Array.from({ length: BLANK_ROWS }, (_, i) => ({
+      id: `blank:${i}`,
+      createdById: null,
+      editable: true,
+      values: columns.map(() => null),
+    }));
+    return [...visibleRows, ...blanks];
+  }, [visibleRows, canAdd, query, columns]);
+
+  // Соңғы мәліметтер — асинхронды сақтау кезінде ескі көшірмеге сүйенбеу үшін
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  // Бос жолдан жаңа сатылым жасалып жатқанда — сол жолға жазылған келесі ұяшықтар соны күтеді
+  const creating = useRef<Promise<ClientRow | null> | null>(null);
 
   const lefts = useMemo(() => {
     const out: number[] = [];
@@ -121,6 +141,8 @@ export function SheetGrid({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    // Таблицадағыдай — ашылғанда соңғы жазбалар мен бос жолдар көрінсін
+    if (canAdd) el.scrollTop = Math.max(0, (rows.length - 5) * ROW_H);
     const ro = new ResizeObserver(() => setViewH(el.clientHeight));
     ro.observe(el);
     setViewH(el.clientHeight);
@@ -128,7 +150,7 @@ export function SheetGrid({
   }, []);
 
   const first = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
-  const last = Math.min(visibleRows.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
+  const last = Math.min(gridRows.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
 
   const flash = (text: string, bad = false) => {
     setToast({ text, bad });
@@ -137,10 +159,10 @@ export function SheetGrid({
 
   const cellEditable = useCallback(
     (r: number, c: number) => {
-      const row = visibleRows[r];
+      const row = gridRows[r];
       return !readOnlyReason && !!row?.editable && !COMPUTED_FIELDS.has(columns[c].name);
     },
-    [visibleRows, columns, readOnlyReason]
+    [gridRows, columns, readOnlyReason]
   );
 
   const ensureVisible = useCallback((r: number, c: number) => {
@@ -160,23 +182,24 @@ export function SheetGrid({
     (dr: number, dc: number) => {
       setSel((s) => {
         const cur = s ?? { r: 0, c: 0 };
-        const r = Math.min(Math.max(cur.r + dr, 0), Math.max(visibleRows.length - 1, 0));
+        const r = Math.min(Math.max(cur.r + dr, 0), Math.max(gridRows.length - 1, 0));
         const c = Math.min(Math.max(cur.c + dc, 0), columns.length - 1);
         ensureVisible(r, c);
         return { r, c };
       });
     },
-    [visibleRows.length, columns.length, ensureVisible]
+    [gridRows.length, columns.length, ensureVisible]
   );
 
   const commit = useCallback(
     (r: number, c: number, value: string) => {
-      const row = visibleRows[r];
+      const row = gridRows[r];
       const col = columns[c];
       setEdit(null);
       if (!row) return;
       const before = editValue(col.type, row.values[c]);
       if (value === before) return;
+      if (isBlank(row)) return createFrom(r, c, value);
       // Оптимистік көрініс
       const optimistic = row.values.slice();
       optimistic[c] = value === "" ? null : col.type === "number" ? Number(value.replace(/\s/g, "").replace(",", ".")) : value;
@@ -201,18 +224,18 @@ export function SheetGrid({
         }
       });
     },
-    [visibleRows, columns, priceByProduct]
+    [gridRows, columns, priceByProduct]
   );
 
   const startEdit = (r: number, c: number, initial?: string) => {
     if (!cellEditable(r, c)) {
-      const row = visibleRows[r];
+      const row = gridRows[r];
       if (readOnlyReason) flash(readOnlyReason, true);
       else if (row && !row.editable) flash("🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады", true);
       else flash("Бұл баған өздігінен толады", true);
       return;
     }
-    setEdit({ r, c, value: initial ?? editValue(columns[c].type, visibleRows[r].values[c]) });
+    setEdit({ r, c, value: initial ?? editValue(columns[c].type, gridRows[r].values[c]) });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -258,26 +281,51 @@ export function SheetGrid({
     else startEdit(sel.r, sel.c, text);
   };
 
-  const addRow = () => {
+  /** Бос жолға жазылды — жаңа сатылым ашамыз (Дата — бүгін, Менеджер — өзі) және сол мәнді сақтаймыз. */
+  const createFrom = (r: number, c: number, value: string) => {
+    if (value.trim() === "") return;
+    const col = columns[c];
+    const realCount = visibleRows.length;
+    setSaving((n) => n + 1);
     startTransition(async () => {
-      const res = await safe(() => addRowAction());
-      if (!res.ok) return flash(res.error, true);
-      setQuery("");
-      setRows((rs) => {
-        const next = [...rs, res.row];
-        // Таблицадағыдай — жаңа жол ең төменде
-        window.setTimeout(() => {
-          setSel({ r: next.length - 1, c: 5 });
-          if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          focusGrid();
-        }, 0);
-        return next;
-      });
-      flash("Жаңа жол қосылды — «Номер клиента» бағанынан бастаңыз");
+      // Алдыңғы бос жолдан жаңа сатылым әлі ашылып жатса — соны күтеміз (екі жол болып кетпесін)
+      const prev = creating.current ? await creating.current : null;
+      const target = prev && rowsRef.current.findIndex((x) => x.id === prev.id) === r ? prev : null;
+      if (target) {
+        const res = await safe(() => updateCellAction(target.id, col.name, value));
+        setSaving((n) => n - 1);
+        if (!res.ok) return flash(res.error, true);
+        setRows((rs) => rs.map((x) => (x.id === target.id ? res.row : x)));
+        return;
+      }
+      const p = (async () => {
+        const res = await safe(() => createRowAction(col.name, value));
+        if (!res.ok) {
+          flash(res.error, true);
+          return null;
+        }
+        let row = res.row;
+        // Тауар таңдалса — соңғы бағасын қоямыз (таблицадағы VLOOKUP сияқты)
+        if (col.name === "product" && priceByProduct[value] != null) {
+          const r2 = await safe(() => updateCellAction(row.id, "price", String(priceByProduct[value])));
+          if (r2.ok) row = r2.row;
+        }
+        setRows((rs) => [...rs, row]);
+        return row;
+      })();
+      creating.current = p;
+      const created = await p;
+      setSaving((n) => n - 1);
+      if (creating.current === p) creating.current = null;
+      if (created) {
+        // Төменірек бос жолға жазылса да — жаңа сатылым деректердің соңына тұрады
+        if (r !== realCount) setSel((s) => (s && s.r === r ? { r: realCount, c: s.c } : s));
+        flash("Жаңа сатылым ашылды ✓");
+      }
     });
   };
 
-  const totalH = LETTER_H + HEAD_H + visibleRows.length * ROW_H;
+  const totalH = LETTER_H + HEAD_H + gridRows.length * ROW_H;
 
   return (
     <div className="flex flex-col gap-2">
@@ -295,13 +343,9 @@ export function SheetGrid({
           {visibleRows.length} жол{saving > 0 ? " · сақталуда…" : " · ✓ сақталды"}
         </span>
         {canAdd && (
-          <button
-            type="button"
-            onClick={addRow}
-            className="flex items-center gap-1.5 rounded-lg bg-[#188038] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#137333]"
-          >
-            <Plus size={16} /> Жаңа сатылым
-          </button>
+          <span className="rounded-lg bg-[#e6f4ea] px-3 py-1.5 text-xs font-semibold text-[#137333]">
+            Жаңа сатылым — кестенің ең астындағы бос жолға жаза беріңіз
+          </span>
         )}
       </div>
 
@@ -366,16 +410,17 @@ export function SheetGrid({
           />
 
           {/* Жолдар — тек көрінетіндері */}
-          {visibleRows.slice(first, last).map((row, i) => {
+          {gridRows.slice(first, last).map((row, i) => {
             const r = first + i;
+            const blank = isBlank(row);
             const statusIdx = columns.findIndex((c) => c.name === "orderStatus");
-            const bg = rowColor(row.values[statusIdx] as string | null);
+            const bg = blank ? "#ffffff" : rowColor(row.values[statusIdx] as string | null);
             return (
               <div key={row.id} className="absolute flex" style={{ top: LETTER_H + HEAD_H + r * ROW_H, height: ROW_H, width: lefts.total }}>
                 <div
                   className={`sticky left-0 z-20 flex items-center justify-center border-b border-r border-[#c0c0c0] text-[10px] ${sel?.r === r ? "bg-[#d3e3fd] font-bold text-[#0b57d0]" : "bg-[#f8f9fa] text-[#5f6368]"}`}
                   style={{ width: NUM_W, minWidth: NUM_W }}
-                  title={row.editable ? "Сіздің жолыңыз" : "Тек оқу"}
+                  title={blank ? "Жаза бастаңыз — жаңа сатылым ашылады" : row.editable ? "Сіздің жолыңыз" : "Тек оқу"}
                 >
                   {row.editable ? r + 2 : <span className="flex items-center gap-0.5">{r + 2}<Lock size={8} /></span>}
                 </div>
@@ -383,7 +428,7 @@ export function SheetGrid({
                   const isSel = sel?.r === r && sel?.c === c;
                   const isEdit = edit?.r === r && edit?.c === c;
                   const isNum = col.type === "number";
-                  const cellBg = c === 0 ? "#f4c7c3" : col.name === "salesChannel" ? "#fff2cc" : col.name === "year" || col.name === "month" || col.name === "payments" ? "#ffffff" : bg;
+                  const cellBg = blank ? "#ffffff" : c === 0 ? "#f4c7c3" : col.name === "salesChannel" ? "#fff2cc" : col.name === "year" || col.name === "month" || col.name === "payments" ? "#ffffff" : bg;
                   return (
                     <div
                       key={col.name}
