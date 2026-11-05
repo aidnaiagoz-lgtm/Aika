@@ -8,7 +8,7 @@ import { getSalesSource } from "../settings";
 // Іске қосылу: Рейтинг беті ашылғанда (10 минуттан жиі емес), күнделікті Vercel Cron, CEO батырмасы.
 
 const WINDOW_DAYS = 40;
-const MIN_INTERVAL_MS = 10 * 60 * 1000;
+const MIN_INTERVAL_MS = 2 * 60 * 1000;
 const COLS = 45;
 
 export function sheetSyncConfigured() {

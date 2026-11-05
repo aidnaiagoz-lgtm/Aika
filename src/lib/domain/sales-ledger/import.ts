@@ -134,7 +134,20 @@ export async function reconcileSyncedWindow(fromDay: string, nos: number[]) {
   });
   const stale = existing.filter((r) => r.importKey && !keep.has(r.importKey)).map((r) => r.id);
   if (stale.length) await prisma.salesLedgerRow.deleteMany({ where: { id: { in: stale } } });
-  return { removed: stale.length };
+  // Сайтта ашылып, бос қалған жолдар (тек Дата/Менеджер) — таблицада жоқ, көшірмені бұзады
+  const shells = await prisma.salesLedgerRow.deleteMany({
+    where: {
+      importKey: null,
+      date: { gte: new Date(fromDay + "T00:00:00Z") },
+      customerPhone: null,
+      customerName: null,
+      product: null,
+      price: null,
+      soldFor: null,
+      orderStatus: null,
+    },
+  });
+  return { removed: stale.length + shells.count };
 }
 
 export async function logImport(actor: SessionUser, summary: Record<string, unknown>) {
