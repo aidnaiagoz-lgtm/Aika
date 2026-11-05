@@ -54,21 +54,25 @@ export async function updateCellAction(id: string, field: string, raw: string | 
   }
 }
 
-/** Жаңа жол: Дата — бүгін, Менеджер — өзі. */
-export async function addRowAction(): Promise<Result> {
+/** Бос жолға жазылған бірінші мән: жаңа сатылым ашады (Дата — бүгін, Менеджер — өзі) және сол ұяшықты сақтайды. */
+export async function createRowAction(field: string, raw: string): Promise<Result> {
   try {
     const user = await getCurrentUser();
-    if (!user) return { ok: false, error: "Сессия аяқталған" };
+    if (!user) return { ok: false, error: "Сессия аяқталған — қайта кіріңіз" };
     if ((await getSalesSource()) === "sheet") return { ok: false, error: "Әзірге деректер Google таблицада толтырылады" };
+    const col = LEDGER_COLUMNS.find((c) => c.name === field);
+    if (!col || col.readOnly || COMPUTED_FIELDS.has(field)) return { ok: false, error: "Бұл баған өздігінен толады" };
+    const value = parseValue(col.type, raw);
     const today = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
     const created = await createLedgerRow(user, await almatyBranchId(), {
       date: `${today}T00:00:00Z`,
       manager: user.employee?.fullName ?? null,
+      [field]: value,
     } as never);
     const row = await recomputeLedgerRow(created.id);
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Жол қосылмады" };
+    return { ok: false, error: e instanceof Error ? e.message : "Сатылым ашылмады" };
   }
 }
