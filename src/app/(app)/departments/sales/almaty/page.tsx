@@ -7,7 +7,6 @@ import { getSalesSource } from "@/lib/domain/settings";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
-import { isLeader } from "@/lib/access";
 import { SheetGrid } from "./SheetGrid";
 import { toClientRow } from "./client-row";
 
@@ -41,7 +40,7 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
     const clientRows = sorted.map((r) => toClientRow(r as never, canEditLedgerRow(user, r)));
     const readOnlyReason =
       source === "sheet"
-        ? "Әзірге сатылымдар Google таблицаға жазылады — бұл кесте одан 10 минут сайын өздігінен жаңарады (тек оқу). Жаңа сатылым қосу үшін «Жаңа сатылым» батырмасын басыңыз."
+        ? "Кесте уақытша тек оқу режимінде (CEO деректер көзін Google таблицаға қайтарған)."
         : null;
 
     return (
@@ -75,8 +74,6 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
           priceByProduct={priceByProduct}
           canAdd={source === "site" && !!user.employee}
           readOnlyReason={readOnlyReason}
-          sheetUrl={process.env.SALES_SHEET_ID ? `https://docs.google.com/spreadsheets/d/${process.env.SALES_SHEET_ID}/edit` : null}
-          canSwitchSource={isLeader(user)}
         />
       </div>
     );

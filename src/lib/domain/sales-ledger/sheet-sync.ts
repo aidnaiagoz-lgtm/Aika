@@ -72,10 +72,10 @@ export async function lastSheetSyncAt(): Promise<Date | null> {
   return last?.createdAt ?? null;
 }
 
-export async function syncFromGoogleSheet(): Promise<{ rows: number; removed: number; from: string }> {
+export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promise<{ rows: number; removed: number; from: string }> {
   const id = process.env.SALES_SHEET_ID;
   if (!id) throw new Error("SALES_SHEET_ID орнатылмаған");
-  if ((await getSalesSource()) === "site") throw new Error("Деректер көзі — «Сайт»: Google таблица синхрондауы өшірулі");
+  if (!opts.force && (await getSalesSource()) === "site") throw new Error("Деректер көзі — «Сайт»: Google таблица синхрондауы өшірулі");
   const gid = process.env.SALES_SHEET_GID ?? "0";
   const res = await fetch(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/export?format=csv&gid=${encodeURIComponent(gid)}`, {
     cache: "no-store",
