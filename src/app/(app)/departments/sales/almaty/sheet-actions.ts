@@ -9,6 +9,8 @@ import { COMPUTED_FIELDS } from "@/lib/domain/sales-ledger/sheet-layout";
 import { getSalesSource } from "@/lib/domain/settings";
 import { toClientRow, type ClientRow } from "./client-row";
 
+const SYNCED_MSG = "Бұл жол Google таблицадан келген — оны таблицада өзгертіңіз (мұнда өзі жаңарады)";
+
 type Result = { ok: true; row: ClientRow } | { ok: false; error: string };
 
 async function almatyBranchId() {
@@ -41,13 +43,16 @@ export async function updateCellAction(id: string, field: string, raw: string | 
   try {
     const user = await getCurrentUser();
     if (!user) return { ok: false, error: "Сессия аяқталған" };
-    if ((await getSalesSource()) === "sheet") return { ok: false, error: "Әзірге деректер Google таблицада толтырылады" };
     const col = LEDGER_COLUMNS.find((c) => c.name === field);
     if (!col || col.readOnly || COMPUTED_FIELDS.has(field)) return { ok: false, error: "Бұл баған өздігінен толады" };
-    const existing = await prisma.salesLedgerRow.findUniqueOrThrow({ where: { id } });
+    const existing = await prisma.salesLedgerRow.findUnique({ where: { id } });
+    if (!existing) return { ok: false, error: "Жол жаңарды — бетті қайта ашыңыз" };
+    if (existing.importKey?.startsWith("excel:") && (await getSalesSource()) === "sheet")
+      return { ok: false, error: SYNCED_MSG };
     if (!canEditLedgerRow(user, existing)) return { ok: false, error: "Бұл жолды тек оны енгізген менеджер өзгерте алады" };
     await updateLedgerRow(user, id, { [field]: parseValue(col.type, raw) } as never);
     const row = await recomputeLedgerRow(id);
+    revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Сақталмады" };
@@ -59,7 +64,6 @@ export async function createRowAction(field: string, raw: string): Promise<Resul
   try {
     const user = await getCurrentUser();
     if (!user) return { ok: false, error: "Сессия аяқталған — қайта кіріңіз" };
-    if ((await getSalesSource()) === "sheet") return { ok: false, error: "Әзірге деректер Google таблицада толтырылады" };
     const col = LEDGER_COLUMNS.find((c) => c.name === field);
     if (!col || col.readOnly || COMPUTED_FIELDS.has(field)) return { ok: false, error: "Бұл баған өздігінен толады" };
     const value = parseValue(col.type, raw);

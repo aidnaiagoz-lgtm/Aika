@@ -108,16 +108,19 @@ export function SheetGrid({
   // Сайттағы толтыру режимінде сервер жаңартуы жергілікті өзгерістердің үстінен жазылмасын.
   // Google таблица режимінде — кесте таблицаның көшірмесі: әр минут сайын жаңа жолдарды өзі тартады.
   const router = useRouter();
+  const savingRef = useRef(0);
+  savingRef.current = saving;
   useEffect(() => {
-    if (readOnlyReason) setRows(initialRows);
-  }, [initialRows, readOnlyReason]);
+    // Сервердегі жаңа нұсқа (таблицадан түскен жолдар) — тек ешнәрсе сақталып/жазылып жатпағанда қабылданады
+    if (savingRef.current === 0 && !editRef.current && !creating.current) setRows(initialRows);
+  }, [initialRows]);
   useEffect(() => {
-    if (!readOnlyReason) return;
+    // Әр минут сайын — Google таблицадан түскен жаңа жолдарды көрсету
     const t = window.setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible" && savingRef.current === 0 && !editRef.current) router.refresh();
     }, 60_000);
     return () => window.clearInterval(t);
-  }, [readOnlyReason, router]);
+  }, [router]);
 
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -131,6 +134,7 @@ export function SheetGrid({
       id: `blank:${i}`,
       createdById: null,
       editable: true,
+      synced: false,
       values: columns.map(() => null),
     }));
     return [...visibleRows, ...blanks];
@@ -140,11 +144,14 @@ export function SheetGrid({
   const lastNo = Number(visibleRows[visibleRows.length - 1]?.values[0] ?? 0);
   const remainderIdx = columns.findIndex((c) => c.name === "remainder");
 
-  // Соңғы мәліметтер — асинхронды сақтау кезінде ескі көшірмеге сүйенбеу үшін
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
   // Бос жолдан жаңа сатылым жасалып жатқанда — сол жолға жазылған келесі ұяшықтар соны күтеді
-  const creating = useRef<Promise<ClientRow | null> | null>(null);
+  // rows — бос жолдың экрандағы индексі, at — жаңа сатылым тұратын индекс
+  const creating = useRef<{ p: Promise<ClientRow | null>; rows: number[] } | null>(null);
+  const lastCreated = useRef<{ row: ClientRow; rows: number[] } | null>(null);
+  useEffect(() => {
+    // Жаңа сатылым экранда пайда болды — енді оның ұяшықтары қалыпты жолмен сақталады
+    if (lastCreated.current && rows.some((x) => x.id === lastCreated.current!.row.id)) lastCreated.current = null;
+  }, [rows]);
 
   const lefts = useMemo(() => {
     const out: number[] = [];
@@ -249,7 +256,8 @@ export function SheetGrid({
     if (!cellEditable(r, c)) {
       const row = gridRows[r];
       if (readOnlyReason) flash(readOnlyReason, true);
-      else if (row && !row.editable) flash("🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады", true);
+      else if (row && !row.editable)
+        flash(row.synced ? "Бұл жол Google таблицадан келген — оны таблицада өзгертіңіз (мұнда өзі жаңарады)" : "🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады", true);
       else flash("Бұл баған өздігінен толады", true);
       return;
     }
@@ -307,7 +315,15 @@ export function SheetGrid({
   const toggleBox = (r: number, c: number): void => {
     if (!cellEditable(r, c)) {
       const row = gridRows[r];
-      flash(readOnlyReason ?? (row && !row.editable ? "🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады" : "Бұл баған өздігінен толады"), true);
+      flash(
+        readOnlyReason ??
+          (row && !row.editable
+            ? row.synced
+              ? "Бұл жол Google таблицадан келген — оны таблицада өзгертіңіз"
+              : "🔒 Бұл жолды тек оны енгізген менеджер өзгерте алады"
+            : "Бұл баған өздігінен толады"),
+        true
+      );
       return;
     }
     commit(r, c, isChecked(gridRows[r]?.values[c]) ? "false" : "true");
@@ -321,8 +337,11 @@ export function SheetGrid({
     setSaving((n) => n + 1);
     startTransition(async () => {
       // Алдыңғы бос жолдан жаңа сатылым әлі ашылып жатса — соны күтеміз (екі жол болып кетпесін)
-      const prev = creating.current ? await creating.current : null;
-      const target = prev && rowsRef.current.findIndex((x) => x.id === prev.id) === r ? prev : null;
+      const pending = creating.current;
+      if (pending) await pending.p;
+      // Осы жолдан жаңа ғана сатылым ашылған болса — соған жазамыз (экран әлі жаңармаса да)
+      const last = lastCreated.current;
+      const target = last && last.rows.includes(r) ? last.row : null;
       if (target) {
         const res = await safe(() => updateCellAction(target.id, col.name, value));
         setSaving((n) => n - 1);
@@ -345,10 +364,12 @@ export function SheetGrid({
         setRows((rs) => [...rs, row]);
         return row;
       })();
-      creating.current = p;
+      const entry = { p, rows: [r, realCount] };
+      creating.current = entry;
       const created = await p;
+      if (created) lastCreated.current = { row: created, rows: entry.rows };
       setSaving((n) => n - 1);
-      if (creating.current === p) creating.current = null;
+      if (creating.current === entry) creating.current = null;
       if (created) {
         // Төменірек бос жолға жазылса да — жаңа сатылым деректердің соңына тұрады
         if (r !== realCount) setSel((s) => (s && s.r === r ? { r: realCount, c: s.c } : s));

@@ -39,9 +39,12 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
     ]);
     // Таблицадағыдай — № бойынша өсу ретімен (жаңалары төменде)
     const sorted = [...rows].sort((a, b) => a.no - b.no);
-    const clientRows = sorted.map((r) => toClientRow(r as never, canEditLedgerRow(user, r)));
-    const readOnlyReason =
-      source === "sheet" ? "Бұл — Google таблицаның көшірмесі: өзгерту үшін Google таблицада толтырыңыз, мұнда өзі түседі." : null;
+    // Екі жақта да толтыруға болады: Google таблицадағы жолдар сайтқа өзі түседі (оларды таблицада өзгертеді),
+    // сайтта жазылған жолдарды сайтта өзгертеді.
+    const lockSynced = source === "sheet";
+    const clientRows = sorted.map((r) =>
+      toClientRow(r as never, canEditLedgerRow(user, r) && !(lockSynced && r.importKey?.startsWith("excel:")))
+    );
     // Таблицадан жаңа жолдарды тартып алу (2 минутта бір реттен жиі емес)
     if (source === "sheet") after(maybeSyncFromGoogleSheet);
 
@@ -66,8 +69,8 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
           initialRows={clientRows}
           options={options}
           priceByProduct={priceByProduct}
-          canAdd={source === "site" && !!user.employee}
-          readOnlyReason={readOnlyReason}
+          canAdd={!!user.employee}
+          readOnlyReason={null}
         />
       </div>
     );
