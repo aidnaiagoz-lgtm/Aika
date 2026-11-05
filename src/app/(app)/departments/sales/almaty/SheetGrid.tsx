@@ -53,6 +53,8 @@ export function SheetGrid({
   priceByProduct,
   canAdd,
   readOnlyReason,
+  sheetUrl,
+  canSwitchSource,
 }: {
   columns: Col[];
   initialRows: ClientRow[];
@@ -60,8 +62,11 @@ export function SheetGrid({
   priceByProduct: Record<string, number>;
   canAdd: boolean;
   readOnlyReason: string | null;
+  sheetUrl: string | null;
+  canSwitchSource: boolean;
 }) {
   const [rows, setRows] = useState(initialRows);
+  const [howTo, setHowTo] = useState(false);
   const [query, setQuery] = useState("");
   const [sel, setSel] = useState<{ r: number; c: number } | null>(null);
   const [edit, setEditState] = useState<{ r: number; c: number; value: string } | null>(null);
@@ -276,16 +281,41 @@ export function SheetGrid({
         <span className="text-xs text-text-secondary">
           {visibleRows.length} жол{saving > 0 ? " · сақталуда…" : " · ✓ сақталды"}
         </span>
-        {canAdd && (
-          <button
-            type="button"
-            onClick={addRow}
-            className="flex items-center gap-1.5 rounded-lg bg-[#188038] px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-[#137333]"
-          >
-            <Plus size={15} /> Жаңа жол
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={canAdd ? addRow : () => setHowTo((v) => !v)}
+          className="flex items-center gap-1.5 rounded-lg bg-[#188038] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#137333]"
+        >
+          <Plus size={16} /> Жаңа сатылым
+        </button>
       </div>
+
+      {howTo && !canAdd && (
+        <div className="rounded-xl border border-[#c6dafc] bg-[#f5f8ff] p-4 text-sm text-text-primary">
+          <b>Жаңа сатылымды қазір қайда толтырамын?</b>
+          <p className="mt-1 text-text-secondary">
+            Қазір «Деректер көзі» — <b>Google таблица</b>. Сатылымды бұрынғыдай Google таблицаға жазыңыз — ол осы бетке
+            10 минут ішінде өзі түседі, рейтинг те өзі жаңарады.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sheetUrl && (
+              <a href={sheetUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-[#188038] px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-[#137333]">
+                Google таблицаны ашу ↗
+              </a>
+            )}
+            {canSwitchSource && (
+              <a href="/import#source" className="rounded-lg border border-[#1f4fd8] px-3.5 py-1.5 text-sm font-semibold text-[#1f4fd8] hover:bg-[#e8efff]">
+                Сатылымды осы сайтта толтыруға көшу →
+              </a>
+            )}
+          </div>
+          {canSwitchSource && (
+            <p className="mt-2 text-xs text-text-secondary">
+              Көшкеннен кейін осы батырма бос жол ашады: Дата мен Менеджер өзі толады, қалғанын ұяшықты басып жазасыз (Enter / Tab).
+            </p>
+          )}
+        </div>
+      )}
 
       {readOnlyReason && (
         <div className="flex items-center gap-2 rounded-lg border border-[#f3e2b3] bg-[#fffaf0] px-3 py-2 text-xs text-[#8a5a00]">
