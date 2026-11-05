@@ -29,8 +29,8 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         <h2 className="text-base font-semibold text-text-primary">Деректер көзі — менеджерлер қайда толтырады?</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           {([
-            ["sheet", "Google таблица", "Менеджерлер бұрынғыдай Google таблицаны толтырады. Сайт одан өздігінен жаңарады, сайттағы «Продажи» — тек оқу."],
-            ["site", "Сайт", "Менеджерлер сайттағы «Продажи» кестесін толтырады (Google таблицадағыдай). Google таблица синхрондауы тоқтайды — таблицаны енді толтырмау керек."],
+            ["sheet", "Google таблица + сайт", "Менеджер қаласа Google таблицаға, қаласа сайттағы «Продажи» кестесінің астына жазады. Таблицадағы жолдар сайтқа 2 минут ішінде өзі түседі, рейтинг өзі есептеледі."],
+            ["site", "Тек сайт", "Google таблицадан тарту тоқтайды — барлығы тек сайтта толтырылады."],
           ] as const).map(([v, title, text]) => (
             <form key={v} action={setSourceAction} className={`flex flex-col gap-2 rounded-2xl border-2 p-4 ${source === v ? "border-[#1f4fd8] bg-[#f5f8ff]" : "border-border"}`}>
               <input type="hidden" name="source" value={v} />
@@ -56,7 +56,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
             <h2 className="text-base font-semibold text-text-primary">Google таблицадан автоматты жаңарту</h2>
             <p className="mt-1 text-sm text-text-secondary">
               {configured
-                ? "Менеджерлер толтыратын Google таблица (соңғы 40 күн) сайтқа өздігінен түседі: Рейтинг ашылғанда 10 минутта бір рет және күн сайын кешке."
+                ? "Менеджерлер толтыратын Google таблица (соңғы 40 күн) сайтқа өздігінен түседі: Продажи немесе Рейтинг ашық тұрғанда 2 минутта бір рет және күн сайын кешке."
                 : "Қосылмаған — SALES_SHEET_ID орнатылмаған."}
             </p>
             <p className="mt-1 text-xs text-text-secondary">Соңғы жаңарту: {last ? fmt.format(last) : "әлі болған жоқ"}</p>

@@ -134,10 +134,11 @@ export async function reconcileSyncedWindow(fromDay: string, nos: number[]) {
   });
   const stale = existing.filter((r) => r.importKey && !keep.has(r.importKey)).map((r) => r.id);
   if (stale.length) await prisma.salesLedgerRow.deleteMany({ where: { id: { in: stale } } });
-  // Сайтта ашылып, бос қалған жолдар (тек Дата/Менеджер) — таблицада жоқ, көшірмені бұзады
+  // Сайтта ашылып, 30 минуттан бері бос тұрған жолдар (тек Дата/Менеджер) — қоқыс
   const shells = await prisma.salesLedgerRow.deleteMany({
     where: {
       importKey: null,
+      updatedAt: { lt: new Date(Date.now() - 30 * 60_000) },
       date: { gte: new Date(fromDay + "T00:00:00Z") },
       customerPhone: null,
       customerName: null,
@@ -147,7 +148,25 @@ export async function reconcileSyncedWindow(fromDay: string, nos: number[]) {
       orderStatus: null,
     },
   });
+  await renumberSiteRows(nos);
   return { removed: stale.length + shells.count };
+}
+
+/**
+ * Сайтта жазылған жолдың № таблицадағы жаңа жолдың №-імен сәйкес келсе (екі жақта бір уақытта толтырғанда),
+ * таблицаныкі өз нөмірінде қалады, сайттағы жол ең соңғы бос нөмірге ауысады — № қайталанбайды.
+ */
+async function renumberSiteRows(sheetNos: number[]) {
+  if (sheetNos.length === 0) return;
+  const clash = await prisma.salesLedgerRow.findMany({
+    where: { importKey: null, no: { in: sheetNos } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, branchId: true },
+  });
+  for (const row of clash) {
+    const max = await prisma.salesLedgerRow.aggregate({ where: { branchId: row.branchId }, _max: { no: true } });
+    await prisma.salesLedgerRow.update({ where: { id: row.id }, data: { no: (max._max.no ?? 0) + 1 } });
+  }
 }
 
 export async function logImport(actor: SessionUser, summary: Record<string, unknown>) {
