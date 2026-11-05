@@ -133,3 +133,48 @@ export async function deleteLedgerRow(user: ActingUser, id: string) {
     data: { actorId: user.id, action: "DELETE", entityType: "SalesLedgerRow", entityId: id },
   });
 }
+
+/**
+ * Ашылмалы тізімдер: әр бағанның бұрын енгізілген мәндері (соңғы 1 жыл, жиілігі бойынша),
+ * және «Товар → Цена» (ең соңғы баға) — тауарды таңдағанда бағасы өздігінен қойылады.
+ */
+export async function getLedgerOptions(branchId: string) {
+  const { LIST_FIELDS } = await import("./sheet-layout");
+  const since = new Date(Date.now() - 365 * 86400_000);
+  const rows = await prisma.salesLedgerRow.findMany({
+    where: { branchId, date: { gte: since } },
+    select: Object.fromEntries([...LIST_FIELDS, "price", "date"].map((f) => [f, true])) as Record<string, true>,
+    orderBy: { date: "asc" },
+  });
+  const options: Record<string, string[]> = {};
+  for (const f of LIST_FIELDS) {
+    const counts = new Map<string, number>();
+    for (const r of rows as Array<Record<string, unknown>>) {
+      const v = typeof r[f] === "string" ? (r[f] as string).trim() : "";
+      if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+    }
+    options[f] = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 400).map(([v]) => v);
+  }
+  const priceByProduct: Record<string, number> = {};
+  for (const r of rows as Array<Record<string, unknown>>) {
+    const p = typeof r.product === "string" ? r.product.trim() : "";
+    if (p && r.price != null) priceByProduct[p] = Number(r.price);
+  }
+  return { options, priceByProduct };
+}
+
+/** Өздігінен есептелетін бағандар: Год/Мес — Датадан, Остаток = Продали за − (Чек1+Чек2+Чек3). */
+export async function recomputeLedgerRow(id: string) {
+  const r = await prisma.salesLedgerRow.findUniqueOrThrow({ where: { id } });
+  const data: Record<string, unknown> = {};
+  if (r.date) {
+    const d = new Date(r.date.getTime() + 5 * 3600_000);
+    data.year = d.getUTCFullYear();
+    data.month = String(d.getUTCMonth() + 1);
+  }
+  if (r.soldFor != null) {
+    const paid = [r.receipt1Amount, r.receipt2Amount, r.receipt3Amount].reduce((t, v) => t + Number(v ?? 0), 0);
+    data.remainder = Math.max(0, Number(r.soldFor) - paid);
+  }
+  return prisma.salesLedgerRow.update({ where: { id }, data });
+}

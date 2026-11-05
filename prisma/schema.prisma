@@ -1019,3 +1019,13 @@ model SalesGoalPersonal {
   @@unique([goalId, employeeId])
   @@map("sales_goals_personal")
 }
+
+// ---------- Жүйе баптаулары (кілт → мән) ----------
+// мыс. "sales.source" = "sheet" | "site" — Продажи деректері қайдан енгізіледі.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}

@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { upsertLedgerRows, reconcileSyncedWindow, type ExcelRow } from "./import";
+import { getSalesSource } from "../settings";
 
 // Google Sheets «продажи» → сайт. Таблица "сілтемесі бар адам көре алады" режимінде:
 // CSV экспорты (SALES_SHEET_ID, SALES_SHEET_GID=0) тартылады, соңғы WINDOW_DAYS күн жаңартылады.
@@ -74,6 +75,7 @@ export async function lastSheetSyncAt(): Promise<Date | null> {
 export async function syncFromGoogleSheet(): Promise<{ rows: number; removed: number; from: string }> {
   const id = process.env.SALES_SHEET_ID;
   if (!id) throw new Error("SALES_SHEET_ID орнатылмаған");
+  if ((await getSalesSource()) === "site") throw new Error("Деректер көзі — «Сайт»: Google таблица синхрондауы өшірулі");
   const gid = process.env.SALES_SHEET_GID ?? "0";
   const res = await fetch(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/export?format=csv&gid=${encodeURIComponent(gid)}`, {
     cache: "no-store",
@@ -109,6 +111,7 @@ export async function syncFromGoogleSheet(): Promise<{ rows: number; removed: nu
  */
 export async function maybeSyncFromGoogleSheet() {
   if (!sheetSyncConfigured()) return;
+  if ((await getSalesSource()) === "site") return;
   const recent = await prisma.auditLog.findFirst({
     where: { action: { in: ["SYNC", "SYNC_START"] }, entityId: "google-sheets", createdAt: { gte: new Date(Date.now() - MIN_INTERVAL_MS) } },
     select: { id: true },
