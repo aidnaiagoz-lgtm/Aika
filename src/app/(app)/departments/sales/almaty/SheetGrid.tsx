@@ -19,6 +19,24 @@ const OVERSCAN = 15;
 
 const fmtNum = new Intl.NumberFormat("ru-RU");
 
+/**
+ * Сервер әрекетін қауіпсіз шақыру. Желі үзілсе немесе сайттың жаңа нұсқасы шыққан болса
+ * (ескі беттегі әрекет сервердан табылмайды) — бет ақ болып қалмасын: қате қайтарамыз,
+ * жаңа нұсқа болса бетті өзі қайта жүктейміз.
+ */
+async function safe<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: string }> {
+  try {
+    return await fn();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/server action|failed to find|not found|unexpected response/i.test(msg)) {
+      window.setTimeout(() => window.location.reload(), 1200);
+      return { ok: false, error: "Сайт жаңарды — бет қайта ашылып жатыр…" };
+    }
+    return { ok: false, error: "Байланыс үзілді — қайта көріңіз" };
+  }
+}
+
 function display(type: string, v: string | number | null, name: string): string {
   if (v === null || v === "") return "";
   if (type === "date" && typeof v === "string") {
@@ -165,7 +183,7 @@ export function SheetGrid({
       setRows((rs) => rs.map((x) => (x.id === row.id ? { ...x, values: optimistic } : x)));
       setSaving((n) => n + 1);
       startTransition(async () => {
-        const res = await updateCellAction(row.id, col.name, value);
+        const res = await safe(() => updateCellAction(row.id, col.name, value));
         setSaving((n) => n - 1);
         if (res.ok) {
           setRows((rs) => rs.map((x) => (x.id === row.id ? res.row : x)));
@@ -173,7 +191,7 @@ export function SheetGrid({
           if (col.name === "product" && value && priceByProduct[value] != null) {
             const pi = columns.findIndex((x) => x.name === "price");
             if (pi >= 0 && res.row.values[pi] == null) {
-              const r2 = await updateCellAction(row.id, "price", String(priceByProduct[value]));
+              const r2 = await safe(() => updateCellAction(row.id, "price", String(priceByProduct[value])));
               if (r2.ok) setRows((rs) => rs.map((x) => (x.id === row.id ? r2.row : x)));
             }
           }
@@ -242,7 +260,7 @@ export function SheetGrid({
 
   const addRow = () => {
     startTransition(async () => {
-      const res = await addRowAction();
+      const res = await safe(() => addRowAction());
       if (!res.ok) return flash(res.error, true);
       setQuery("");
       setRows((rs) => {
