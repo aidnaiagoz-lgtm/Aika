@@ -9,6 +9,7 @@ import { getSalesSource } from "@/lib/domain/settings";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
+import { isLeader } from "@/lib/access";
 import { SheetGrid } from "./SheetGrid";
 import { toClientRow } from "./client-row";
 
@@ -39,6 +40,8 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
     ]);
     // Таблицадағыдай — № бойынша өсу ретімен (жаңалары төменде)
     const sorted = [...rows].sort((a, b) => a.no - b.no);
+    // «Менеджер» тізімі: CEO/РОП — барлық менеджерлер, менеджер — тек өз аты
+    if (!isLeader(user)) options.manager = user.employee ? [user.employee.fullName] : [];
     // Екі жақта да толтыруға болады: Google таблицадағы жолдар сайтқа өзі түседі (оларды таблицада өзгертеді),
     // сайтта жазылған жолдарды сайтта өзгертеді.
     const lockSynced = source === "sheet";
