@@ -253,6 +253,15 @@ export function SheetGrid({
   );
 
   const startEdit = (r: number, c: number, initial?: string): void => {
+    // Бос жолдың №/Год/Мес/Менеджер ұяшығына жазса — бұлар өзі толады, сондықтан «Номер клиента»-дан бастаймыз
+    const target = gridRows[r];
+    if (target && isBlank(target) && COMPUTED_FIELDS.has(columns[c].name) && !readOnlyReason) {
+      const fc = columns.findIndex((x) => x.name === "customerPhone");
+      setSel({ r, c: fc });
+      ensureVisible(r, fc);
+      setEdit({ r, c: fc, value: initial ?? "" });
+      return;
+    }
     if (!cellEditable(r, c)) {
       const row = gridRows[r];
       if (readOnlyReason) flash(readOnlyReason, true);
