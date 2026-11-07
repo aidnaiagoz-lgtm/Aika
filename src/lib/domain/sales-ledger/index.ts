@@ -48,11 +48,21 @@ export function canDeleteLedgerRow(user: ActingUser): boolean {
     .some((rp) => rp.permission.resource === "deals" && rp.permission.action === "DELETE" && rp.scope !== "OWN");
 }
 
-/** Менеджер (OWN scope) үшін "Менеджер" бағаны әрқашан өз аты — басқа атпен жаза алмайды. */
+/**
+ * Менеджер (OWN scope) «Менеджер» бағанын өзі толтыра алады, бірақ тек өз атымен — рейтинг осы баған бойынша
+ * есептеледі, басқаның атын жазу сатылымды соған аударып жібереді. Бос қалдырса — өз аты қойылады.
+ * CEO / РОП кез келген атты жаза алады.
+ */
 function enforceOwnManagerName(user: ActingUser, scope: string, input: LedgerRowInput): LedgerRowInput {
   if (scope !== "OWN") return input;
   const name = user.employee?.fullName;
-  return name ? { ...input, manager: name } : input;
+  if (!name) return input;
+  const given = (input as { manager?: unknown }).manager;
+  const norm = (v: string) => v.trim().toLocaleLowerCase("ru");
+  if (typeof given === "string" && given.trim() && norm(given) !== norm(name)) {
+    throw new Error(`«Менеджер» бағанына тек өз атыңызды жаза аласыз — «${name}»`);
+  }
+  return { ...input, manager: name };
 }
 
 export async function previewNextNo(branchId: string): Promise<number> {
@@ -143,11 +153,11 @@ export async function getLedgerOptions(branchId: string) {
   const since = new Date(Date.now() - 365 * 86400_000);
   const rows = await prisma.salesLedgerRow.findMany({
     where: { branchId, date: { gte: since } },
-    select: Object.fromEntries([...LIST_FIELDS, "price", "date"].map((f) => [f, true])) as Record<string, true>,
+    select: Object.fromEntries([...LIST_FIELDS, "manager", "price", "date"].map((f) => [f, true])) as Record<string, true>,
     orderBy: { date: "asc" },
   });
   const options: Record<string, string[]> = {};
-  for (const f of LIST_FIELDS) {
+  for (const f of [...LIST_FIELDS, "manager"]) {
     const counts = new Map<string, number>();
     for (const r of rows as Array<Record<string, unknown>>) {
       const v = typeof r[f] === "string" ? (r[f] as string).trim() : "";

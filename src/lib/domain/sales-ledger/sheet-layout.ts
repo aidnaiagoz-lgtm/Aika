@@ -27,7 +27,7 @@ export const LIST_FIELDS = [
 ] as const;
 
 /** Өздігінен есептелетін — қолмен өзгертілмейтін бағандар. */
-export const COMPUTED_FIELDS = new Set(["no", "year", "month", "remainder", "manager"]);
+export const COMPUTED_FIELDS = new Set(["no", "year", "month", "remainder"]);
 
 // ── Түстер: Google таблицаның «продажи» парағынан дәлме-дәл (2026-11-05, xlsx/pdf экспортынан) ──
 export const SHEET_PINK = "#f4c7c3"; // № бағаны және «возврат»
