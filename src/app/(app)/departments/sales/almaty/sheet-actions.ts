@@ -55,6 +55,7 @@ export async function updateCellAction(id: string, field: string, raw: string | 
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {
+    console.error("[sheet-action] updateCell", field, e);
     return { ok: false, error: e instanceof Error ? e.message : "Сақталмады" };
   }
 }
@@ -77,6 +78,7 @@ export async function createRowAction(field: string, raw: string): Promise<Resul
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {
+    console.error("[sheet-action] createRow", field, e);
     return { ok: false, error: e instanceof Error ? e.message : "Сатылым ашылмады" };
   }
 }
