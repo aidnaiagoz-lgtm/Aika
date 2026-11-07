@@ -6,7 +6,6 @@ import { getDictionary, INTL_LOCALE } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
-import { ClientErrorReporter } from "./ClientErrorReporter";
 import { isSalesManagerOnly, isLeader, managerCanOpen } from "@/lib/access";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -43,7 +42,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-page-bg">
-      <ClientErrorReporter />
       <Sidebar userName={displayName} userRole={roleLabel} locale={locale} mode={managerMode ? "manager" : isLeader(user) ? "leader" : "staff"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
