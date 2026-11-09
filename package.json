@@ -11,7 +11,9 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "vercel-build": "prisma generate && prisma db push --skip-generate && tsx prisma/seed-if-empty.ts && next build",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "sales:dry-run": "tsx src/lib/domain/sales-ledger/normalize/dry-run.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
