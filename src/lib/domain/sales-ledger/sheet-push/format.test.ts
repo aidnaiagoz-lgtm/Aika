@@ -41,8 +41,11 @@ test("дубль жоқ: кестедегі көшірмені тану (№ + �
 });
 
 test("Apps Script: токен мен бөліктер ішінде", () => {
-  const s = appsScript("abc123");
+  const s = appsScript("abc123", "SHEET_X");
   assert.ok(s.includes('const TOKEN = "abc123"'));
+  assert.ok(s.includes('const SPREADSHEET_ID = "SHEET_X"'));
+  assert.ok(s.includes("openById(SPREADSHEET_ID)"));
+  assert.ok(!s.includes("getActive()"));
   assert.ok(s.includes("[[4,24],[26,26],[28,43],[45,45]]"));
   assert.ok(s.includes("function doPost"));
 });

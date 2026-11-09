@@ -5,6 +5,7 @@ import { isLeader } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 import { LEDGER_COLUMNS } from "../fields";
 import { toSheetValues, appsScript } from "./format";
+import { salesSheetId } from "../normalize/sheet-id";
 
 export { isPushedCopy } from "./format";
 
@@ -35,7 +36,7 @@ export async function sheetPushSetup(user: SessionUser) {
     await put(K_TOKEN, token);
   }
   const cfg = await sheetPushConfig();
-  return { script: appsScript(token), url: cfg.url, enabled: cfg.enabled, since: cfg.since?.toISOString() ?? null };
+  return { script: appsScript(token, salesSheetId()), url: cfg.url, enabled: cfg.enabled, since: cfg.since?.toISOString() ?? null };
 }
 
 async function call(url: string, body: object) {
@@ -58,7 +59,11 @@ async function call(url: string, body: object) {
 export async function saveSheetPushUrl(user: SessionUser, url: string) {
   if (!isLeader(user)) throw new Error("Тек CEO / РОП");
   const u = url.trim();
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) throw new Error("URL https://script.google.com/macros/s/…/exec түрінде болуы керек");
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) throw new Error(
+      u.includes("docs.google.com/spreadsheets")
+        ? "Бұл — кестенің сілтемесі. Керегі — Apps Script-те «Начать развертывание → Новое развертывание → Веб-приложение» жасағаннан кейін шығатын «URL веб-приложения» (…/exec)"
+        : "URL https://script.google.com/macros/s/…/exec түрінде болуы керек"
+    );
   const token = await get(K_TOKEN);
   if (!token) throw new Error("Алдымен скриптті көшіріңіз (токен жасалады)");
   const r = await call(u, { token, action: "ping" });
