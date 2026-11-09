@@ -19,6 +19,13 @@ export function proxy(request: NextRequest) {
   }
 
   if (PUBLIC_PATHS.includes(pathname)) {
+    // Ескірген/жарамсыз сессия: cookie-лерді өшіріп, кіру бетін ашамыз (ERR_TOO_MANY_REDIRECTS болмасын)
+    if (request.nextUrl.searchParams.has("expired")) {
+      const res = NextResponse.next();
+      res.cookies.delete(SESSION_COOKIE);
+      res.cookies.delete(MODE_COOKIE);
+      return res;
+    }
     if (hasSession) {
       const home = request.cookies.get(MODE_COOKIE)?.value === "manager" ? "/rating" : "/dashboard";
       return NextResponse.redirect(new URL(home, request.url));

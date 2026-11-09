@@ -10,7 +10,8 @@ import { isSalesManagerOnly, isLeader, managerCanOpen } from "@/lib/access";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  // Cookie бар, бірақ сессия жарамсыз/ескірген → «expired» белгісімен: proxy cookie-ді өшіреді (әйтпесе /login ↔ бет шеңбері)
+  if (!user) redirect("/login?expired=1");
 
   const pathname = (await headers()).get("x-pathname") ?? "";
   if (user.mustChangePassword && pathname !== "/change-password") redirect("/change-password");
