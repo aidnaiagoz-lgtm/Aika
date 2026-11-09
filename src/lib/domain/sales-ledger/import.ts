@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { isLeader } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 import { LEDGER_COLUMNS } from "./fields";
+import { parseSheetDate } from "./normalize/dates";
+import { normalizePhone } from "./normalize/phone";
+import { matchChannel } from "./normalize/dictionaries";
 
 // Excel "продажи" парағы → SalesLedgerRow. Бағандар реті LEDGER_COLUMNS-пен бірдей (A..AS, 45 баған).
 // Браузер файлды өзі оқып, жолдарды бөліктеп жібереді (Vercel 4.5 MB шегі), әр жол — 45 мәнді массив;
@@ -68,7 +71,9 @@ function mapRow(row: ExcelRow): Record<string, unknown> | null {
     } else if (DECIMAL_FIELDS.has(col.name)) {
       data[col.name] = toNumber(v);
     } else if (DATE_FIELDS.has(col.name)) {
-      data[col.name] = toDate(v);
+      // Кестедегі 120+ форматты оқиды (Excel сериялық саны да); оқылмаса — бұрынғы оқушы
+      const d = typeof v === "boolean" ? null : parseSheetDate(v);
+      data[col.name] = d && d.ok ? d.value : toDate(v);
     } else {
       data[col.name] = toText(v);
     }
@@ -84,9 +89,24 @@ function mapRow(row: ExcelRow): Record<string, unknown> | null {
   return data;
 }
 
+/** Сайттағы жолдың нормаланған мәндері: телефон (10 цифр) және канал коды. */
+export function normalizedFields(row: { customerPhone?: unknown; contactChannel?: unknown }) {
+  const ph = normalizePhone(row.customerPhone);
+  const ch = matchChannel(row.contactChannel);
+  return { phoneNorm: ph.ok ? ph.value : null, channelCode: ch && ch.code ? ch.code : null };
+}
+
+const same = (a: unknown, b: unknown): boolean => {
+  const n = (v: unknown) =>
+    v === undefined || v === null ? null : v instanceof Date ? v.getTime() : typeof v === "object" && "toNumber" in (v as object) ? (v as { toNumber(): number }).toNumber() : v;
+  return n(a) === n(b);
+};
+
 /**
- * Жолдарды Продажи кестесіне жазады (importKey = "excel:<№>" бойынша ауыстырады).
- * Excel импорты мен Google Sheets синхрондауы осыны қолданады.
+ * Жолдарды Продажи кестесіне жазады (importKey = "excel:<№>").
+ * 2026-11 (Кезең 1): жол ӨШІРІЛІП-ҚАЙТА ЖАСАЛМАЙДЫ — бар болса орнында жаңартылады (id тұрақты,
+ * Лид/Касса байланыстары үзілмейді). Тек өзгерген жолдар жазылады. Excel импорты мен Google синхрондауы осыны қолданады.
+ * Қайтарады: жаңа/өзгерген жолдардың id-лері (ереже 1 — ОЛХ лидін байланыстыру — соларға ғана іске қосылады).
  */
 export async function upsertLedgerRows(rows: ExcelRow[]) {
   if (rows.length > 1000) throw new Error("Бір бөлікте 1000 жолдан аспауы керек");
@@ -102,18 +122,44 @@ export async function upsertLedgerRows(rows: ExcelRow[]) {
     .filter((d): d is Record<string, unknown> => d !== null)
     .map((d) => ({
       ...d,
+      ...normalizedFields(d),
       branchId: branch.id,
       importKey: `excel:${d.no}`,
       createdById: typeof d.manager === "string" ? byName.get(d.manager.trim().toLocaleLowerCase("ru")) ?? null : null,
     }));
 
-  // Excel/Sheets — шындық көзі; бұрын импортталған сол жолдарды жаңасымен ауыстырамыз.
   const keys = prepared.map((d) => d.importKey);
-  await prisma.$transaction([
-    prisma.salesLedgerRow.deleteMany({ where: { importKey: { in: keys } } }),
-    prisma.salesLedgerRow.createMany({ data: prepared as never }),
-  ]);
-  return { imported: prepared.length, skipped: rows.length - prepared.length };
+  const existing = await prisma.salesLedgerRow.findMany({ where: { importKey: { in: keys } } });
+  const byKey = new Map<string, (typeof existing)[number]>();
+  for (const e of existing) if (e.importKey && !byKey.has(e.importKey)) byKey.set(e.importKey, e);
+
+  const toCreate: Record<string, unknown>[] = [];
+  const updates: { id: string; data: Record<string, unknown> }[] = [];
+  for (const d of prepared) {
+    const cur = byKey.get(d.importKey) as Record<string, unknown> | undefined;
+    if (!cur) {
+      toCreate.push(d);
+      continue;
+    }
+    const changed: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(d)) if (!same(cur[k], v)) changed[k] = v;
+    if (Object.keys(changed).length) updates.push({ id: cur.id as string, data: changed });
+  }
+
+  if (toCreate.length) await prisma.salesLedgerRow.createMany({ data: toCreate as never });
+  for (let i = 0; i < updates.length; i += 100) {
+    await prisma.$transaction(updates.slice(i, i + 100).map((u) => prisma.salesLedgerRow.update({ where: { id: u.id }, data: u.data as never })));
+  }
+  const createdIds = toCreate.length
+    ? (await prisma.salesLedgerRow.findMany({ where: { importKey: { in: toCreate.map((d) => d.importKey as string) } }, select: { id: true } })).map((r) => r.id)
+    : [];
+  return {
+    imported: prepared.length,
+    created: toCreate.length,
+    updated: updates.length,
+    skipped: rows.length - prepared.length,
+    changedIds: [...createdIds, ...updates.map((u) => u.id)],
+  };
 }
 
 export async function importLedgerChunk(actor: SessionUser, rows: ExcelRow[]) {

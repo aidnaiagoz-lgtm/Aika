@@ -10,7 +10,11 @@ test("каналдар: регистр, бос орын, ескі нұсқала
   assert.deepEqual(matchChannel("олх"), { code: OLX_UNKNOWN });
   assert.deepEqual(matchChannel("ОЛХ"), { code: OLX_UNKNOWN });
   assert.deepEqual(matchChannel("сарафанное"), { code: "REFERRAL" });
-  assert.deepEqual(matchChannel("Сипуни"), { code: null, raw: "Сипуни" });
+  assert.deepEqual(matchChannel("Сипуни"), { code: "WHATSAPP" });
+  assert.deepEqual(matchChannel("ТикТок"), { code: "TIKTOK" });
+  assert.deepEqual(matchChannel("Едыл ага танысы"), { code: "REFERRAL" });
+  assert.deepEqual(matchChannel("ОЛХ-2"), { code: "OLX_2" });
+  assert.deepEqual(matchChannel("бартер"), { code: null, raw: "бартер" });
   assert.equal(matchChannel(""), null);
 });
 
@@ -30,6 +34,7 @@ test("менеджер аттары — бір адам", () => {
   assert.equal(canonicalManager("Назерке2"), "Назерке");
   assert.equal(canonicalManager("Жанерке"), "Жанерке 2");
   assert.equal(canonicalManager("Аружан"), "Аружан 2");
+  assert.equal(canonicalManager("Мерей"), "Мерей 2");
   assert.equal(canonicalManager("Зере"), "Зере");
   assert.equal(canonicalManager("  "), null);
 });

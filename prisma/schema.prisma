@@ -108,6 +108,8 @@ model Employee {
   discountRequestsMade    DiscountRequest[]   @relation("DiscountRequestedBy")
   discountRequestsDecided DiscountRequest[]   @relation("DiscountApprovedBy")
   salesLedgerRows         SalesLedgerRow[]
+  salesLeadsAssigned      SalesLead[]         @relation("SalesLeadEmployee")
+  salesLeadsCreated       SalesLead[]         @relation("SalesLeadCreatedBy")
   salesGoalsPersonal      SalesGoalPersonal[]
 
   ordersCreated                Order[]                @relation("OrderCreatedBy")
@@ -966,13 +968,67 @@ model SalesLedgerRow {
   createdBy   Employee? @relation(fields: [createdById], references: [id])
   // Excel-ден импортталған жолдың кілті ("excel:<№>") — қайта импортта қайталанбау үшін.
   importKey   String?
+  // Нормаланған мәндер (2026-11, Кезең 1): телефон 10 цифр ("7012345678"), канал коды (normalize/dictionaries.ts)
+  phoneNorm   String?
+  channelCode String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  leads SalesLead[]
 
   @@index([branchId])
   @@index([date])
   @@index([importKey])
+  @@index([phoneNorm])
   @@map("sales_ledger_rows")
+}
+
+// ---------- Сату: Лидтер (2026-11, Кезең 1) ----------
+// olx / olx новый парақтарының орнына. Бар `Lead` моделі CRM бөліміне тиесілі және онда phone міндетті
+// (olx лидтерінің 61%-ында телефон жоқ) — сондықтан бөлек кесте.
+enum SalesLeadStatus {
+  NEW // жаңа
+  IN_PROGRESS // жұмыста (қоңырау шалынды, ойланып жүр)
+  SOLD // сатылды — Продажи жолымен байланысқан
+  LOST // жабылды (алмады)
+}
+
+model SalesLead {
+  id           String          @id @default(cuid())
+  // Кестеден импорт: "olx1:<№>" / "olx2:<№>" — қайта импортта дубль болмайды
+  importKey    String?         @unique
+  account      String // OLX_1 | OLX_2 | OLX_UNKNOWN | басқа канал коды
+  date         DateTime
+  managerName  String?
+  employeeId   String?
+  employee     Employee?       @relation("SalesLeadEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  customerName String?
+  phoneRaw     String?
+  phoneNorm    String?
+  city         String?
+  car          String?
+  comment      String?
+  reasonCode   String? // ONLY_EVA | EXPENSIVE | THINKING | OTHER_CITY | NO_ANSWER | WILL_COME | OTHER
+  reach        Int? // Охват (olx)
+  clicks       Int? // Клик (olx)
+  status       SalesLeadStatus @default(NEW)
+  followUpAt   DateTime? // келесі қоңырау
+  ledgerRowId  String?
+  ledgerRow    SalesLedgerRow? @relation(fields: [ledgerRowId], references: [id], onDelete: SetNull)
+  soldAt       DateTime?
+  autoCreated  Boolean         @default(false) // сатылымнан өзі жасалған (ереже 1)
+  createdById  String?
+  createdBy    Employee?       @relation("SalesLeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([phoneNorm])
+  @@index([date])
+  @@index([employeeId])
+  @@index([status])
+  @@index([ledgerRowId])
+  @@index([followUpAt])
+  @@map("sales_leads")
 }
 
 // ---------- Training (Обучение) ----------

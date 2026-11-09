@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { upsertLedgerRows, reconcileSyncedWindow, type ExcelRow } from "@/lib/domain/sales-ledger/import";
+import { linkOlxSales } from "@/lib/domain/sales-leads/rules";
 
 // Google Sheets → сайт синхрондауы. Таблицадағы Apps Script (docs/integrations/google-sheets-sync.gs)
 // әр 10 минут сайын соңғы күндердің жолдарын осында жібереді.
@@ -38,7 +39,10 @@ export async function POST(request: Request) {
   try {
     const result: Record<string, unknown> = { ok: true };
     if (Array.isArray(body.rows) && body.rows.length) {
-      Object.assign(result, await upsertLedgerRows(body.rows));
+      const up = await upsertLedgerRows(body.rows);
+      Object.assign(result, { imported: up.imported, created: up.created, updated: up.updated, skipped: up.skipped });
+      // Ереже 1: ОЛХ сатылымдары → лид
+      Object.assign(result, { linked: await linkOlxSales(up.changedIds) });
     }
     if (body.reconcile) {
       const nos = (body.reconcile.nos ?? []).filter((n) => Number.isFinite(n));

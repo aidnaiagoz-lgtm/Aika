@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { isLeader } from "@/lib/access";
 import { SheetGrid } from "./SheetGrid";
+import { SalesTabs } from "./SalesTabs";
 import { toClientRow } from "./client-row";
 
 // «Продажи» — Google таблицадағы «продажи» парағының сайттағы нұсқасы (45 баған, сол түстер мен ені).
@@ -54,7 +55,8 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
     return (
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="mr-3 text-lg font-semibold text-text-primary">Продажи · Алматы</h1>
+          <h1 className="mr-2 text-lg font-semibold text-text-primary">Продажи · Алматы</h1>
+          <SalesTabs on="sales" />
           <Link href={qs(shiftMonth(month, -1), onlyMine)} className="rounded-lg border border-border bg-surface px-2.5 py-1 text-sm font-bold">
             ◀
           </Link>

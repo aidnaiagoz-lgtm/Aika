@@ -6,16 +6,18 @@
 export type DictItem<C extends string = string> = { code: C; label: string; aliases: string[] };
 
 export const CHANNELS = [
-  { code: "WHATSAPP", label: "ватсап", aliases: ["ватсап", "whatsapp", "вотсап", "ватсапп", "wa"] },
+  // «Сипуни» — қоңырау қызметі; қолданушы шешімі (2026-11-09): ватсапқа жатады
+  { code: "WHATSAPP", label: "ватсап", aliases: ["ватсап", "whatsapp", "вотсап", "ватсапп", "wa", "сипуни", "sipuni"] },
   { code: "WALK_IN", label: "өзі келді", aliases: ["өзі келді", "озы келди", "өзі келді ", "сам пришел", "өзі"] },
-  { code: "OLX_1", label: "ОЛХ-1", aliases: ["олх-1", "олх 1", "olx-1", "olx 1"] },
-  { code: "OLX_2", label: "ОЛХ-2", aliases: ["олх-2", "олх 2", "olx-2", "olx 2", "olx новый", "олх новый"] },
+  { code: "OLX_1", label: "ОЛХ-1", aliases: ["олх-1", "олх 1", "olx-1", "olx 1", "олх1", "olx1"] },
+  { code: "OLX_2", label: "ОЛХ-2", aliases: ["олх-2", "олх 2", "olx-2", "olx 2", "олх2", "olx2", "olx новый", "олх новый"] },
   { code: "RETURNING", label: "ескі клиент", aliases: ["ескі клиент", "старый клиент", "ески клиент"] },
   { code: "INSTAGRAM", label: "инстаграм", aliases: ["инстаграм", "instagram", "инста"] },
+  { code: "TIKTOK", label: "ТикТок", aliases: ["тикток", "tiktok", "тик ток"] },
   { code: "SITE", label: "сайт", aliases: ["сайт", "site"] },
   { code: "KASPI", label: "каспий", aliases: ["каспий", "kaspi"] },
   { code: "CERTIFICATE", label: "сертификат", aliases: ["сертификат"] },
-  { code: "REFERRAL", label: "сарафан", aliases: ["сарафан", "сарафанное", "сарафанка"] },
+  { code: "REFERRAL", label: "сарафан", aliases: ["сарафан", "сарафанное", "сарафанка", "едыл ага танысы", "еділ аға танысы"] },
 ] as const satisfies readonly DictItem[];
 export type ChannelCode = (typeof CHANNELS)[number]["code"];
 
@@ -24,6 +26,15 @@ export const OLX_UNKNOWN = "OLX_UNKNOWN" as const;
 const OLX_PLAIN = ["олх", "olx", "олх ", "оlх"];
 
 export type ChannelMatch = { code: ChannelCode | typeof OLX_UNKNOWN } | { code: null; raw: string };
+
+/** Канал коды → атауы (OLX_UNKNOWN — «ОЛХ»). */
+export function channelLabel(code: string | null | undefined): string {
+  if (!code) return "";
+  if (code === OLX_UNKNOWN) return "ОЛХ";
+  return CHANNELS.find((c) => c.code === code)?.label ?? code;
+}
+
+export const isOlxChannel = (code: string | null | undefined) => code === "OLX_1" || code === "OLX_2" || code === OLX_UNKNOWN;
 
 export function matchChannel(raw: unknown): ChannelMatch | null {
   const s = norm(raw);
