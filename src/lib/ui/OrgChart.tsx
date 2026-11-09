@@ -248,35 +248,35 @@ function OrgTreeNode({
   return (
     <li>
       <div
-        className={`inline-block whitespace-nowrap rounded-icon text-left shadow-card ${isCeo ? "rounded-2xl px-6 py-4 shadow-lg" : "px-2.5 py-2"} ${cardClass}`}
+        className={`inline-block whitespace-nowrap rounded-icon text-left shadow-card ${isCeo ? "rounded-3xl px-10 py-7 shadow-lg" : "px-2.5 py-2"} ${cardClass}`}
       >
-        <div className={`flex items-center ${isCeo ? "gap-2 text-base font-bold" : "gap-1.5 text-xs font-semibold"}`}>
-          {node.person && <UserRound size={isCeo ? 20 : 12} className="shrink-0 opacity-80" />}
+        <div className={`flex items-center ${isCeo ? "gap-3 text-2xl font-bold" : "gap-1.5 text-xs font-semibold"}`}>
+          {node.person && <UserRound size={isCeo ? 32 : 12} className="shrink-0 opacity-80" />}
           {node.name}
         </div>
         {node.roles && node.roles.length > 0 && (
           <ul
-            className={`flex flex-col border-t border-current/15 ${isCeo ? "mt-1.5 gap-1 pt-1.5" : "mt-1 gap-0.5 pt-1"}`}
+            className={`flex flex-col border-t border-current/15 ${isCeo ? "mt-3 gap-1.5 pt-3" : "mt-1 gap-0.5 pt-1"}`}
           >
             {node.roles.map((role, i) => (
-              <li key={`${role}-${i}`} className={isCeo ? "text-sm font-medium opacity-90" : "text-[10px] font-normal opacity-80"}>
+              <li key={`${role}-${i}`} className={isCeo ? "text-lg font-medium opacity-90" : "text-[10px] font-normal opacity-80"}>
                 {role}
               </li>
             ))}
           </ul>
         )}
-        <div className={`border-t border-current/15 ${isCeo ? "mt-1.5 pt-1.5" : "mt-1 pt-1"}`}>
+        <div className={`border-t border-current/15 ${isCeo ? "mt-3 pt-3" : "mt-1 pt-1"}`}>
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={onToggleCkp}
-            className={`font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100 ${isCeo ? "text-xs" : "text-[10px]"}`}
+            className={`font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100 ${isCeo ? "text-base" : "text-[10px]"}`}
           >
             {ckpLabel}
           </button>
           {ckpOpen && (
             <p
-              className={`mt-1 whitespace-normal font-normal leading-snug opacity-90 ${isCeo ? "max-w-[280px] text-xs" : "max-w-[220px] text-[10px]"}`}
+              className={`mt-1 whitespace-normal font-normal leading-snug opacity-90 ${isCeo ? "max-w-[360px] text-sm" : "max-w-[220px] text-[10px]"}`}
             >
               {node.ckp || ckpEmpty}
             </p>
