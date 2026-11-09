@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 // «Продажи · Алматы» бетінің қойындылары (бір деректің көріністері)
-export function SalesTabs({ on }: { on: "sales" | "leads" }) {
+export function SalesTabs({ on }: { on: "sales" | "leads" | "kassa" }) {
   const tabs = [
     ["sales", "Продажи", "/departments/sales/almaty"],
     ["leads", "Лидтер", "/departments/sales/almaty/leads"],
+    ["kassa", "Касса", "/departments/sales/almaty/kassa"],
   ] as const;
   return (
     <div className="flex items-center gap-1.5">
