@@ -236,41 +236,48 @@ function OrgTreeNode({
   onToggleCkp: () => void;
 }) {
   const isVacant = node.name === "ФИО";
+  const isCeo = depth === 0 && !isVacant;
   const cardClass = isVacant
     ? "border border-danger/40 bg-danger/10 text-danger"
-    : depth === 0
-      ? "bg-accent text-white"
+    : isCeo
+      ? "bg-accent text-white ring-2 ring-accent/30"
       : depth === 1
         ? "bg-accent-tint text-accent"
         : "border border-border bg-surface text-text-primary";
 
   return (
     <li>
-      <div className={`inline-block whitespace-nowrap rounded-icon px-2.5 py-2 text-left shadow-card ${cardClass}`}>
-        <div className="flex items-center gap-1.5 text-xs font-semibold">
-          {node.person && <UserRound size={12} className="shrink-0 opacity-80" />}
+      <div
+        className={`inline-block whitespace-nowrap rounded-icon text-left shadow-card ${isCeo ? "rounded-2xl px-6 py-4 shadow-lg" : "px-2.5 py-2"} ${cardClass}`}
+      >
+        <div className={`flex items-center ${isCeo ? "gap-2 text-base font-bold" : "gap-1.5 text-xs font-semibold"}`}>
+          {node.person && <UserRound size={isCeo ? 20 : 12} className="shrink-0 opacity-80" />}
           {node.name}
         </div>
         {node.roles && node.roles.length > 0 && (
-          <ul className="mt-1 flex flex-col gap-0.5 border-t border-current/15 pt-1">
+          <ul
+            className={`flex flex-col border-t border-current/15 ${isCeo ? "mt-1.5 gap-1 pt-1.5" : "mt-1 gap-0.5 pt-1"}`}
+          >
             {node.roles.map((role, i) => (
-              <li key={`${role}-${i}`} className="text-[10px] font-normal opacity-80">
+              <li key={`${role}-${i}`} className={isCeo ? "text-sm font-medium opacity-90" : "text-[10px] font-normal opacity-80"}>
                 {role}
               </li>
             ))}
           </ul>
         )}
-        <div className="mt-1 border-t border-current/15 pt-1">
+        <div className={`border-t border-current/15 ${isCeo ? "mt-1.5 pt-1.5" : "mt-1 pt-1"}`}>
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={onToggleCkp}
-            className="text-[10px] font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100"
+            className={`font-semibold underline decoration-dotted underline-offset-2 opacity-80 hover:opacity-100 ${isCeo ? "text-xs" : "text-[10px]"}`}
           >
             {ckpLabel}
           </button>
           {ckpOpen && (
-            <p className="mt-1 max-w-[220px] whitespace-normal text-[10px] font-normal leading-snug opacity-90">
+            <p
+              className={`mt-1 whitespace-normal font-normal leading-snug opacity-90 ${isCeo ? "max-w-[280px] text-xs" : "max-w-[220px] text-[10px]"}`}
+            >
               {node.ckp || ckpEmpty}
             </p>
           )}
