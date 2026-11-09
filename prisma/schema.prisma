@@ -28,12 +28,13 @@ model User {
   employee        Employee?
   sessions        Session[]
   userRoles       UserRole[]
-  auditLogs       AuditLog[]       @relation("AuditActor")
-  notifications   Notification[]   @relation("NotificationRecipient")
-  tasksAssigned   Task[]           @relation("TaskAssignedTo")
-  tasksCreated    Task[]           @relation("TaskAssignedBy")
+  auditLogs       AuditLog[]          @relation("AuditActor")
+  notifications   Notification[]      @relation("NotificationRecipient")
+  tasksAssigned   Task[]              @relation("TaskAssignedTo")
+  tasksCreated    Task[]              @relation("TaskAssignedBy")
   taskComments    TaskComment[]
   trainingFolders TrainingFolder[]
+  cashHandovers   CashHandoverEvent[]
 
   @@map("users")
 }
@@ -964,17 +965,23 @@ model SalesLedgerRow {
   payments     String? // Оплаты
   salesChannel String? // Канал продаж
 
-  createdById String?
-  createdBy   Employee? @relation(fields: [createdById], references: [id])
+  createdById    String?
+  createdBy      Employee? @relation(fields: [createdById], references: [id])
   // Excel-ден импортталған жолдың кілті ("excel:<№>") — қайта импортта қайталанбау үшін.
-  importKey   String?
+  importKey      String?
   // Нормаланған мәндер (2026-11, Кезең 1): телефон 10 цифр ("7012345678"), канал коды (normalize/dictionaries.ts)
-  phoneNorm   String?
-  channelCode String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  phoneNorm      String?
+  channelCode    String?
+  // Сайтта жазылған жол Google кестеге жіберілгенде (2026-11): кестедегі жол нөмірі, уақыты, қатесі.
+  // Синхрондау осы жолдың кестедегі көшірмесін қайта импорттамайды (рейтингте екі рет саналмасын).
+  sheetRow       Int?
+  sheetPushedAt  DateTime?
+  sheetPushError String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  leads SalesLead[]
+  leads      SalesLead[]
+  cashEvents CashHandoverEvent[]
 
   @@index([branchId])
   @@index([date])
@@ -1084,4 +1091,33 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// ---------- Сату: Касса (2026-11, Кезең 2) ----------
+// Қолма-қол төлем Продажиден өзі шығады (Чек N способ оплаты = наличными). Ақшаны тапсыру тізбегі —
+// белгіше емес, оқиға: кім, қашан. «касса» парағының орнына.
+enum CashHandoverStep {
+  HANDED // менеджер тапсырды (кімге — toName: ст МОП немесе Еділ аға)
+  SENIOR_RECEIVED // ст МОП қабылдады
+  OWNER_RECEIVED // Еділ аға қабылдады
+}
+
+model CashHandoverEvent {
+  id          String           @id @default(cuid())
+  ledgerRowId String?
+  ledgerRow   SalesLedgerRow?  @relation(fields: [ledgerRowId], references: [id], onDelete: SetNull)
+  receiptNo   Int // Чек 1 / 2 / 3
+  step        CashHandoverStep
+  toName      String? // HANDED: кімге берілді
+  amount      Decimal?         @db.Decimal(14, 2)
+  userId      String?
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  at          DateTime
+  source      String           @default("site") // site | sheet (ескі «касса» парағынан)
+  createdAt   DateTime         @default(now())
+
+  @@unique([ledgerRowId, receiptNo, step])
+  @@index([step])
+  @@index([at])
+  @@map("cash_handover_events")
 }

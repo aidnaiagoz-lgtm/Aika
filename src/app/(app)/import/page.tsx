@@ -5,6 +5,8 @@ import { ImportClient } from "./ImportClient";
 import { lastSheetSyncAt, sheetSyncConfigured } from "@/lib/domain/sales-ledger/sheet-sync";
 import { syncSheetNowAction, setSourceAction } from "./actions";
 import { getSalesSource } from "@/lib/domain/settings";
+import { sheetPushConfig } from "@/lib/domain/sales-ledger/sheet-push";
+import { SheetPushSetup } from "./SheetPushSetup";
 
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ sync?: string }> }) {
   const user = await getCurrentUser();
@@ -14,6 +16,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
   const last = await lastSheetSyncAt();
   const configured = sheetSyncConfigured();
   const source = await getSalesSource();
+  const push = await sheetPushConfig();
   const fmt = new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Almaty", dateStyle: "short", timeStyle: "short" });
 
   return (
@@ -77,6 +80,8 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           </p>
         )}
       </section>
+
+      <SheetPushSetup enabled={push.enabled} url={push.url} />
 
       <h2 className="mt-2 text-sm font-bold uppercase tracking-wide text-text-secondary">Excel файлынан бір реттік импорт</h2>
       <ImportClient />

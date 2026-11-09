@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { upsertLedgerRows, reconcileSyncedWindow, type ExcelRow } from "./import";
 import { linkOlxSales } from "@/lib/domain/sales-leads/rules";
 import { syncLeadSheets } from "@/lib/domain/sales-leads/sheet-import";
+import { retryPendingPushes } from "./sheet-push";
 import { getSalesSource } from "../settings";
 
 // Google Sheets «продажи» → сайт. Таблица "сілтемесі бар адам көре алады" режимінде:
@@ -107,6 +108,8 @@ export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promi
     updated += r.updated;
   }
   const { removed } = await reconcileSyncedWindow(from, rows.map((r) => Number(r[0])));
+  // Сайттан кестеге жіберілмей қалған жолдарды қайта жіберу
+  const pushRetried = await retryPendingPushes().catch(() => 0);
   // Ереже 1: жаңа/өзгерген ОЛХ сатылымдары → лидпен байланыстыру
   const linked = await linkOlxSales(changedIds);
   // olx / olx новый парақтарындағы жаңа лидтер (лидтер импорты қосулы болса)
@@ -116,7 +119,7 @@ export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promi
       action: "SYNC",
       entityType: "SalesLedgerRow",
       entityId: "google-sheets",
-      newValue: { from, rows: rows.length, created, updated, removed, linked, leads } as object,
+      newValue: { from, rows: rows.length, created, updated, removed, linked, leads, pushRetried } as object,
     },
   });
   return { rows: rows.length, removed, from };

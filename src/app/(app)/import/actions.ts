@@ -73,3 +73,40 @@ export async function setSourceAction(formData: FormData) {
   revalidatePath("/departments/sales/almaty");
   redirect("/import#source");
 }
+
+// ───────── Сайт → Google кесте ─────────
+import { sheetPushSetup, saveSheetPushUrl, disableSheetPush } from "@/lib/domain/sales-ledger/sheet-push";
+
+export async function sheetPushSetupAction() {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Сессия аяқталған" };
+  try {
+    return { ok: true as const, data: await sheetPushSetup(user) };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Қате" };
+  }
+}
+
+export async function saveSheetPushUrlAction(url: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Сессия аяқталған" };
+  try {
+    await saveSheetPushUrl(user, url);
+    revalidatePath("/import");
+    return { ok: true as const };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Қате" };
+  }
+}
+
+export async function disableSheetPushAction() {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Сессия аяқталған" };
+  try {
+    await disableSheetPush(user);
+    revalidatePath("/import");
+    return { ok: true as const };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Қате" };
+  }
+}

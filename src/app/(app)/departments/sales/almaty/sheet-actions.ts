@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { pushRowToSheet } from "@/lib/domain/sales-ledger/sheet-push";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { createLedgerRow, updateLedgerRow, recomputeLedgerRow, canEditLedgerRow } from "@/lib/domain/sales-ledger";
@@ -52,6 +54,7 @@ export async function updateCellAction(id: string, field: string, raw: string | 
     if (!canEditLedgerRow(user, existing)) return { ok: false, error: "Бұл жолды тек оны енгізген менеджер өзгерте алады" };
     await updateLedgerRow(user, id, { [field]: parseValue(col.type, raw) } as never);
     const row = await recomputeLedgerRow(id);
+    after(() => pushRowToSheet(id)); // сайтта жазылған жол → Google кесте
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {
@@ -75,6 +78,7 @@ export async function createRowAction(field: string, raw: string): Promise<Resul
       [field]: value,
     } as never);
     const row = await recomputeLedgerRow(created.id);
+    after(() => pushRowToSheet(created.id));
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {

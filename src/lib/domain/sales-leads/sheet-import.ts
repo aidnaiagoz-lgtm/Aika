@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { salesSheetId } from "../sales-ledger/normalize/sheet-id";
 import { parseCsv } from "../sales-ledger/normalize/csv";
 import { normalizePhone } from "../sales-ledger/normalize/phone";
 import { matchChannel } from "../sales-ledger/normalize/dictionaries";
@@ -11,8 +12,7 @@ import { linkOlxSales } from "./rules";
 import { activateLeads, leadsActive } from "./state";
 
 async function fetchSheet(key: LeadSheetKey): Promise<LeadSheetRow[]> {
-  const id = process.env.SALES_SHEET_ID;
-  if (!id) throw new Error("SALES_SHEET_ID орнатылмаған");
+  const id = salesSheetId();
   const s = LEAD_SHEETS[key];
   const gid = process.env[s.gidEnv] ?? s.gid;
   const res = await fetch(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/export?format=csv&gid=${encodeURIComponent(gid)}`, {
