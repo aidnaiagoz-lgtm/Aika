@@ -63,9 +63,11 @@ export function isPushedCopy(
 }
 
 /** Google кестеге қойылатын Apps Script (CEO көшіріп қояды). */
-export function appsScript(token: string): string {
+export function appsScript(token: string, spreadsheetId: string): string {
   return `// AutoMax: сайттан «продажи» парағына жол жазу. Тек осы токенмен келген сұраныс қабылданады.
+// Бұл мәтінді Apps Script-тегі БАРЛЫҚ мәтіннің орнына қойыңыз (myFunction қалмасын).
 const TOKEN = ${JSON.stringify(token)};
+const SPREADSHEET_ID = ${JSON.stringify(spreadsheetId)}; // кесте — скрипт қай жерде жасалса да осы кестеге жазады
 const SHEET = "продажи";
 // Формула бағандарына тимейміз: A №, B Год, C Мес, Y Цена, AA Остаток, AR Оплаты
 const SEGMENTS = ${JSON.stringify(WRITE_SEGMENTS.map(([a, b]) => [a + 1, b + 1]))}; // [бастау, соңы], 1-ден
@@ -73,8 +75,9 @@ const SEGMENTS = ${JSON.stringify(WRITE_SEGMENTS.map(([a, b]) => [a + 1, b + 1])
 function doPost(e) {
   const body = JSON.parse(e.postData.contents);
   if (body.token !== TOKEN) return out({ ok: false, error: "token" });
-  if (body.action === "ping") return out({ ok: true, sheet: !!SpreadsheetApp.getActive().getSheetByName(SHEET) });
-  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (body.action === "ping") return out({ ok: true, sheet: !!ss.getSheetByName(SHEET) });
+  const sh = ss.getSheetByName(SHEET);
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
