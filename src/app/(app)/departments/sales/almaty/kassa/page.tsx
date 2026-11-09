@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeader, MANAGER_ROLES } from "@/lib/access";
-import { loadKassa, loadDebts, STAGE_LABEL } from "@/lib/domain/sales-kassa";
+import { loadKassa, loadDebts } from "@/lib/domain/sales-kassa";
 import { SalesTabs } from "../SalesTabs";
 import { KassaClient } from "./KassaClient";
 
@@ -41,7 +41,7 @@ export default async function KassaPage({ searchParams }: { searchParams: Promis
           <Link href={`/departments/sales/almaty/kassa?m=${shiftMonth(month, 1)}`} className="rounded-lg border border-border bg-surface px-2.5 py-1 text-sm font-bold">▶</Link>
         </div>
       </div>
-      <KassaClient data={data} debts={debts} stageLabels={STAGE_LABEL} leader={leader} staff={staff} />
+      <KassaClient data={data} debts={debts} leader={leader} staff={staff} />
     </div>
   );
 }

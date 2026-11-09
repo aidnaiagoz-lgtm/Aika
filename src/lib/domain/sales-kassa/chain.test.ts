@@ -47,6 +47,7 @@ test("кім не істей алады", () => {
   assert.equal(nextStep("SENIOR", { ...none, isOwner: true }), "OWNER_RECEIVED");
   assert.equal(nextStep("SENIOR", { ...none, isLeader: true }), null); // Еділ ағаның орнына басқа ешкім баспайды
   assert.equal(nextStep("HANDED_OWNER", { ...none, isOwner: true }), "OWNER_RECEIVED");
+  assert.equal(nextStep("MANAGER", { ...none, isOwner: true, isLeader: true }), "OWNER_RECEIVED"); // Еділ аға менеджерден тікелей алды
 });
 
 test("ескі касса парағы → оқиғалар", () => {

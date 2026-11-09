@@ -185,7 +185,8 @@ export async function loadDebts(user: SessionUser) {
 
 // ───────── әрекеттер ─────────
 /** Таңдалған чектер бойынша келесі қадам (әрқайсысына рұқсат тексеріледі). to: HANDED үшін «senior» | «owner». */
-export async function act(user: SessionUser, keys: string[], to: "senior" | "owner" = "senior") {
+// Әдетте ақша тікелей Еділ ағаға беріледі; Зереге — тек ол жоқ кезде (қолданушы, 2026-11-09)
+export async function act(user: SessionUser, keys: string[], to: "senior" | "owner" = "owner") {
   const data = await loadKassa(user, new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7));
   const senior = data.senior;
   const byKey = new Map(data.items.map((i) => [i.key, i]));
@@ -195,6 +196,9 @@ export async function act(user: SessionUser, keys: string[], to: "senior" | "own
     const i = byKey.get(k);
     if (!i || !i.action) continue;
     const toName = i.action === "HANDED" ? (to === "owner" ? OWNER_NAME : senior?.fullName ?? "ст МОП") : null;
+    // Еділ аға менеджерден тікелей алды → «берді (Еділ ағаға)» оқиғасы да жазылады (тізбек толық болсын)
+    if (i.action === "OWNER_RECEIVED" && i.stage === "MANAGER")
+      rows.push({ ledgerRowId: i.ledgerRowId, receiptNo: i.receiptNo, step: "HANDED", toName: OWNER_NAME, amount: i.amount, userId: user.id, at: now });
     rows.push({ ledgerRowId: i.ledgerRowId, receiptNo: i.receiptNo, step: i.action, toName, amount: i.amount, userId: user.id, at: now });
     // ст МОП өз ақшасын «тапсырса» — бірден өзі қабылдаған болып саналады
     if (i.action === "HANDED" && data.role.senior && to === "senior")
@@ -206,7 +210,7 @@ export async function act(user: SessionUser, keys: string[], to: "senior" | "own
 }
 
 /** «Күнді жабу»: менің қолымдағы (менің кезегім) барлық чектің келесі қадамы. */
-export async function closeDay(user: SessionUser, to: "senior" | "owner" = "senior") {
+export async function closeDay(user: SessionUser, to: "senior" | "owner" = "owner") {
   const data = await loadKassa(user, new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 7));
   const keys = data.items.filter((i) => i.action && (i.action !== "HANDED" || i.mine)).map((i) => i.key);
   if (!keys.length) throw new Error("Жабатын ақша жоқ — бәрі тапсырылған");

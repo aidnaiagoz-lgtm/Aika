@@ -11,11 +11,11 @@ export const OWNER_NAME = "Еділ аға";
 export type Step = "HANDED" | "SENIOR_RECEIVED" | "OWNER_RECEIVED";
 export type Stage = "MANAGER" | "HANDED_SENIOR" | "HANDED_OWNER" | "SENIOR" | "OWNER" | "ARCHIVE";
 export const STAGE_LABEL: Record<Stage, string> = {
-  MANAGER: "менеджердің қолында",
-  HANDED_SENIOR: "ст МОП қабылдауын күтуде",
-  HANDED_OWNER: "Еділ аға қабылдауын күтуде",
-  SENIOR: "ст МОП-та",
-  OWNER: "Еділ аға қабылдады",
+  MANAGER: "менеджерде",
+  HANDED_SENIOR: "Зереге берді — растауын күтуде",
+  HANDED_OWNER: "Еділ ағаға берді — растауын күтуде",
+  SENIOR: "Зереде",
+  OWNER: "Еділ аға алды",
   ARCHIVE: "архив (ескі, тізбегі белгісіз)",
 };
 
@@ -73,6 +73,8 @@ export function holderOf(stage: Stage, manager: string | null, handedTo: string 
 export type Role = { isManagerOfRow: boolean; isSenior: boolean; isOwner: boolean; isLeader: boolean };
 /** Келесі әрекет кімге рұқсат. */
 export function nextStep(stage: Stage, role: Role): Step | null {
+  // Еділ аға менеджерден ақшаны тікелей алса — менеджер батырма баспаса да «Алдым» дей алады
+  if (stage === "MANAGER" && role.isOwner) return "OWNER_RECEIVED";
   if (stage === "MANAGER" && (role.isManagerOfRow || role.isLeader)) return "HANDED";
   if (stage === "HANDED_SENIOR" && (role.isSenior || role.isLeader)) return "SENIOR_RECEIVED";
   if ((stage === "SENIOR" || stage === "HANDED_OWNER") && role.isOwner) return "OWNER_RECEIVED";
