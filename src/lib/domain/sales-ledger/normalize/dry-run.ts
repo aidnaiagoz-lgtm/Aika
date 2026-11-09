@@ -5,13 +5,14 @@
  *   pnpm sales:dry-run            → есеп stdout-қа (Markdown)
  */
 import { parseCsv } from "./csv";
+import { salesSheetId } from "./sheet-id";
 import { normalizePhone } from "./phone";
 import { parseSheetDate, dateShape } from "./dates";
 import { matchChannel, guessLeadReason, OLX_UNKNOWN, LEAD_REASONS, CHANNELS, PAY_METHODS } from "./dictionaries";
 import { parsePayment } from "./payment";
 import { canonicalManager, MANAGER_ALIASES } from "./managers";
 
-const SHEET_ID = process.env.SALES_SHEET_ID ?? "1BSD1trnFuvZ-KRQN_ALXjEID32dFswe9OJCcVZ1xDdo";
+const SHEET_ID = salesSheetId();
 const GID = { sales: "0", olx1: "1153861268", olx2: "1282694708", kassa: "59939132" };
 
 async function sheet(gid: string): Promise<string[][]> {

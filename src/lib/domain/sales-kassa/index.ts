@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { salesSheetId } from "../sales-ledger/normalize/sheet-id";
 import { isLeader, hasAnyRole } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 import { parseCsv } from "../sales-ledger/normalize/csv";
@@ -218,8 +219,7 @@ const KASSA_GID = process.env.SALES_KASSA_GID ?? "59939132";
 /** Ескі парақтағы белгілерді бастапқы оқиғалар ретінде жазу (dryRun — тек санайды). Соңында Касса қосылады. */
 export async function importKassaSheet(user: SessionUser, opts: { dryRun: boolean }) {
   if (!isLeader(user)) throw new Error("Тек CEO мен РОП");
-  const id = process.env.SALES_SHEET_ID;
-  if (!id) throw new Error("SALES_SHEET_ID орнатылмаған");
+  const id = salesSheetId();
   const res = await fetch(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/export?format=csv&gid=${KASSA_GID}`, {
     cache: "no-store",
     redirect: "follow",
