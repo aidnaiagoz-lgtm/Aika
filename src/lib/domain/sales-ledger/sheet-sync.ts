@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { upsertLedgerRows, reconcileSyncedWindow, type ExcelRow } from "./import";
+import { linkOlxSales } from "@/lib/domain/sales-leads/rules";
+import { syncLeadSheets } from "@/lib/domain/sales-leads/sheet-import";
 import { getSalesSource } from "../settings";
 
 // Google Sheets «продажи» → сайт. Таблица "сілтемесі бар адам көре алады" режимінде:
@@ -96,10 +98,26 @@ export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promi
   }
   if (rows.length === 0) throw new Error("Соңғы күндерде жол табылмады — бағандар реті өзгерген бе?");
 
-  for (let i = 0; i < rows.length; i += 500) await upsertLedgerRows(rows.slice(i, i + 500));
+  const changedIds: string[] = [];
+  let created = 0, updated = 0;
+  for (let i = 0; i < rows.length; i += 500) {
+    const r = await upsertLedgerRows(rows.slice(i, i + 500));
+    changedIds.push(...r.changedIds);
+    created += r.created;
+    updated += r.updated;
+  }
   const { removed } = await reconcileSyncedWindow(from, rows.map((r) => Number(r[0])));
+  // Ереже 1: жаңа/өзгерген ОЛХ сатылымдары → лидпен байланыстыру
+  const linked = await linkOlxSales(changedIds);
+  // olx / olx новый парақтарындағы жаңа лидтер (лидтер импорты қосулы болса)
+  const leads = await syncLeadSheets().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   await prisma.auditLog.create({
-    data: { action: "SYNC", entityType: "SalesLedgerRow", entityId: "google-sheets", newValue: { from, rows: rows.length, removed } },
+    data: {
+      action: "SYNC",
+      entityType: "SalesLedgerRow",
+      entityId: "google-sheets",
+      newValue: { from, rows: rows.length, created, updated, removed, linked, leads } as object,
+    },
   });
   return { rows: rows.length, removed, from };
 }

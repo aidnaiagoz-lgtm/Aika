@@ -10,6 +10,7 @@ export const MANAGER_ALIASES: Record<string, string> = {
   "назерке 2": "Назерке",
   "жанерке": "Жанерке 2",
   "аружан": "Аружан 2",
+  "мерей": "Мерей 2", // olx парағында 10 лид — қолданушы растады (2026-11-09)
 };
 
 export function canonicalManager(raw: unknown): string | null {

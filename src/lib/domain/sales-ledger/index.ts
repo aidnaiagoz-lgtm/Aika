@@ -2,6 +2,8 @@ import { prisma, PermissionAction } from "@/lib/db";
 import { assertPermission } from "@/lib/rbac";
 import type { ActingUser } from "../sales/types";
 import type { LedgerRowInput } from "./types";
+import { normalizedFields } from "./import";
+import { linkOlxSales } from "@/lib/domain/sales-leads/rules";
 
 export * from "./types";
 
@@ -186,5 +188,9 @@ export async function recomputeLedgerRow(id: string) {
     const paid = [r.receipt1Amount, r.receipt2Amount, r.receipt3Amount].reduce((t, v) => t + Number(v ?? 0), 0);
     data.remainder = Math.max(0, Number(r.soldFor) - paid);
   }
-  return prisma.salesLedgerRow.update({ where: { id }, data });
+  Object.assign(data, normalizedFields(r));
+  const row = await prisma.salesLedgerRow.update({ where: { id }, data });
+  // Ереже 1: ОЛХ сатылымы → лидпен байланыстыру (сайтта жазылған жол)
+  await linkOlxSales([row.id]);
+  return row;
 }
