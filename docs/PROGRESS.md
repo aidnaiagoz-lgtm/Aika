@@ -24,6 +24,11 @@
 
 ## Журнал (жаңасы — жоғарыда)
 
+### 2026-11-09 — aidnaiagoz (Claude): ERR_TOO_MANY_REDIRECTS түзетілді (ортақ файл, жедел)
+**Мәселе:** браузерде ескірген/жарамсыз `automax_session` cookie қалса — (app) layout `/login`-ге, proxy `/login`-нен үйге бағыттап, шексіз шеңбер.
+**Түзету:** layout (және goals/change-password actions) → `/login?expired=1`; proxy `/login?expired` келгенде `automax_session` пен `automax_mode` cookie-лерін өшіріп, кіру бетін ашады.
+**Тексерілді:** жарамсыз cookie-мен `/`, `/rating`, `/departments/sales/almaty`, `/dashboard` → 1–2 бағыттаудан кейін `/login?expired=1`; сосын қалыпты кіру жұмыс істейді.
+
 ### 2026-11-09 — aidnaiagoz (Claude): Прод-та іске қосылды (қолданушының рұқсатымен)
 - PR #48 merge → automax-erp.vercel.app.
 - Лидтер импорты жасалды (olx + olx новый) — лидтер жүйесі қосулы (ереже 1, olx синхрондауы). Қараша: 80 лид, 76 телефонмен, 9 сатылды.

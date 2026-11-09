@@ -8,7 +8,7 @@ import { homePathFor } from "@/lib/access";
 
 export async function changePasswordAction(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?expired=1");
 
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("next") ?? "");

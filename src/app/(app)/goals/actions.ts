@@ -7,7 +7,7 @@ import { saveGoals } from "@/lib/domain/goals";
 
 export async function saveGoalsAction(formData: FormData) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?expired=1");
   const month = String(formData.get("month"));
   const ids = formData.getAll("employeeId").map(String);
   const personal = ids.map((employeeId) => {
