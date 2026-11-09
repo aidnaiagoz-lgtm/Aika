@@ -24,6 +24,11 @@
 
 ## Журнал (жаңасы — жоғарыда)
 
+### 2026-11-09 — sulejmenovedil (Claude): Орг-структура — CEO карточкасы үлкейтілді
+Пайдаланушы сұрады: "Едил" (Бас директор) карточкасы ерекшеленіп, үлкенірек/әдемірек көрінсін. `OrgChart.tsx`-те тек түбір (depth 0) түйін үшін: үлкен padding, домалақ бұрыш (`rounded-2xl`), үлкен қаріп, accent ring, үлкен иконка. Headless скриншотта толық бет composite ақауы байқалды (карточканың тек соңғы бөлігі көрінді) — бөлек элемент скриншотымен тексеріп, нақты рендер дұрыс екенін растадым.
+
+**Өзгерген файл:** `src/lib/ui/OrgChart.tsx`.
+
 ### 2026-11-09 — aidnaiagoz (Claude): ERR_TOO_MANY_REDIRECTS түзетілді (ортақ файл, жедел)
 **Мәселе:** браузерде ескірген/жарамсыз `automax_session` cookie қалса — (app) layout `/login`-ге, proxy `/login`-нен үйге бағыттап, шексіз шеңбер.
 **Түзету:** layout (және goals/change-password actions) → `/login?expired=1`; proxy `/login?expired` келгенде `automax_session` пен `automax_mode` cookie-лерін өшіріп, кіру бетін ашады.
