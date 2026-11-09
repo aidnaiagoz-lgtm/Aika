@@ -965,15 +965,20 @@ model SalesLedgerRow {
   payments     String? // Оплаты
   salesChannel String? // Канал продаж
 
-  createdById String?
-  createdBy   Employee? @relation(fields: [createdById], references: [id])
+  createdById    String?
+  createdBy      Employee? @relation(fields: [createdById], references: [id])
   // Excel-ден импортталған жолдың кілті ("excel:<№>") — қайта импортта қайталанбау үшін.
-  importKey   String?
+  importKey      String?
   // Нормаланған мәндер (2026-11, Кезең 1): телефон 10 цифр ("7012345678"), канал коды (normalize/dictionaries.ts)
-  phoneNorm   String?
-  channelCode String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  phoneNorm      String?
+  channelCode    String?
+  // Сайтта жазылған жол Google кестеге жіберілгенде (2026-11): кестедегі жол нөмірі, уақыты, қатесі.
+  // Синхрондау осы жолдың кестедегі көшірмесін қайта импорттамайды (рейтингте екі рет саналмасын).
+  sheetRow       Int?
+  sheetPushedAt  DateTime?
+  sheetPushError String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   leads      SalesLead[]
   cashEvents CashHandoverEvent[]

@@ -6,6 +6,7 @@ import { LEDGER_COLUMNS } from "./fields";
 import { parseSheetDate } from "./normalize/dates";
 import { normalizePhone } from "./normalize/phone";
 import { matchChannel } from "./normalize/dictionaries";
+import { isPushedCopy } from "./sheet-push/format";
 
 // Excel "продажи" парағы → SalesLedgerRow. Бағандар реті LEDGER_COLUMNS-пен бірдей (A..AS, 45 баған).
 // Браузер файлды өзі оқып, жолдарды бөліктеп жібереді (Vercel 4.5 MB шегі), әр жол — 45 мәнді массив;
@@ -128,6 +129,24 @@ export async function upsertLedgerRows(rows: ExcelRow[]) {
       createdById: typeof d.manager === "string" ? byName.get(d.manager.trim().toLocaleLowerCase("ru")) ?? null : null,
     }));
 
+  // Сайттан кестеге жіберілген жолдардың кестедегі көшірмесі — қайта импорттамаймыз (рейтингте екі рет саналмасын)
+  const pushed = await prisma.salesLedgerRow.findMany({
+    where: { importKey: null, sheetPushedAt: { not: null }, no: { in: prepared.map((d) => (d as Record<string, unknown>).no as number) } },
+    select: { no: true, phoneNorm: true, customerName: true },
+  });
+  let skippedPushed = 0;
+  if (pushed.length) {
+    const byNo = new Map(pushed.map((p) => [p.no, p]));
+    for (let i = prepared.length - 1; i >= 0; i--) {
+      const d = prepared[i] as Record<string, unknown> & { phoneNorm: string | null };
+      const site = byNo.get(d.no as number);
+      if (site && isPushedCopy({ no: d.no as number, phoneNorm: d.phoneNorm, customerName: (d.customerName as string) ?? null }, site)) {
+        prepared.splice(i, 1);
+        skippedPushed++;
+      }
+    }
+  }
+
   const keys = prepared.map((d) => d.importKey);
   const existing = await prisma.salesLedgerRow.findMany({ where: { importKey: { in: keys } } });
   const byKey = new Map<string, (typeof existing)[number]>();
@@ -157,7 +176,8 @@ export async function upsertLedgerRows(rows: ExcelRow[]) {
     imported: prepared.length,
     created: toCreate.length,
     updated: updates.length,
-    skipped: rows.length - prepared.length,
+    skipped: rows.length - prepared.length - skippedPushed,
+    skippedPushed,
     changedIds: [...createdIds, ...updates.map((u) => u.id)],
   };
 }
@@ -205,7 +225,7 @@ export async function reconcileSyncedWindow(fromDay: string, nos: number[]) {
 async function renumberSiteRows(sheetNos: number[]) {
   if (sheetNos.length === 0) return;
   const clash = await prisma.salesLedgerRow.findMany({
-    where: { importKey: null, no: { in: sheetNos } },
+    where: { importKey: null, sheetPushedAt: null, no: { in: sheetNos } }, // кестеге жіберілгендер өз №-ін сақтайды
     orderBy: { createdAt: "asc" },
     select: { id: true, branchId: true },
   });
