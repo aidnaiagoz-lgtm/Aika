@@ -9,6 +9,7 @@ import { SOURCE_OPTIONS, formatTenge } from "@/lib/order-labels";
 import { createOrderAction } from "../actions";
 import { PhoneDuplicateCheck } from "./PhoneDuplicateCheck";
 import { VehicleMakeModelFields } from "./VehicleMakeModelFields";
+import { CustomerSelect, VehicleSelect, NewVehicleFields } from "./selection";
 
 const PRODUCT_ROW_COUNT = 3;
 // Бұл екі тізім еркін мәтін ретінде тікелей БД-ге жазылады (enum емес), сондықтан
@@ -150,12 +151,17 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   const t = (kk: string, ru: string) => tr(locale, { kk, ru });
   const { error } = await searchParams;
 
-  const [products, materials, recentCustomers, recentVehicles] = await Promise.all([
+  const [products, materials, recentCustomers] = await Promise.all([
     listProducts(),
     listMaterials(),
     prisma.customer.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.customerCar.findMany({ orderBy: { id: "desc" }, take: 50, include: { customer: true } }),
   ]);
+  // Көліктер — тек осы тізімдегі клиенттердікі; экранда таңдалған клиентке қарай сүзіледі.
+  const vehicles = await prisma.customerCar.findMany({
+    where: { customerId: { in: recentCustomers.map((c) => c.id) } },
+    orderBy: { id: "desc" },
+    select: { id: true, customerId: true, make: true, model: true, year: true, licensePlate: true, vin: true },
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -174,14 +180,10 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
         <Card title={t("Клиент", "Клиент")}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label={t("Бар клиент (телефон бойынша)", "Существующий клиент (по телефону)")}>
-              <select name="customerId" className={selectClass}>
-                <option value="">{t("— Жаңа клиент —", "— Новый клиент —")}</option>
-                {recentCustomers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName} · {c.phone}
-                  </option>
-                ))}
-              </select>
+              <CustomerSelect
+                newLabel={t("— Жаңа клиент —", "— Новый клиент —")}
+                customers={recentCustomers.map((c) => ({ id: c.id, label: `${c.fullName} · ${c.phone}` }))}
+              />
             </Field>
             <Field label={t("Аты-жөні (жаңа болса)", "ФИО (если новый)")}>
               <input name="customerFullName" className={inputClass} />
@@ -233,21 +235,24 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
         <Card title={t("Көлік", "Автомобиль")}>
           <p className="mb-3 text-xs text-text-secondary">
             {t(
-              "Клиент қайта келсе — бұрынғы көлігін таңдаңыз (тізім соңғы 50 көлікті көрсетеді). Таңдалса, төмендегі жаңа көлік өрістері еленбейді.",
-              "Если клиент постоянный — выберите его прошлый автомобиль (список показывает последние 50). Если выбран, поля нового авто ниже игнорируются."
+              "Клиент қайта келсе — алдымен жоғарыдан клиентті таңдаңыз, сосын оның бұрынғы көлігін. Көлік таңдалса, төмендегі «жаңа көлік» өрістері сөнеді.",
+              "Если клиент постоянный — сначала выберите клиента выше, затем его прошлый автомобиль. Если авто выбрано, поля «нового авто» ниже отключаются."
             )}
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label={t("Бар көлік", "Существующий автомобиль")}>
-              <select name="vehicleId" className={selectClass}>
-                <option value="">{t("— Жаңа көлік —", "— Новый автомобиль —")}</option>
-                {recentVehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.customer.fullName} · {v.make} {v.model} {v.year ?? ""}
-                  </option>
-                ))}
-              </select>
+              <VehicleSelect
+                newLabel={t("— Жаңа көлік —", "— Новый автомобиль —")}
+                noCustomerHint={t("Жаңа клиент — көлікті төменде толтырыңыз", "Новый клиент — заполните авто ниже")}
+                noCarsHint={t("Бұл клиенттің сақталған көлігі жоқ", "У клиента нет сохранённых авто")}
+                vehicles={vehicles.map((v) => ({
+                  id: v.id,
+                  customerId: v.customerId,
+                  label: [`${v.make} ${v.model}`, v.year, v.licensePlate, v.vin ? `VIN …${v.vin.slice(-6)}` : null].filter(Boolean).join(" · "),
+                }))}
+              />
             </Field>
+            <NewVehicleFields>
             <VehicleMakeModelFields
               makeLabel={t("Марка (жаңа болса)", "Марка (если новый)")}
               modelLabel={t("Модель", "Модель")}
@@ -273,6 +278,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
             <Field label={t("VIN (міндетті емес)", "VIN (не обязательно)")}>
               <input name="vehicleVin" className={inputClass} />
             </Field>
+            </NewVehicleFields>
           </div>
         </Card>
 
