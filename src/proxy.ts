@@ -5,7 +5,7 @@ const SESSION_COOKIE = "automax_session";
 const PUBLIC_PATHS = ["/login"];
 const MODE_COOKIE = "automax_mode";
 // access.ts-тегі MANAGER_ALLOWED_PREFIXES-пен бірдей болуы керек
-const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/change-password"];
+const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/orders", "/change-password"];
 
 // Жеңіл gate: тек cookie бар/жоғын тексереді. Нақты сессия/RBAC тексеруі
 // (§26 талабы бойынша) әр Server Component/Server Action ішінде getSessionUser()

@@ -1,5 +1,6 @@
 import { prisma, PermissionAction, type Prisma } from "@/lib/db";
-import { assertPermission, scopeWhere } from "@/lib/rbac";
+import { assertPermission } from "@/lib/rbac";
+import { orderScopeWhere } from "./scope";
 import { publish } from "@/lib/events";
 import type { ActingUser, CreateOrderInput } from "./types";
 
@@ -61,7 +62,7 @@ export async function listOrders(
 ) {
   const scope = assertPermission(user, "orders", PermissionAction.VIEW);
   const where: Prisma.OrderWhereInput = {
-    ...scopeWhere(user, scope, { ownerField: "salesManagerId", branchField: "branchId" }),
+    ...orderScopeWhere(user, scope),
   };
   if (filters.status) where.status = filters.status as never;
   if (filters.branchId) where.branchId = filters.branchId;

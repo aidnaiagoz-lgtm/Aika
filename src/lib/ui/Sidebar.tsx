@@ -66,6 +66,7 @@ export function Sidebar({
             icon={Table2}
             active={pathname.startsWith("/departments/sales/almaty")}
           />
+          <NavLink href="/orders" label={t.sidebar.nav.orders} icon={Package} active={pathname.startsWith("/orders")} />
           <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
         </nav>
         <UserCard userName={userName} userRole={userRole} online={t.common.online} />

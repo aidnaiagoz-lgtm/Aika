@@ -21,7 +21,8 @@ export function isSalesManagerOnly(user: RoleCarrier): boolean {
 }
 
 /** Менеджерге рұқсат етілген беттер (қалғаны /rating-ке бағытталады). */
-export const MANAGER_ALLOWED_PREFIXES = ["/rating", "/departments/sales/almaty", "/change-password"];
+// 2026-11-10: «Заказдар» менеджерлерге ашылды (рұқсат — orders VIEW/CREATE/EDIT, scope=OWN: тек өз заказдары)
+export const MANAGER_ALLOWED_PREFIXES = ["/rating", "/departments/sales/almaty", "/orders", "/change-password"];
 
 export function managerCanOpen(pathname: string): boolean {
   return MANAGER_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
