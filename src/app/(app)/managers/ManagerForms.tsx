@@ -22,7 +22,7 @@ function CredentialBox({ state }: { state: CredentialState }) {
         <b className="font-mono text-base">{state.tempPassword}</b>
       </div>
       <p className="mt-2 text-xs text-text-secondary">
-        Осы мәліметті менеджерге жеке беріңіз. Бұл пароль қайта көрсетілмейді — бірінші кіргенде менеджер өз паролін қояды.
+        Осы мәліметті менеджерге жеке беріңіз. Бірінші кіргенде менеджер өз паролін қояды — CEO оны «Пароль» бағанынан көре алады.
       </p>
     </div>
   );

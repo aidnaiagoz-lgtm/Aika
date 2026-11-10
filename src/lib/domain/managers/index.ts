@@ -2,6 +2,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/session";
+import { sealPassword, openPassword } from "./vault";
 import { isLeader, normalizePhone, MANAGER_ROLES, LOGIN_DOMAIN, loginSlug, displayLogin } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 
@@ -78,6 +79,7 @@ export async function createManager(
       email,
       phone,
       passwordHash: await hashPassword(tempPassword),
+      passwordEnc: sealPassword(tempPassword),
       mustChangePassword: true,
       employee: {
         create: {
@@ -118,13 +120,16 @@ export async function ensureManagers(actor: SessionUser, names: string[]) {
   return { created, existing };
 }
 
-export async function resetManagerPassword(actor: SessionUser, userId: string) {
+/** custom берілсе — CEO өзі ойлаған пароль (ауыстыруды талап етпейді); болмаса — кездейсоқ уақытша пароль. */
+export async function resetManagerPassword(actor: SessionUser, userId: string, custom?: string) {
   assertLeader(actor);
+  const chosen = custom?.trim();
+  if (chosen !== undefined && chosen !== "" && chosen.length < 6) throw new ManagerError("Пароль кемінде 6 таңба болсын");
   const target = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     include: { employee: true, userRoles: { include: { role: true } } },
   });
-  const tempPassword = generateTempPassword();
+  const tempPassword = chosen || generateTempPassword();
   // Менеджердің логині әлі қысқа логин болмаса (телефонмен/басқа email-мен ашылған) — аттан қысқа логинге
   // ("zere") ауыстырамыз, бәрінде бірдей болсын. Телефонмен кіру бұрынғыдай жұмыс істей береді.
   // Тек сатушы-менеджерлерге (басшылардың email-і өзгермейді).
@@ -136,7 +141,7 @@ export async function resetManagerPassword(actor: SessionUser, userId: string) {
   }
   await prisma.user.update({
     where: { id: userId },
-    data: { email, passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
+    data: { email, passwordHash: await hashPassword(tempPassword), passwordEnc: sealPassword(tempPassword), mustChangePassword: !chosen },
   });
   // Ескі сессияларды жабамыз — ескі пароль біліп қалған адам кіре алмасын.
   await prisma.session.deleteMany({ where: { userId } });
@@ -222,3 +227,12 @@ export async function deleteManagerPermanently(actor: SessionUser, userId: strin
     data: { actorId: actor.id, action: "DELETE", entityType: "User", entityId: userId, oldValue: { email: user.email, fullName: user.employee?.fullName ?? null } },
   });
 }
+
+/** Тек CEO: менеджердің қазіргі паролін көру (шифрланған көшірмеден). Әр қарау журналға жазылады. */
+export async function revealManagerPassword(actor: SessionUser, userId: string): Promise<string | null> {
+  if (!actor.userRoles.some((r) => r.role.name === "CEO")) throw new ManagerError("Парольді тек CEO көре алады");
+  const u = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordEnc: true } });
+  await prisma.auditLog.create({ data: { actorId: actor.id, action: "PASSWORD_VIEW", entityType: "User", entityId: userId } });
+  return openPassword(u.passwordEnc);
+}
+
