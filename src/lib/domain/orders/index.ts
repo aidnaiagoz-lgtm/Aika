@@ -177,11 +177,25 @@ export async function createOrder(user: ActingUser, input: CreateOrderInput) {
   }
 
   let vehicleId = input.vehicleId ?? null;
+  // Таңдалған көлік басқа клиенттікі болса — қабылдамаймыз (бөтен көлік заказға кетпесін).
+  if (vehicleId) {
+    const own = await prisma.customerCar.findFirst({ where: { id: vehicleId, customerId }, select: { id: true } });
+    if (!own) vehicleId = null;
+  }
   if (!vehicleId && input.newVehicle) {
-    const vehicle = await prisma.customerCar.create({
-      data: { customerId, ...input.newVehicle },
+    // Дәл осы клиентте дәл осындай көлік бар болса — қайта қолданамыз (дубль жасамаймыз).
+    const same = await prisma.customerCar.findFirst({
+      where: {
+        customerId,
+        make: { equals: input.newVehicle.make, mode: "insensitive" },
+        model: { equals: input.newVehicle.model, mode: "insensitive" },
+        year: input.newVehicle.year ?? null,
+      },
+      select: { id: true },
     });
-    vehicleId = vehicle.id;
+    vehicleId = same
+      ? same.id
+      : (await prisma.customerCar.create({ data: { customerId, ...input.newVehicle } })).id;
   }
 
   const products = await prisma.product.findMany({ where: { id: { in: input.items.map((i) => i.productId) } } });
