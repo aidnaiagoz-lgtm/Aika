@@ -1,5 +1,6 @@
 import { prisma, PermissionAction, type Prisma } from "@/lib/db";
-import { assertPermission, scopeWhere } from "@/lib/rbac";
+import { assertPermission } from "@/lib/rbac";
+import { orderScopeWhere } from "./scope";
 import type { ActingUser } from "./types";
 
 export interface AnalyticsFilters {
@@ -21,7 +22,7 @@ function dateRangeWhere(filters: AnalyticsFilters): Prisma.OrderWhereInput {
 export async function getManagerKpis(user: ActingUser, filters: AnalyticsFilters = {}) {
   const scope = assertPermission(user, "orders", PermissionAction.VIEW);
   const where: Prisma.OrderWhereInput = {
-    ...scopeWhere(user, scope, { ownerField: "salesManagerId", branchField: "branchId" }),
+    ...orderScopeWhere(user, scope),
     ...dateRangeWhere(filters),
   };
   const orders = await prisma.order.findMany({
@@ -176,7 +177,7 @@ export async function getInstallationKpis(user: ActingUser, filters: AnalyticsFi
 export async function getBusinessAnalytics(user: ActingUser, filters: AnalyticsFilters = {}) {
   const scope = assertPermission(user, "orders", PermissionAction.VIEW);
   const where: Prisma.OrderWhereInput = {
-    ...scopeWhere(user, scope, { ownerField: "salesManagerId", branchField: "branchId" }),
+    ...orderScopeWhere(user, scope),
     ...dateRangeWhere(filters),
   };
   const orders = await prisma.order.findMany({
