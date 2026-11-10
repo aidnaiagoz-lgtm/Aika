@@ -65,3 +65,29 @@ export async function deleteAction(formData: FormData) {
   revalidatePath("/managers");
   redirect(`/managers?view=archive&msg=${encodeURIComponent(msg)}`);
 }
+
+// ───────── Пароль (тек CEO көреді) ─────────
+import { revealManagerPassword } from "@/lib/domain/managers";
+
+export async function revealPasswordAction(userId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Сессия аяқталған" };
+  try {
+    return { ok: true as const, password: await revealManagerPassword(user, userId) };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof ManagerError ? e.message : "Көрсету мүмкін болмады" };
+  }
+}
+
+/** CEO менеджерге өзі ойлаған парольді қояды. */
+export async function setPasswordAction(userId: string, password: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: "Сессия аяқталған" };
+  try {
+    const res = await resetManagerPassword(user, userId, password);
+    revalidatePath("/managers");
+    return { ok: true as const, login: res.login };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof ManagerError ? e.message : "Пароль сақталмады" };
+  }
+}

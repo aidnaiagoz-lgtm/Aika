@@ -5,6 +5,7 @@ import { isLeader } from "@/lib/access";
 import { listManagers } from "@/lib/domain/managers";
 import { displayLogin } from "@/lib/access";
 import { CreateManagerForm, ResetPasswordButton, ConfirmButton } from "./ManagerForms";
+import { PasswordCell } from "./PasswordCell";
 import { toggleBlockAction, archiveAction, deleteAction } from "./actions";
 
 export default async function ManagersPage({ searchParams }: { searchParams: Promise<{ view?: string; msg?: string }> }) {
@@ -17,6 +18,7 @@ export default async function ManagersPage({ searchParams }: { searchParams: Pro
   const all = await listManagers();
   const archivedCount = all.filter((m) => m.user.status === "ARCHIVED").length;
   const managers = all.filter((m) => (archiveView ? m.user.status === "ARCHIVED" : m.user.status !== "ARCHIVED"));
+  const isCeo = user.userRoles.some((r) => r.role.name === "CEO");
   const fmt = new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" });
 
   return (
@@ -68,6 +70,7 @@ export default async function ManagersPage({ searchParams }: { searchParams: Pro
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
                   <th className="py-2 pr-3">Аты</th>
                   <th className="py-2 pr-3">Логин</th>
+                  {isCeo && <th className="py-2 pr-3">Пароль</th>}
                   <th className="py-2 pr-3">Рөлі</th>
                   <th className="py-2 pr-3">Соңғы кіру</th>
                   <th className="py-2 pr-3">Күйі</th>
@@ -85,6 +88,11 @@ export default async function ManagersPage({ searchParams }: { searchParams: Pro
                       <td className="py-3 pr-3 font-mono text-text-primary">
                         {displayLogin(m.user)}
                       </td>
+                      {isCeo && (
+                        <td className="py-3 pr-3">
+                          <PasswordCell userId={m.userId} hasCopy={!!m.user.passwordEnc} />
+                        </td>
+                      )}
                       <td className="py-3 pr-3 text-text-secondary">{senior ? "Аға менеджер" : "Менеджер"}</td>
                       <td className="py-3 pr-3 text-text-secondary">
                         {m.user.lastLoginAt ? fmt.format(m.user.lastLoginAt) : "—"}
