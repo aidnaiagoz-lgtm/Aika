@@ -6,6 +6,8 @@ const PUBLIC_PATHS = ["/login"];
 const MODE_COOKIE = "automax_mode";
 // access.ts-тегі MANAGER_ALLOWED_PREFIXES-пен бірдей болуы керек
 const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/orders", "/change-password"];
+// access.ts-тегі WORKSHOP_ALLOWED_PREFIXES-пен бірдей
+const WORKSHOP_ALLOWED = ["/workshop", "/change-password"];
 
 // Жеңіл gate: тек cookie бар/жоғын тексереді. Нақты сессия/RBAC тексеруі
 // (§26 талабы бойынша) әр Server Component/Server Action ішінде getSessionUser()
@@ -27,7 +29,8 @@ export function proxy(request: NextRequest) {
       return res;
     }
     if (hasSession) {
-      const home = request.cookies.get(MODE_COOKIE)?.value === "manager" ? "/rating" : "/dashboard";
+      const mode = request.cookies.get(MODE_COOKIE)?.value;
+      const home = mode === "manager" ? "/rating" : mode === "workshop" ? "/workshop" : "/dashboard";
       return NextResponse.redirect(new URL(home, request.url));
     }
     return NextResponse.next();
@@ -43,6 +46,12 @@ export function proxy(request: NextRequest) {
   if (request.cookies.get(MODE_COOKIE)?.value === "manager") {
     const allowed = MANAGER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (!allowed) return NextResponse.redirect(new URL("/rating", request.url));
+  }
+
+  // Цех жауаптысы: тек цех беттері.
+  if (request.cookies.get(MODE_COOKIE)?.value === "workshop") {
+    const allowed = WORKSHOP_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!allowed) return NextResponse.redirect(new URL("/workshop", request.url));
   }
 
   // Layout рөлге қарай беттерді шектей алуы үшін ағымдағы жолды серверге жібереміз.

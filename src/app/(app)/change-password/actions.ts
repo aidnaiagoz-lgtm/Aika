@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/session";
-import { homePathFor, isSalesManagerOnly } from "@/lib/access";
+import { homePathFor, isManagedAccount } from "@/lib/access";
 import { sealPassword } from "@/lib/domain/managers/vault";
 
 export async function changePasswordAction(formData: FormData) {
@@ -26,7 +26,7 @@ export async function changePasswordAction(formData: FormData) {
       passwordHash: await hashPassword(next),
       mustChangePassword: false,
       // Менеджер өзі ауыстырса — CEO-дағы көшірме де өзгереді (басшылардікі сақталмайды)
-      passwordEnc: isSalesManagerOnly(user) ? sealPassword(next) : null,
+      passwordEnc: isManagedAccount(user) ? sealPassword(next) : null,
     },
   });
   await prisma.auditLog.create({

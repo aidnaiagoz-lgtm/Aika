@@ -3,7 +3,7 @@ import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/session";
 import { sealPassword, openPassword } from "./vault";
-import { isLeader, normalizePhone, MANAGER_ROLES, LOGIN_DOMAIN, loginSlug, displayLogin } from "@/lib/access";
+import { isLeader, normalizePhone, MANAGER_ROLES, WORKSHOP_ROLES, LOGIN_DOMAIN, loginSlug, displayLogin } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 
 // Менеджер аккаунттарын басқару — тек CEO / ADMIN / РОП (isLeader).
@@ -25,7 +25,7 @@ export function generateTempPassword(): string {
 
 export async function listManagers() {
   return prisma.employee.findMany({
-    where: { user: { userRoles: { some: { role: { name: { in: [...MANAGER_ROLES] } } } } } },
+    where: { user: { userRoles: { some: { role: { name: { in: [...MANAGER_ROLES, ...WORKSHOP_ROLES] } } } } } },
     include: { user: { include: { userRoles: { include: { role: true } } } }, branch: true },
     orderBy: { fullName: "asc" },
   });
@@ -47,7 +47,7 @@ async function uniqueSlugEmail(name: string): Promise<{ slug: string; email: str
  */
 export async function createManager(
   actor: SessionUser,
-  input: { fullName: string; phone?: string; email?: string; senior?: boolean }
+  input: { fullName: string; phone?: string; email?: string; senior?: boolean; workshop?: boolean }
 ) {
   assertLeader(actor);
   const fullName = input.fullName.trim();
@@ -65,10 +65,12 @@ export async function createManager(
   const nameDup = await prisma.employee.findFirst({ where: { fullName: { equals: fullName, mode: "insensitive" } } });
   if (nameDup) throw new ManagerError(`«${fullName}» атты қызметкер бар — Excel-дегідей бөлек ат беріңіз (мыс. «Жанерке 2»)`);
 
-  const roleName = input.senior ? "SENIOR_SALES_MANAGER" : "SALES_MANAGER";
+  const roleName = input.workshop ? "WORKSHOP_HEAD" : input.senior ? "SENIOR_SALES_MANAGER" : "SALES_MANAGER";
+  // Цех жауаптысы рөлі (2026-11-12) базада әлі болмауы мүмкін — бірінші рет ашылады
+  if (input.workshop) await prisma.role.upsert({ where: { name: roleName }, update: {}, create: { name: roleName, isSystem: true } });
   const [role, dept, branch] = await Promise.all([
     prisma.role.findUnique({ where: { name: roleName } }),
-    prisma.department.findFirst({ where: { slug: "sales" } }),
+    prisma.department.findFirst({ where: { slug: input.workshop ? "production" : "sales" } }),
     prisma.branch.findFirst({ where: { name: { contains: "Алматы" } } }),
   ]);
   if (!role) throw new ManagerError(`${roleName} рөлі базада жоқ`);
@@ -84,7 +86,7 @@ export async function createManager(
       employee: {
         create: {
           fullName,
-          position: input.senior ? "Аға менеджер" : "Менеджер",
+          position: input.workshop ? "Цех жауаптысы" : input.senior ? "Аға менеджер" : "Менеджер",
           departmentId: dept?.id,
           branchId: branch?.id,
         },
@@ -134,7 +136,7 @@ export async function resetManagerPassword(actor: SessionUser, userId: string, c
   // ("zere") ауыстырамыз, бәрінде бірдей болсын. Телефонмен кіру бұрынғыдай жұмыс істей береді.
   // Тек сатушы-менеджерлерге (басшылардың email-і өзгермейді).
   let email = target.email;
-  const isManagerOnly = target.userRoles.length > 0 && target.userRoles.every((r) => (MANAGER_ROLES as readonly string[]).includes(r.role.name));
+  const isManagerOnly = target.userRoles.length > 0 && target.userRoles.every((r) => ([...MANAGER_ROLES, ...WORKSHOP_ROLES] as readonly string[]).includes(r.role.name));
   const isShortLogin = email.endsWith("@" + LOGIN_DOMAIN) && !/^m7\d{10}@/.test(email);
   if (isManagerOnly && !isShortLogin && target.employee?.fullName) {
     email = (await uniqueSlugEmail(target.employee.fullName)).email;

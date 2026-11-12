@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { verifyPassword, createSession, SESSION_COOKIE } from "@/lib/session";
-import { homePathFor, loginLookup, isSalesManagerOnly, MODE_COOKIE } from "@/lib/access";
+import { homePathFor, loginLookup, isSalesManagerOnly, isWorkshopOnly, isManagedAccount, MODE_COOKIE } from "@/lib/access";
 import { sealPassword, openPassword } from "@/lib/domain/managers/vault";
 
 export async function loginAction(formData: FormData) {
@@ -38,8 +38,9 @@ export async function loginAction(formData: FormData) {
     path: "/",
     expires: session.expiresAt,
   });
-  if (isSalesManagerOnly(user)) {
-    cookieStore.set(MODE_COOKIE, "manager", {
+  const mode = isSalesManagerOnly(user) ? "manager" : isWorkshopOnly(user) ? "workshop" : null;
+  if (mode) {
+    cookieStore.set(MODE_COOKIE, mode, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -51,7 +52,7 @@ export async function loginAction(formData: FormData) {
   }
 
   // Менеджердің паролін CEO көруі үшін шифрланған көшірмені жаңартамыз (бұрын жоқ болса — алғашқы кіруде жазылады)
-  const sealed = isSalesManagerOnly(user) && openPassword(user.passwordEnc) !== password ? sealPassword(password) : undefined;
+  const sealed = isManagedAccount(user) && openPassword(user.passwordEnc) !== password ? sealPassword(password) : undefined;
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), ...(sealed ? { passwordEnc: sealed } : {}) } });
   await prisma.auditLog.create({
     data: { actorId: user.id, action: "LOGIN", entityType: "User", entityId: user.id },

@@ -22,8 +22,9 @@ export function Header({
   const nextLocale: Locale = locale === "kk" ? "ru" : "kk";
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-border bg-surface px-8 py-4">
-      <div className="relative w-full max-w-sm">
+    <header className="flex items-center justify-between gap-2 border-b border-border bg-surface px-4 py-3 md:gap-4 md:px-8 md:py-4">
+      <span className="text-base font-extrabold tracking-wide text-[#1f3fbf] md:hidden">AUTO MAX</span>
+      <div className="relative hidden w-full max-w-sm md:block">
         <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
         <input
           type="search"
@@ -33,7 +34,7 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="rounded-pill bg-page-bg px-4 py-2 text-sm font-medium text-text-primary">{dateLabel}</div>
+        <div className="hidden rounded-pill bg-page-bg px-4 py-2 text-sm font-medium text-text-primary md:block">{dateLabel}</div>
 
         {onSetLocale && (
           <form action={onSetLocale}>
@@ -64,7 +65,7 @@ export function Header({
         <button
           type="button"
           aria-label={t.header.fullscreen}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary hover:bg-page-bg"
+          className="hidden h-10 w-10 items-center justify-center rounded-full text-text-secondary hover:bg-page-bg md:flex"
         >
           <Maximize2 size={18} />
         </button>
