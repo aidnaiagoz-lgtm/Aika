@@ -118,6 +118,7 @@ model Employee {
 
   ordersCreated                Order[]                @relation("OrderCreatedBy")
   ordersManaged                Order[]                @relation("OrderSalesManager")
+  ordersDeleted                Order[]                @relation("OrderDeletedBy")
   orderStatusChanges           OrderStatusHistory[]
   assignedProductionOrders     ProductionOrder[]
   qualityChecksPerformed       QualityControl[]
@@ -545,6 +546,9 @@ model Order {
   comment         String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+  deletedById     String?
+  deletedBy       Employee?             @relation("OrderDeletedBy", fields: [deletedById], references: [id])
 
   items            OrderItem[]
   payments         Payment[]
@@ -560,6 +564,7 @@ model Order {
   @@index([customerId])
   @@index([branchId])
   @@index([salesManagerId])
+  @@index([deletedAt])
   @@map("orders")
 }
 

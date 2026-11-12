@@ -4,8 +4,11 @@ import { ForbiddenError } from "@/lib/rbac";
 import { listOrders, paymentStatus, orderProductionStatus, listSalesManagers, listProducts, runScheduledOrderChecks } from "@/lib/domain/orders";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { can } from "@/lib/rbac";
+import { PermissionAction } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { tr } from "@/lib/tr";
+import { deleteOrderAction } from "./actions";
 import {
   orderStatusLabel,
   ORDER_STATUS_TONE,
@@ -35,6 +38,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   if (!user) return null;
   const locale = await getLocale();
   const filters = await searchParams;
+  const canDelete = can(user, "orders", PermissionAction.DELETE);
 
   // §39 — cron жоқ, сондықтан тізім бетінің әр жүктелуінде idempotent тексеріс жүреді
   // (бүгін бір заказға бір рет қана notification жазылады, page load-ты бөгемеу үшін
@@ -192,6 +196,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     <th className="pb-3 pr-4 font-semibold">{t("Статус", "Статус")}</th>
                     <th className="pb-3 pr-4 font-semibold">{t("Төлем", "Оплата")}</th>
                     <th className="pb-3 pr-4 font-semibold">{t("Мерзімі", "Срок")}</th>
+                    {canDelete && <th className="pb-3 pr-4 font-semibold" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -226,6 +231,19 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                         <td className={`py-3 pr-4 ${isOverdue ? "font-bold text-danger" : "text-text-secondary"}`}>
                           {o.deadline ? dateFmt.format(o.deadline) : "—"} {isOverdue && `⚠ ${t("МЕРЗІМІ ӨТТІ", "СРОК ПРОШЁЛ")}`}
                         </td>
+                        {canDelete && (
+                          <td className="py-3 pr-4">
+                            <form action={deleteOrderAction}>
+                              <input type="hidden" name="orderId" value={o.id} />
+                              <button
+                                type="submit"
+                                className="rounded-pill bg-danger/10 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/20"
+                              >
+                                {t("Өшіру", "Удалить")}
+                              </button>
+                            </form>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

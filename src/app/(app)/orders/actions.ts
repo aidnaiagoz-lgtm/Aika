@@ -13,6 +13,7 @@ import {
   scheduleDelivery,
   completeOrder,
   cancelOrder,
+  deleteOrder,
   returnOrder,
   reworkOrder,
   duplicateOrder,
@@ -225,6 +226,14 @@ export async function completeOrderAction(formData: FormData) {
   const user = await requireUser();
   const orderId = String(formData.get("orderId"));
   await runOrRedirectWithError(() => completeOrder(user, orderId), `/orders/${orderId}`);
+  revalidatePath(`/orders/${orderId}`);
+}
+
+export async function deleteOrderAction(formData: FormData) {
+  const user = await requireUser();
+  const orderId = String(formData.get("orderId"));
+  await runOrRedirectWithError(() => deleteOrder(user, orderId), "/orders");
+  revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
 }
 
