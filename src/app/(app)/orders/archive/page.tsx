@@ -53,6 +53,7 @@ export default async function OrdersArchivePage() {
                   <th className="pb-3 pr-4 font-semibold">{t("Менеджер", "Менеджер")}</th>
                   <th className="pb-3 pr-4 font-semibold">{t("Кім өшірді", "Кто удалил")}</th>
                   <th className="pb-3 pr-4 font-semibold">{t("Қашан өшірілді", "Когда удалён")}</th>
+                  <th className="pb-3 pr-4 font-semibold">{t("Себебі", "Причина")}</th>
                   <th className="pb-3 pr-4 font-semibold" />
                 </tr>
               </thead>
@@ -65,6 +66,7 @@ export default async function OrdersArchivePage() {
                     <td className="py-3 pr-4 text-text-secondary">{o.salesManager.fullName}</td>
                     <td className="py-3 pr-4 text-text-secondary">{o.deletedBy?.fullName ?? "—"}</td>
                     <td className="py-3 pr-4 text-text-secondary">{o.deletedAt ? dateFmt.format(o.deletedAt) : "—"}</td>
+                    <td className="py-3 pr-4 text-text-secondary">{o.deleteReason ?? "—"}</td>
                     <td className="py-3 pr-4">
                       <form action={restoreOrderAction}>
                         <input type="hidden" name="orderId" value={o.id} />

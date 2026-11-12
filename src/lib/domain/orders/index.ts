@@ -637,14 +637,21 @@ export async function advanceAfterReady(user: ActingUser, orderId: string) {
 }
 
 /** Жұмсақ өшіру — тізімнен жасырады, бірақ жол базада қалады (қайтаруға/тексеруге болады). */
-export async function deleteOrder(user: ActingUser, orderId: string) {
+export async function deleteOrder(user: ActingUser, orderId: string, reason: string) {
   assertPermission(user, "orders", PermissionAction.DELETE);
+  if (!reason.trim()) throw new Error("Өшіру себебін жазыңыз");
   const order = await prisma.order.update({
     where: { id: orderId },
-    data: { deletedAt: new Date(), deletedById: user.employee!.id },
+    data: { deletedAt: new Date(), deletedById: user.employee!.id, deleteReason: reason.trim() },
   });
   await prisma.auditLog.create({
-    data: { actorId: user.id, action: "DELETE", entityType: "Order", entityId: orderId, oldValue: { orderNumber: order.orderNumber } },
+    data: {
+      actorId: user.id,
+      action: "DELETE",
+      entityType: "Order",
+      entityId: orderId,
+      oldValue: { orderNumber: order.orderNumber, reason: order.deleteReason },
+    },
   });
   return order;
 }
@@ -663,7 +670,7 @@ export async function restoreOrder(user: ActingUser, orderId: string) {
   assertPermission(user, "orders", PermissionAction.DELETE);
   const order = await prisma.order.update({
     where: { id: orderId },
-    data: { deletedAt: null, deletedById: null },
+    data: { deletedAt: null, deletedById: null, deleteReason: null },
   });
   await prisma.auditLog.create({
     data: { actorId: user.id, action: "RESTORE", entityType: "Order", entityId: orderId, newValue: { orderNumber: order.orderNumber } },
