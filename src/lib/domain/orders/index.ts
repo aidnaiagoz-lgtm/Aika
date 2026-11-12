@@ -62,6 +62,7 @@ export async function listOrders(
 ) {
   const scope = assertPermission(user, "orders", PermissionAction.VIEW);
   const where: Prisma.OrderWhereInput = {
+    deletedAt: null,
     ...orderScopeWhere(user, scope),
   };
   if (filters.status) where.status = filters.status as never;
@@ -633,6 +634,19 @@ export async function advanceAfterReady(user: ActingUser, orderId: string) {
   if (order.fulfillmentType === "INSTALLATION") return transitionOrderStatus(user, orderId, "WAITING_INSTALLATION");
   if (order.fulfillmentType === "DELIVERY") return transitionOrderStatus(user, orderId, "WAITING_DELIVERY");
   return transitionOrderStatus(user, orderId, "COMPLETED"); // PICKUP
+}
+
+/** Жұмсақ өшіру — тізімнен жасырады, бірақ жол базада қалады (қайтаруға/тексеруге болады). */
+export async function deleteOrder(user: ActingUser, orderId: string) {
+  assertPermission(user, "orders", PermissionAction.DELETE);
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { deletedAt: new Date(), deletedById: user.employee!.id },
+  });
+  await prisma.auditLog.create({
+    data: { actorId: user.id, action: "DELETE", entityType: "Order", entityId: orderId, oldValue: { orderNumber: order.orderNumber } },
+  });
+  return order;
 }
 
 export async function cancelOrder(user: ActingUser, orderId: string, reason?: string) {
