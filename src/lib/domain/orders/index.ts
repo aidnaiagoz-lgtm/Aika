@@ -649,6 +649,28 @@ export async function deleteOrder(user: ActingUser, orderId: string) {
   return order;
 }
 
+/** Архив — тек deleteOrder-ге рұқсаты барлар (қалпына келтіру де сол рұқсатпен). */
+export async function listDeletedOrders(user: ActingUser) {
+  assertPermission(user, "orders", PermissionAction.DELETE);
+  return prisma.order.findMany({
+    where: { deletedAt: { not: null } },
+    include: { customer: true, vehicle: true, salesManager: true, deletedBy: true, items: { include: { product: true } } },
+    orderBy: { deletedAt: "desc" },
+  });
+}
+
+export async function restoreOrder(user: ActingUser, orderId: string) {
+  assertPermission(user, "orders", PermissionAction.DELETE);
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { deletedAt: null, deletedById: null },
+  });
+  await prisma.auditLog.create({
+    data: { actorId: user.id, action: "RESTORE", entityType: "Order", entityId: orderId, newValue: { orderNumber: order.orderNumber } },
+  });
+  return order;
+}
+
 export async function cancelOrder(user: ActingUser, orderId: string, reason?: string) {
   assertPermission(user, "orders", PermissionAction.EDIT);
   if (reason) {

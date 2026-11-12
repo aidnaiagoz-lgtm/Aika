@@ -84,6 +84,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             >
               {t("Аналитика / KPI", "Аналитика / KPI")}
             </Link>
+            {canDelete && (
+              <Link
+                href="/orders/archive"
+                className="rounded-pill bg-page-bg px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-border"
+              >
+                {t("Архив", "Архив")}
+              </Link>
+            )}
             <Link
               href="/orders/new"
               className="rounded-pill bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"

@@ -14,6 +14,7 @@ import {
   completeOrder,
   cancelOrder,
   deleteOrder,
+  restoreOrder,
   returnOrder,
   reworkOrder,
   duplicateOrder,
@@ -235,6 +236,14 @@ export async function deleteOrderAction(formData: FormData) {
   await runOrRedirectWithError(() => deleteOrder(user, orderId), "/orders");
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
+}
+
+export async function restoreOrderAction(formData: FormData) {
+  const user = await requireUser();
+  const orderId = String(formData.get("orderId"));
+  await runOrRedirectWithError(() => restoreOrder(user, orderId), "/orders/archive");
+  revalidatePath("/orders/archive");
+  revalidatePath("/orders");
 }
 
 export async function cancelOrderAction(formData: FormData) {
