@@ -43,7 +43,10 @@ jobs:
           pnpm exec tsx scripts/check-schema.ts "$RUNNER_TEMP/base.prisma" prisma/schema.prisma
 
       - name: TypeScript
-        run: pnpm exec tsc --noEmit
+        # Next 16 LayoutProps/PageProps сияқты глобал типтерді .next/types ішіне жасайды
+        run: |
+          pnpm exec next typegen
+          pnpm exec tsc --noEmit
 
       - name: ESLint (PR-да өзгерген файлдар)
         if: github.event_name == 'pull_request'
