@@ -84,6 +84,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             >
               {t("Аналитика / KPI", "Аналитика / KPI")}
             </Link>
+            {canDelete && (
+              <Link
+                href="/orders/archive"
+                className="rounded-pill bg-page-bg px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-border"
+              >
+                {t("Архив", "Архив")}
+              </Link>
+            )}
             <Link
               href="/orders/new"
               className="rounded-pill bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
@@ -246,11 +254,18 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                         </td>
                         {canDelete && (
                           <td className="py-3 pr-4">
-                            <form action={deleteOrderAction}>
+                            <form action={deleteOrderAction} className="flex items-center gap-1.5">
                               <input type="hidden" name="orderId" value={o.id} />
+                              <input
+                                type="text"
+                                name="reason"
+                                required
+                                placeholder={t("Себебі", "Причина")}
+                                className="w-28 rounded-pill border border-border bg-page-bg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30"
+                              />
                               <button
                                 type="submit"
-                                className="rounded-pill bg-danger/10 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/20"
+                                className="shrink-0 rounded-pill bg-danger/10 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/20"
                               >
                                 {t("Өшіру", "Удалить")}
                               </button>

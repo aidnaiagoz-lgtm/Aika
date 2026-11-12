@@ -550,6 +550,7 @@ model Order {
   deletedAt       DateTime?
   deletedById     String?
   deletedBy       Employee?             @relation("OrderDeletedBy", fields: [deletedById], references: [id])
+  deleteReason    String?
 
   items            OrderItem[]
   payments         Payment[]

@@ -637,14 +637,43 @@ export async function advanceAfterReady(user: ActingUser, orderId: string) {
 }
 
 /** Жұмсақ өшіру — тізімнен жасырады, бірақ жол базада қалады (қайтаруға/тексеруге болады). */
-export async function deleteOrder(user: ActingUser, orderId: string) {
+export async function deleteOrder(user: ActingUser, orderId: string, reason: string) {
+  assertPermission(user, "orders", PermissionAction.DELETE);
+  if (!reason.trim()) throw new Error("Өшіру себебін жазыңыз");
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { deletedAt: new Date(), deletedById: user.employee!.id, deleteReason: reason.trim() },
+  });
+  await prisma.auditLog.create({
+    data: {
+      actorId: user.id,
+      action: "DELETE",
+      entityType: "Order",
+      entityId: orderId,
+      oldValue: { orderNumber: order.orderNumber, reason: order.deleteReason },
+    },
+  });
+  return order;
+}
+
+/** Архив — тек deleteOrder-ге рұқсаты барлар (қалпына келтіру де сол рұқсатпен). */
+export async function listDeletedOrders(user: ActingUser) {
+  assertPermission(user, "orders", PermissionAction.DELETE);
+  return prisma.order.findMany({
+    where: { deletedAt: { not: null } },
+    include: { customer: true, vehicle: true, salesManager: true, deletedBy: true, items: { include: { product: true } } },
+    orderBy: { deletedAt: "desc" },
+  });
+}
+
+export async function restoreOrder(user: ActingUser, orderId: string) {
   assertPermission(user, "orders", PermissionAction.DELETE);
   const order = await prisma.order.update({
     where: { id: orderId },
-    data: { deletedAt: new Date(), deletedById: user.employee!.id },
+    data: { deletedAt: null, deletedById: null, deleteReason: null },
   });
   await prisma.auditLog.create({
-    data: { actorId: user.id, action: "DELETE", entityType: "Order", entityId: orderId, oldValue: { orderNumber: order.orderNumber } },
+    data: { actorId: user.id, action: "RESTORE", entityType: "Order", entityId: orderId, newValue: { orderNumber: order.orderNumber } },
   });
   return order;
 }
