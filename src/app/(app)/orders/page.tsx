@@ -50,6 +50,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const payStatusLabel = paymentStatusLabel(locale);
   const fulfillLabel = fulfillmentLabel(locale);
 
+  let data: {
+    orders: Awaited<ReturnType<typeof listOrders>>;
+    managers: Awaited<ReturnType<typeof listSalesManagers>>;
+    products: Awaited<ReturnType<typeof listProducts>>;
+    branches: Awaited<ReturnType<typeof prisma.branch.findMany>>;
+  } | null = null;
   try {
     const [orders, managers, products, branches] = await Promise.all([
       listOrders(user, filters),
@@ -57,7 +63,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       listProducts(),
       prisma.branch.findMany({ orderBy: { name: "asc" } }),
     ]);
+    data = { orders, managers, products, branches };
+  } catch (e) {
+    if (e instanceof ForbiddenError) return <AccessDenied locale={locale} />;
+    throw e;
+  }
 
+  {
+    const { orders, managers, products, branches } = data;
     const dateFmt = new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "kk-KZ", { day: "2-digit", month: "2-digit", year: "numeric" });
 
     return (
@@ -254,9 +267,6 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         </Card>
       </div>
     );
-  } catch (e) {
-    if (e instanceof ForbiddenError) return <AccessDenied locale={locale} />;
-    throw e;
   }
 }
 
