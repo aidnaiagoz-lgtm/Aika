@@ -233,7 +233,8 @@ export async function completeOrderAction(formData: FormData) {
 export async function deleteOrderAction(formData: FormData) {
   const user = await requireUser();
   const orderId = String(formData.get("orderId"));
-  await runOrRedirectWithError(() => deleteOrder(user, orderId), "/orders");
+  const reason = String(formData.get("reason") ?? "");
+  await runOrRedirectWithError(() => deleteOrder(user, orderId, reason), "/orders");
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
 }
