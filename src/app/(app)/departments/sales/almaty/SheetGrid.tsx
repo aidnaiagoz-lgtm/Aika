@@ -69,6 +69,13 @@ function editValue(type: string, v: string | number | null): string {
   return String(v);
 }
 
+/** «Цех» ұяшығындағы кішкене белгі: цех тапсырмасының күйі. */
+const WS_DOT: Record<string, { color: string; label: string }> = {
+  NEW: { color: "#f59e0b", label: "Цех: кезекте" },
+  IN_PROGRESS: { color: "#3b82f6", label: "Цех: тігіліп жатыр" },
+  DONE: { color: "#16a34a", label: "Цех: дайын" },
+};
+
 export function SheetGrid({
   columns,
   initialRows,
@@ -76,6 +83,7 @@ export function SheetGrid({
   priceByProduct,
   canAdd,
   readOnlyReason,
+  workshopStatus = {},
 }: {
   columns: Col[];
   initialRows: ClientRow[];
@@ -83,6 +91,8 @@ export function SheetGrid({
   priceByProduct: Record<string, number>;
   canAdd: boolean;
   readOnlyReason: string | null;
+  /** Сатылым id → цех тапсырмасының күйі (NEW / IN_PROGRESS / DONE) */
+  workshopStatus?: Record<string, string>;
 }) {
   const [rows, setRows] = useState(initialRows);
   const query = "";
@@ -109,6 +119,7 @@ export function SheetGrid({
   // Google таблица режимінде — кесте таблицаның көшірмесі: әр минут сайын жаңа жолдарды өзі тартады.
   const router = useRouter();
   const savingRef = useRef(0);
+  // eslint-disable-next-line react-hooks/refs -- (бұрыннан) соңғы мәнді interval/effect ішінде оқу үшін
   savingRef.current = saving;
   useEffect(() => {
     // Сервердегі жаңа нұсқа (таблицадан түскен жолдар) — тек ешнәрсе сақталып/жазылып жатпағанда қабылданады
@@ -224,6 +235,7 @@ export function SheetGrid({
       if (!row) return;
       const before = editValue(col.type, row.values[c]);
       if (value === before) return;
+      // eslint-disable-next-line react-hooks/immutability -- (бұрыннан) createFrom тек оқиғада шақырылады, рендерде емес
       if (isBlank(row)) return createFrom(r, c, value);
       // Оптимистік көрініс
       const optimistic = row.values.slice();
@@ -508,7 +520,16 @@ export function SheetGrid({
                           }}
                         />
                       ) : isBox ? (
-                        <CheckBox checked={isChecked(row.values[c])} bg={cellBg} />
+                        <>
+                          <CheckBox checked={isChecked(row.values[c])} bg={cellBg} />
+                          {col.name === "workshop" && workshopStatus[row.id] && WS_DOT[workshopStatus[row.id]] && (
+                            <span
+                              className="pointer-events-none absolute right-[2px] top-[2px] h-[7px] w-[7px] rounded-full"
+                              style={{ background: WS_DOT[workshopStatus[row.id]].color }}
+                              title={WS_DOT[workshopStatus[row.id]].label}
+                            />
+                          )}
+                        </>
                       ) : DROPDOWN.has(col.name) ? (
                         <>
                           <span className="block overflow-hidden pr-3">{display(col.type, row.values[c], col.name)}</span>

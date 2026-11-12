@@ -28,16 +28,17 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
-  employee        Employee?
-  sessions        Session[]
-  userRoles       UserRole[]
-  auditLogs       AuditLog[]          @relation("AuditActor")
-  notifications   Notification[]      @relation("NotificationRecipient")
-  tasksAssigned   Task[]              @relation("TaskAssignedTo")
-  tasksCreated    Task[]              @relation("TaskAssignedBy")
-  taskComments    TaskComment[]
-  trainingFolders TrainingFolder[]
-  cashHandovers   CashHandoverEvent[]
+  employee          Employee?
+  sessions          Session[]
+  userRoles         UserRole[]
+  auditLogs         AuditLog[]          @relation("AuditActor")
+  notifications     Notification[]      @relation("NotificationRecipient")
+  tasksAssigned     Task[]              @relation("TaskAssignedTo")
+  tasksCreated      Task[]              @relation("TaskAssignedBy")
+  taskComments      TaskComment[]
+  trainingFolders   TrainingFolder[]
+  cashHandovers     CashHandoverEvent[]
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
 }
@@ -988,8 +989,9 @@ model SalesLedgerRow {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  leads      SalesLead[]
-  cashEvents CashHandoverEvent[]
+  leads       SalesLead[]
+  cashEvents  CashHandoverEvent[]
+  workshopJob WorkshopJob?
 
   @@index([branchId])
   @@index([date])
@@ -1128,4 +1130,100 @@ model CashHandoverEvent {
   @@index([step])
   @@index([at])
   @@map("cash_handover_events")
+}
+
+// ---------- Цех (2026-11, 1-кезең) ----------
+// Продажида «Цех ✓» қойылған сатылым → цех тапсырмасы. Цехты Бекзат жүргізеді: операцияларды кім
+// жасағанын, былғары шығынын белгілейді, «Дайын» басады. Айлық операция × баға бойынша есептеледі
+// (Google «цех реестр» / «цех отчет» беттерінің орнына).
+
+enum WorkshopJobStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model WorkshopJob {
+  id          String          @id @default(cuid())
+  ledgerRowId String?         @unique
+  ledgerRow   SalesLedgerRow? @relation(fields: [ledgerRowId], references: [id], onDelete: SetNull)
+  // Google «цех реестр»-ден импорт кілті (қайталанбау үшін)
+  importKey   String?         @unique
+  orderNo     String // сатылым № ("12345") немесе "Опт -3150"
+  source      String          @default("sales") // sales | registry | manual
+  receivedAt  DateTime        @default(now())
+
+  manager       String?
+  car           String?
+  brand         String?
+  carYear       Int?
+  product       String?
+  leatherType   String?
+  leatherThread String?
+  leatherPiping String?
+  matType       String?
+  matThread     String?
+  matPiping     String?
+  pocketsPairs  Decimal? @db.Decimal(4, 1)
+  lekalaNote    String? // «Лекал жоқ», «переделка», «возврат»...
+
+  leatherMeters Decimal? @db.Decimal(6, 2)
+  leatherOwner  String? // «Өзіміздікі» немесе опт клиент (оның былғарысы қоймадан шегерілмейді)
+  matMeters     Decimal? @db.Decimal(6, 2)
+  matOwner      String?
+
+  // Операцияны жасаған қызметкердің аты (WorkshopWorker.name)
+  cutBy    String? // Резка кожи
+  joinBy   String? // Стыковка
+  edgeBy   String? // Окантовщик / Установка креплении
+  bottomBy String? // Дно
+
+  status     WorkshopJobStatus @default(NEW)
+  startedAt  DateTime?
+  doneAt     DateTime?
+  notifiedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([status])
+  @@index([doneAt])
+  @@map("workshop_jobs")
+}
+
+model WorkshopWorker {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("workshop_workers")
+}
+
+// Операция бағасы. validFrom бойынша тарихы сақталады (баға өзгерсе, ескі айлар ескі бағамен есептеледі).
+model WorkshopRate {
+  id        String   @id @default(cuid())
+  operation String // CUT | JOIN | EDGE | BOTTOM
+  price     Decimal  @db.Decimal(10, 2)
+  validFrom DateTime
+  createdAt DateTime @default(now())
+
+  @@index([operation, validFrom])
+  @@map("workshop_rates")
+}
+
+// Телефонға хабарлама (Web Push) — тек өз логинімен кірген құрылғы.
+model PushSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime  @default(now())
+  lastOkAt  DateTime?
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }

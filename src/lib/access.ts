@@ -5,6 +5,8 @@ type RoleCarrier = { userRoles: Array<{ role: { name: string } }> };
 
 export const LEADER_ROLES = ["CEO", "ADMIN", "DEPARTMENT_HEAD"] as const;
 export const MANAGER_ROLES = ["SALES_MANAGER", "SENIOR_SALES_MANAGER"] as const;
+/** 2026-11-12: цехты жүргізетін адам (Бекзат) — тек «Цех» беттері. */
+export const WORKSHOP_ROLES = ["WORKSHOP_HEAD"] as const;
 
 export function hasAnyRole(user: RoleCarrier, roles: readonly string[]): boolean {
   return user.userRoles.some((ur) => roles.includes(ur.role.name));
@@ -18,6 +20,27 @@ export function isLeader(user: RoleCarrier): boolean {
 /** Тек сатушы-менеджер (басшы емес) — сайттың шектеулі бөлігін ғана көреді. */
 export function isSalesManagerOnly(user: RoleCarrier): boolean {
   return hasAnyRole(user, MANAGER_ROLES) && !isLeader(user);
+}
+
+/** Тек цех жауаптысы (басшы емес). */
+export function isWorkshopOnly(user: RoleCarrier): boolean {
+  return hasAnyRole(user, WORKSHOP_ROLES) && !isLeader(user);
+}
+
+/** Цех беттерін кім аша алады: цех жауаптысы + басшылар. */
+export function canUseWorkshop(user: RoleCarrier): boolean {
+  return isLeader(user) || hasAnyRole(user, WORKSHOP_ROLES);
+}
+
+/** CEO басқаратын қарапайым аккаунттар (менеджер / цех) — паролінің көшірмесі CEO-ға көрінеді. */
+export function isManagedAccount(user: RoleCarrier): boolean {
+  return (hasAnyRole(user, MANAGER_ROLES) || hasAnyRole(user, WORKSHOP_ROLES)) && !isLeader(user);
+}
+
+export const WORKSHOP_ALLOWED_PREFIXES = ["/workshop", "/change-password"];
+
+export function workshopCanOpen(pathname: string): boolean {
+  return WORKSHOP_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
 /** Менеджерге рұқсат етілген беттер (қалғаны /rating-ке бағытталады). */
@@ -36,6 +59,7 @@ export const MODE_COOKIE = "automax_mode";
 
 /** Кіргеннен кейінгі бірінші бет. */
 export function homePathFor(user: RoleCarrier): string {
+  if (isWorkshopOnly(user)) return "/workshop";
   return isSalesManagerOnly(user) ? "/rating" : "/dashboard";
 }
 

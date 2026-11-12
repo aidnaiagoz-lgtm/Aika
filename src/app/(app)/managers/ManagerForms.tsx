@@ -47,9 +47,17 @@ export function CreateManagerForm() {
         </label>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm text-text-primary">
-          <input type="checkbox" name="senior" className="h-4 w-4" /> Аға менеджер
-        </label>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-text-primary">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="role" value="manager" defaultChecked className="h-4 w-4" /> Менеджер
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="role" value="senior" className="h-4 w-4" /> Аға менеджер
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="role" value="workshop" className="h-4 w-4" /> Цех жауаптысы
+          </label>
+        </div>
         <button
           type="submit"
           disabled={pending}

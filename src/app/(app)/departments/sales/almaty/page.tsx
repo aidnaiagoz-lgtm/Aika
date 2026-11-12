@@ -11,6 +11,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { isLeader } from "@/lib/access";
 import { SheetGrid } from "./SheetGrid";
+import { workshopStatusByLedger } from "@/lib/domain/workshop";
+import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import { SalesTabs } from "./SalesTabs";
 import { toClientRow } from "./client-row";
 
@@ -49,6 +51,8 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
     const clientRows = sorted.map((r) =>
       toClientRow(r as never, canEditLedgerRow(user, r) && !(lockSynced && r.importKey?.startsWith("excel:")))
     );
+    const wsMap = await workshopStatusByLedger(sorted.filter((r) => isChecked(r.workshop)).map((r) => r.id));
+    const workshopStatus = Object.fromEntries(wsMap);
     // Таблицадан жаңа жолдарды тартып алу (2 минутта бір реттен жиі емес)
     if (source === "sheet") after(maybeSyncFromGoogleSheet);
 
@@ -76,6 +80,7 @@ export default async function SalesAlmatyPage({ searchParams }: { searchParams: 
           priceByProduct={priceByProduct}
           canAdd={!!user.employee}
           readOnlyReason={null}
+          workshopStatus={workshopStatus}
         />
       </div>
     );

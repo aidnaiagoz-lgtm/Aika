@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { pushRowToSheet } from "@/lib/domain/sales-ledger/sheet-push";
+import { syncWorkshopJobs } from "@/lib/domain/workshop";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { createLedgerRow, updateLedgerRow, recomputeLedgerRow, canEditLedgerRow } from "@/lib/domain/sales-ledger";
@@ -55,6 +56,7 @@ export async function updateCellAction(id: string, field: string, raw: string | 
     await updateLedgerRow(user, id, { [field]: parseValue(col.type, raw) } as never);
     const row = await recomputeLedgerRow(id);
     after(() => pushRowToSheet(id)); // сайтта жазылған жол → Google кесте
+    after(() => syncWorkshopJobs([id]).then(() => undefined)); // «Цех ✓» → цех тапсырмасы
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {
@@ -79,6 +81,7 @@ export async function createRowAction(field: string, raw: string): Promise<Resul
     } as never);
     const row = await recomputeLedgerRow(created.id);
     after(() => pushRowToSheet(created.id));
+    after(() => syncWorkshopJobs([created.id]).then(() => undefined));
     revalidatePath("/rating");
     return { ok: true, row: toClientRow(row, true) };
   } catch (e) {

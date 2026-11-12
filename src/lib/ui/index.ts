@@ -8,3 +8,4 @@ export * from "./AccessDenied";
 export * from "./Header";
 export * from "./OrgChart";
 export * from "./ComingSoon";
+export * from "./MobileNav";

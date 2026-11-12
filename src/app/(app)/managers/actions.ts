@@ -18,7 +18,8 @@ export async function createManagerAction(_prev: CredentialState, formData: Form
       fullName: String(formData.get("fullName") ?? ""),
       phone: String(formData.get("phone") ?? ""),
       email: String(formData.get("email") ?? ""),
-      senior: formData.get("senior") === "on",
+      senior: formData.get("role") === "senior" || formData.get("senior") === "on",
+      workshop: formData.get("role") === "workshop",
     });
     revalidatePath("/managers");
     return { ok: true, kind: "created", ...res };

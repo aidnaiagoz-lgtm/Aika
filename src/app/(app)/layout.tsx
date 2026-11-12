@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { Sidebar, Header } from "@/lib/ui";
+import { Sidebar, Header, MobileNav } from "@/lib/ui";
 import { prisma } from "@/lib/db";
 import { getDictionary, INTL_LOCALE } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
-import { isSalesManagerOnly, isLeader, managerCanOpen } from "@/lib/access";
+import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen } from "@/lib/access";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -19,6 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Сатушы-менеджер тек өз бөлімдерін ашады (Рейтинг, Продажи, пароль). Қалғаны — серверде жабық.
   const managerMode = isSalesManagerOnly(user);
   if (managerMode && pathname && !managerCanOpen(pathname)) redirect("/rating");
+  const workshopMode = isWorkshopOnly(user);
+  if (workshopMode && pathname && !workshopCanOpen(pathname)) redirect("/workshop");
 
   const locale = await getLocale();
   const t = getDictionary(locale);
@@ -43,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-page-bg">
-      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} mode={managerMode ? "manager" : isLeader(user) ? "leader" : "staff"} />
+      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           userName={displayName}
@@ -54,7 +56,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           locale={locale}
           onSetLocale={setLocaleAction}
         />
-        <main className="flex-1 overflow-y-auto p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">{children}</main>
+        <MobileNav mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
       </div>
     </div>
   );
