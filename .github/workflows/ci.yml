@@ -1,0 +1,64 @@
+# Автотексеру: әр PR мен main-ға push сайын.
+# 1) schema.prisma тек ҚОСАТЫН болуы керек (база ортақ және нақты — CLAUDE.md)
+# 2) TypeScript типтері  3) ESLint (тек PR-да өзгерген файлдар)  4) unit-тесттер
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Schema — тек қосатын өзгерістер
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'schema-destructive-approved')
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git show "origin/$BASE_REF:prisma/schema.prisma" > "$RUNNER_TEMP/base.prisma"
+          pnpm exec tsx scripts/check-schema.ts "$RUNNER_TEMP/base.prisma" prisma/schema.prisma
+
+      - name: TypeScript
+        # Next 16 LayoutProps/PageProps сияқты глобал типтерді .next/types ішіне жасайды
+        run: |
+          pnpm exec next typegen
+          pnpm exec tsc --noEmit
+
+      - name: ESLint (PR-да өзгерген файлдар)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" -- '*.ts' '*.tsx' '*.mjs' > "$RUNNER_TEMP/changed.txt"
+          if [ -s "$RUNNER_TEMP/changed.txt" ]; then
+            xargs -d '\n' pnpm exec eslint < "$RUNNER_TEMP/changed.txt"
+          else
+            echo "Өзгерген TS файл жоқ"
+          fi
+
+      - name: Unit tests
+        run: pnpm test
