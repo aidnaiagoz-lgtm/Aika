@@ -258,8 +258,8 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
               modelLabel={t("Модель", "Модель")}
               yearLabel={t("Шығарылған жылы", "Год выпуска")}
               generationLabel={t("Generation (мыс. XV70)", "Поколение (напр. XV70)")}
-              makePlaceholder="Toyota"
-              modelPlaceholder="Camry"
+              makePlaceholder=""
+              modelPlaceholder=""
               carMakes={CAR_MAKES}
             />
             <Field label={t("Кузов", "Кузов")}>
