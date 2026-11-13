@@ -229,6 +229,29 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
     })
     .sort((a, b) => a.rank - b.rank);
 
+  // CEO көрсеткіштері — ТАҢДАЛҒАН кезең бойынша (Бүгін / Апта / Ай...), салыстыру — алдыңғы сол ұзындықтағы кезең
+  const periodTeam = (() => {
+    let revenue = 0, orders = 0, debt = 0, bonus = 0, items = 0, prevRevenue = 0;
+    for (const a of cur.values()) {
+      revenue += a.revenue;
+      orders += a.orders;
+      debt += a.remainder;
+      bonus += a.bonus;
+      items += a.items;
+    }
+    for (const a of prev.values()) prevRevenue += a.revenue;
+    return {
+      revenue,
+      orders,
+      items,
+      debt,
+      bonus,
+      avgCheck: orders ? Math.round(revenue / orders) : 0,
+      growthPct: prevRevenue ? Math.round(((revenue - prevRevenue) / prevRevenue) * 100) : null,
+      prevRevenue,
+    };
+  })();
+
   // Команда (кезеңге қарамай — ағымдағы ай; мақсат айлық)
   const monthAgg = aggregate(sales, thisMonth + "-01", today);
   let teamMonthItems = 0;
@@ -398,7 +421,7 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
     };
   }
 
-  return { today, period: opts.period, range: [from, to] as const, board, team, nominations, me, lastMonthChampion };
+  return { today, period: opts.period, range: [from, to] as const, board, team, periodTeam, nominations, me, lastMonthChampion };
 }
 
 export type RatingData = Awaited<ReturnType<typeof getRatingData>>;

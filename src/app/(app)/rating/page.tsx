@@ -247,15 +247,27 @@ function LeaderKpis({ data }: { data: RatingData }) {
       <Lock size={9} /> CEO
     </span>
   );
+  // Төмендегі «Толық рейтинг» қойындысы (Бүгін / Апта / Ай / Өткен ай / Жыл) осы көрсеткіштерді де ауыстырады
+  const p = data.periodTeam;
+  const label = PERIOD_LABEL[data.period].toLowerCase();
+  const compareTo: Record<Period, string> = {
+    day: "кешегіден",
+    week: "өткен аптаның осы кезеңінен",
+    month: "өткен айдың осы кезеңінен",
+    lastMonth: "алдыңғы айдан",
+    year: "өткен жылдың осы кезеңінен",
+  };
+  const growth =
+    p.growthPct === null
+      ? p.revenue > 0
+        ? "салыстыратын дерек жоқ"
+        : "әзірге сатылым жоқ"
+      : `${p.growthPct >= 0 ? "+" : ""}${p.growthPct}% ${compareTo[data.period]}`;
   const items = [
-    {
-      l: "Айналым (ай)",
-      v: money(data.team.monthRevenue),
-      s: data.team.monthGrowthPct === null ? "өткен ай деректері жоқ" : `${data.team.monthGrowthPct >= 0 ? "+" : ""}${data.team.monthGrowthPct}% өткен айдың осы кезеңінен`,
-    },
-    { l: "Клиент қарызы", v: money(data.team.debt), s: "төленбеген қалдық", danger: data.team.debt > 0 },
-    { l: "Бонус қоры (ай)", v: money(data.team.bonus), s: `${data.board.length} менеджер` },
-    { l: "Орташа чек", v: money(data.team.avgCheck), s: "осы ай" },
+    { l: `Айналым (${label})`, v: money(p.revenue), s: growth },
+    { l: `Клиент қарызы (${label})`, v: money(p.debt), s: "осы кезеңдегі сатылымдардың қалдығы", danger: p.debt > 0 },
+    { l: `Бонус қоры (${label})`, v: money(p.bonus), s: `${p.orders} сатылым · ${p.items} тауар` },
+    { l: `Орташа чек (${label})`, v: money(p.avgCheck), s: p.orders ? `${p.orders} сатылымнан` : "сатылым жоқ" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
