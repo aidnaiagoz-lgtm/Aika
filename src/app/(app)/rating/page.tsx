@@ -117,7 +117,15 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
-      {leader && <LeaderKpis data={data} />}
+      {leader && (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-text-primary">Көрсеткіштер · {PERIOD_LABEL[period].toLowerCase()}</span>
+            <PeriodTabs period={period} />
+          </div>
+          <LeaderKpis data={data} />
+        </div>
+      )}
 
       <Nominations data={data} myId={myId} />
 
@@ -237,6 +245,25 @@ function HeroStat({ label, value, tone, icon: Icon, extra }: { label: string; va
         {Icon && <Icon size={18} className="text-[#fbbf24]" />}
         {value} {extra}
       </div>
+    </div>
+  );
+}
+
+/** Кезең таңдау. scroll={false} — басқанда бет орнынан қозғалмайды. */
+function PeriodTabs({ period }: { period: Period }) {
+  return (
+    <div className="flex gap-1 rounded-xl border border-border bg-surface p-1">
+      {PERIODS.map((p) => (
+        <Link
+          key={p}
+          href={`/rating?p=${p}`}
+          scroll={false}
+          className={`rounded-lg px-3.5 py-1.5 text-sm font-medium ${p === period ? "text-white" : "text-text-secondary hover:text-text-primary"}`}
+          style={p === period ? { background: NAVY } : undefined}
+        >
+          {PERIOD_LABEL[p]}
+        </Link>
+      ))}
     </div>
   );
 }
@@ -493,18 +520,7 @@ function Leaderboard({ data, myId, leader, period }: { data: RatingData; myId: s
           </h2>
           <div className="text-xs text-text-secondary">{rangeLabel}</div>
         </div>
-        <div className="flex gap-1 rounded-xl border border-border bg-surface p-1">
-          {PERIODS.map((p) => (
-            <Link
-              key={p}
-              href={`/rating?p=${p}#leaderboard`}
-              className={`rounded-lg px-3.5 py-1.5 text-sm font-medium ${p === period ? "text-white" : "text-text-secondary hover:text-text-primary"}`}
-              style={p === period ? { background: NAVY } : undefined}
-            >
-              {PERIOD_LABEL[p]}
-            </Link>
-          ))}
-        </div>
+        <PeriodTabs period={period} />
       </div>
 
       {data.board.length === 0 ? (
