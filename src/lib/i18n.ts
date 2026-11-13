@@ -99,9 +99,9 @@ const kkOrgChart: OrgNode = {
                   name: "Олжас",
                   person: true,
                   roles: ["Kaspi аға менеджері"],
-                  children: [{ name: "Айдана", person: true, roles: ["Kaspi менеджер"] }],
+                  children: [{ name: "ФИО", person: true, roles: ["Kaspi менеджер"] }],
                 },
-                { name: "Санжар", person: true, roles: ["Опт менеджер"] },
+                { name: "ФИО", person: true, roles: ["Опт менеджер"] },
               ],
             },
           ],
@@ -112,7 +112,7 @@ const kkOrgChart: OrgNode = {
           ckp: "AutoMax брендінің танымалдылығын арттыратын, мақсатты аудиторияны тұрақты тартатын, сату бөліміне сапалы лидтер жеткізетін және компанияның сатылым өсімін қамтамасыз ететін нәтижелі маркетинг жүйесі.",
           children: [
             {
-              name: "Азамат",
+              name: "ФИО",
               person: true,
               roles: ["Бөлім бастығы"],
               children: [
@@ -259,9 +259,9 @@ const ruOrgChart: OrgNode = {
                   name: "Олжас",
                   person: true,
                   roles: ["Старший менеджер Kaspi"],
-                  children: [{ name: "Айдана", person: true, roles: ["Kaspi менеджер"] }],
+                  children: [{ name: "ФИО", person: true, roles: ["Kaspi менеджер"] }],
                 },
-                { name: "Санжар", person: true, roles: ["Опт менеджер"] },
+                { name: "ФИО", person: true, roles: ["Опт менеджер"] },
               ],
             },
           ],
@@ -272,7 +272,7 @@ const ruOrgChart: OrgNode = {
           ckp: "Результативная маркетинговая система, повышающая узнаваемость бренда AutoMax, стабильно привлекающая целевую аудиторию, поставляющая отделу продаж качественные лиды и обеспечивающая рост продаж компании.",
           children: [
             {
-              name: "Азамат",
+              name: "ФИО",
               person: true,
               roles: ["Начальник отдела"],
               children: [
