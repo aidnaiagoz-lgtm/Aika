@@ -266,7 +266,12 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
               <input name="vehicleBody" className={inputClass} />
             </Field>
             <Field label={t("Қатар саны", "Количество рядов")}>
-              <input name="vehicleRows" type="number" min={1} max={3} className={inputClass} />
+              <select name="vehicleRows" className={selectClass} defaultValue="">
+                <option value="">—</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
             </Field>
             <Field label={t("Руль жағы", "Сторона руля")}>
               <select name="vehicleSteering" className={selectClass}>
