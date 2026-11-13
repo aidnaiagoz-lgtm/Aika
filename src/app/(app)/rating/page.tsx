@@ -129,15 +129,16 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
-      {leader && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-text-primary">{t("Көрсеткіштер", "Показатели")} · {periodLabel(t, period).toLowerCase()}</span>
-            <PeriodTabs period={period} t={t} />
-          </div>
-          <LeaderKpis data={data} t={t} />
+      {/* Кезең таңдау — бір ғана жерде (беттің жоғарысында); көрсеткіштер мен рейтинг кестесі бірге ауысады */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-text-primary">
+            {leader ? t("Көрсеткіштер", "Показатели") : t("Рейтинг", "Рейтинг")} · {periodLabel(t, period).toLowerCase()}
+          </span>
+          <PeriodTabs period={period} t={t} />
         </div>
-      )}
+        {leader && <LeaderKpis data={data} t={t} />}
+      </div>
 
       <Nominations data={data} myId={myId} t={t} />
 
@@ -541,7 +542,6 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
           </h2>
           <div className="text-xs text-text-secondary">{rangeLabel}</div>
         </div>
-        <PeriodTabs period={period} t={t} />
       </div>
 
       {data.board.length === 0 ? (
