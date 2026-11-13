@@ -257,8 +257,11 @@ function LeaderKpis({ data }: { data: RatingData }) {
     lastMonth: "алдыңғы айдан",
     year: "өткен жылдың осы кезеңінен",
   };
+  // «Бүгін» әлі біткен жоқ — толық кешегі күнмен % салыстыру жаңылыстырады, сондықтан кешегі соманы көрсетеміз
   const growth =
-    p.growthPct === null
+    data.period === "day"
+      ? `кеше: ${money(p.prevRevenue)}`
+      : p.growthPct === null
       ? p.revenue > 0
         ? "салыстыратын дерек жоқ"
         : "әзірге сатылым жоқ"
