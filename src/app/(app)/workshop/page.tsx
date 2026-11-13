@@ -6,6 +6,7 @@ import { jobCounts, listJobs, listWorkers, syncWorkshopJobs, workshopActiveSince
 import { jobHeadline, leatherNorm } from "@/lib/domain/workshop/calc";
 import { JobCard, type ClientJob } from "./JobCard";
 import { ActivateButton } from "./ActivateButton";
+import { PushSetup } from "./PushSetup";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,8 @@ export default async function WorkshopPage({ searchParams }: { searchParams: Pro
           Продажиде «Цех ✓» қойылған сатылымдар өзі түседі. Операцияны кім жасағанын белгілеңіз — айлық өзі есептеледі.
         </p>
       </div>
+
+      <PushSetup />
 
       <nav className="flex gap-2 overflow-x-auto" aria-label="Тапсырма күйі">
         {TABS.map((t) => (

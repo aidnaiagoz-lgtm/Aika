@@ -11,6 +11,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "AUTO MAX — Business OS",
   description: "AutoMax ERP + CRM + AI платформасы",
+  // iPhone: «На экран «Домой»» — бөлек қосымша ретінде ашылады (хабарлама үшін қажет)
+  appleWebApp: { capable: true, title: "AutoMax", statusBarStyle: "default" },
+  icons: { apple: "/apple-touch-icon.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
