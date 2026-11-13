@@ -148,7 +148,8 @@ export interface Nomination {
   detail: string;
 }
 
-export async function getRatingData(opts: { period: Period; employeeId: string | null; now?: Date }) {
+export async function getRatingData(opts: { period: Period; employeeId: string | null; now?: Date; locale?: "kk" | "ru" }) {
+  const t = (kk: string, ru: string) => (opts.locale === "ru" ? ru : kk);
   const today = todayYmd(opts.now);
   const thisMonth = monthKey(today);
   const historyFrom = [shiftMonth(thisMonth, -5) + "-01", String(Number(today.slice(0, 4)) - 1) + "-01-01"].sort()[0];
@@ -343,14 +344,14 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
     title,
     winner: w ? byKey.get(w.key)!.name : null,
     winnerEmployeeId: w ? byKey.get(w.key)!.id : null,
-    detail: w ? detail(w.score, w.key) : "Әзірге ешкім",
+    detail: w ? detail(w.score, w.key) : t("Әзірге ешкім", "Пока никого"),
   });
   const nominations: Nomination[] = [
-    nom("grower", "🚀", "Ең көп өскен", grower, (s, k) => `+${Math.round(s)}% · ${lastWeek.get(k)?.items ?? 0} → ${week.get(k)?.items ?? 0} тауар`),
-    nom("first", "⚡", "Бірінші сатылым", firstSale, (s) => `${s} рет күннің біріншісі`),
-    nom("debtfree", "💯", "Қарызсыз", debtFree, (s) => `${s} тауар · 0 ₸ қалдық`),
-    nom("oldclient", "🔁", "Ескі клиент", oldClients, (s) => `${s} ескі клиент қайтты`),
-    nom("steady", "🎯", "Тұрақты", steady, (s) => `${s}/${(new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7 + 1} күн сатылым`),
+    nom("grower", "🚀", t("Ең көп өскен", "Лучший рост"), grower, (s, k) => `+${Math.round(s)}% · ${lastWeek.get(k)?.items ?? 0} → ${week.get(k)?.items ?? 0} ${t("тауар", "тов.")}`),
+    nom("first", "⚡", t("Бірінші сатылым", "Первая продажа"), firstSale, (s) => t(`${s} рет күннің біріншісі`, `первым за день: ${s}`)),
+    nom("debtfree", "💯", t("Қарызсыз", "Без долгов"), debtFree, (s) => t(`${s} тауар · 0 ₸ қалдық`, `${s} тов. · 0 ₸ остаток`)),
+    nom("oldclient", "🔁", t("Ескі клиент", "Постоянный клиент"), oldClients, (s) => t(`${s} ескі клиент қайтты`, `вернулось клиентов: ${s}`)),
+    nom("steady", "🎯", t("Тұрақты", "Стабильность"), steady, (s) => t(`${s}/${(new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7 + 1} күн сатылым`, `продажи ${s}/${(new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7 + 1} дн.`)),
   ];
 
   // ---- Жеке көрсеткіштер (тек менеджердің өзіне) ----
