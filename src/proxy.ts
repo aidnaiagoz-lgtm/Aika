@@ -16,6 +16,11 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
+  // PWA: service worker мен manifest кірусіз ашылуы керек (телефонға орнату, хабарлама)
+  if (pathname === "/sw.js" || pathname === "/manifest.webmanifest") {
+    return NextResponse.next();
+  }
+
   if (/\.(png|jpg|jpeg|svg|webp|ico|gif)$/.test(pathname)) {
     return NextResponse.next();
   }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { canUseWorkshop, isLeader, WORKSHOP_ROLES } from "@/lib/access";
 import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { SessionUser } from "@/lib/session";
+import { sendPushToUsers } from "@/lib/push";
 import { computePay, DEFAULT_RATES, DEFAULT_WORKERS, jobHeadline, leatherNorm, OPERATION_FIELD, OPERATIONS, type Operation } from "./calc";
 
 export class WorkshopError extends Error {}
@@ -163,19 +164,10 @@ async function maybeNotify(job: WorkshopJob): Promise<boolean> {
       data: recipients.map((u) => ({ recipientId: u.id, type: "workshop.new", title, body, payload: { jobId: job.id, url: "/workshop" } })),
     });
   }
-  if (notifyHook) {
-    await notifyHook(recipients.map((u) => u.id), { title, body, url: `/workshop?job=${job.id}` }).catch((e) =>
-      console.error("[workshop] push", e instanceof Error ? e.message : e),
-    );
-  }
+  await sendPushToUsers(recipients.map((u) => u.id), { title, body, url: `/workshop?job=${job.id}`, tag: `job-${job.id}` }).catch((e) =>
+    console.error("[workshop] push", e instanceof Error ? e.message : e),
+  );
   return true;
-}
-
-/** 1b-кезең: телефонға push — sendPush осында тіркеледі (тәуелділік циклі болмас үшін). */
-type NotifyHook = (userIds: string[], msg: { title: string; body: string; url: string }) => Promise<void>;
-let notifyHook: NotifyHook | null = null;
-export function setWorkshopNotifyHook(fn: NotifyHook) {
-  notifyHook = fn;
 }
 
 // ---------- тізім және әрекеттер ----------
