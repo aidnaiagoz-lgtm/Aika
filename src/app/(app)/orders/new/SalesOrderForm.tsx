@@ -38,6 +38,20 @@ const num = (s: string) => {
 };
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n)) + " ₸";
 
+// Марка бойынша әдепкі өндірілген ел (болжам ғана — өріс еркін өзгертіледі).
+const MAKE_COUNTRY: Record<string, string> = {
+  toyota: "Жапония", lexus: "Жапония", nissan: "Жапония", mazda: "Жапония", honda: "Жапония", mitsubishi: "Жапония",
+  hyundai: "Оңтүстік Корея", kia: "Оңтүстік Корея",
+  volkswagen: "Германия", bmw: "Германия", "mercedes-benz": "Германия", mercedes: "Германия", audi: "Германия",
+  chevrolet: "Өзбекстан", ravon: "Өзбекстан", daewoo: "Өзбекстан",
+  renault: "Франция",
+  skoda: "Чехия",
+  ford: "АҚШ",
+  chery: "Қытай", geely: "Қытай", haval: "Қытай", changan: "Қытай", "great wall": "Қытай", tank: "Қытай",
+  lada: "Ресей", ваз: "Ресей", gaz: "Ресей", uaz: "Ресей",
+};
+const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия"];
+
 const inputCls =
   "min-h-11 w-full rounded-icon border border-border bg-page-bg px-3 text-[15px] text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30";
 
@@ -85,6 +99,8 @@ export function SalesOrderForm({
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
+  const [generation, setGeneration] = useState("");
+  const [originCountry, setOriginCountry] = useState("");
   const [items, setItems] = useState<ItemState[]>([emptyItem()]);
   const [pays, setPays] = useState<PayState[]>([{ amount: "", method: "", date: today() }]);
   const [pickup, setPickup] = useState("");
@@ -119,7 +135,7 @@ export function SalesOrderForm({
       const r = await createSalesOrderAction({
         customer: { phone, name, city },
         channel,
-        car: { make, model, year: num(year) },
+        car: { make, model, year: num(year), generation, originCountry },
         items: items.map((i) => ({
           product: i.product,
           price: num(i.price),
@@ -146,7 +162,7 @@ export function SalesOrderForm({
   }
 
   function reset() {
-    setPhone(""); setName(""); setChannel(""); setMake(""); setModel(""); setYear("");
+    setPhone(""); setName(""); setChannel(""); setMake(""); setModel(""); setYear(""); setGeneration(""); setOriginCountry("");
     setItems([emptyItem()]); setPays([{ amount: "", method: "", date: today() }]);
     setPickup(""); setBonus(""); setCert(""); setComment(""); setResult(null);
   }
@@ -180,6 +196,7 @@ export function SalesOrderForm({
         "o-product": options.product, "o-leather": options.leatherType, "o-thread": options.leatherThread, "o-piping": options.leatherPiping,
         "o-mat": options.matType, "o-matthread": options.matThread, "o-matpiping": options.matPiping, "o-pay": options.receipt1Method,
         "o-pickup": options.pickupMethod,
+        "o-country": COUNTRY_OPTIONS,
       }).map(([id, list]) => (
         <datalist key={id} id={id}>
           {(list ?? []).map((v) => (
@@ -209,13 +226,29 @@ export function SalesOrderForm({
         <Section n={2} title="Көлік">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Авто (марка)">
-              <ListInput value={make} onChange={(v) => { setMake(v); if (model && !(modelsByMake[v.trim().toLowerCase()] ?? []).includes(model)) setModel(""); }} list="o-car" placeholder="тойота" />
+              <ListInput
+                value={make}
+                onChange={(v) => {
+                  setMake(v);
+                  if (model && !(modelsByMake[v.trim().toLowerCase()] ?? []).includes(model)) setModel("");
+                  const country = MAKE_COUNTRY[v.trim().toLowerCase()];
+                  if (country) setOriginCountry(country);
+                }}
+                list="o-car"
+                placeholder="тойота"
+              />
             </Field>
             <Field label="Марка (модель)">
               <ListInput value={model} onChange={setModel} list="o-brand" placeholder={models[0] ?? "модель"} />
             </Field>
             <Field label="Жылы">
               <ListInput value={year} onChange={setYear} placeholder="2021" inputMode="numeric" />
+            </Field>
+            <Field label="Буын (мыс. XV70)">
+              <ListInput value={generation} onChange={setGeneration} placeholder="XV70" />
+            </Field>
+            <Field label="Қай елдің өндірісі">
+              <ListInput value={originCountry} onChange={setOriginCountry} list="o-country" placeholder="Жапония" />
             </Field>
           </div>
         </Section>

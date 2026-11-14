@@ -363,6 +363,7 @@ model CustomerCar {
   make         String // Vehicle: Brand
   model        String // Vehicle: Model
   generation   String? // Order Module §4
+  originCountry String? // Қай елдің өндірісі
   body         String? // Order Module §4
   year         Int? // Production Year
   numberOfRows Int? // Order Module §4

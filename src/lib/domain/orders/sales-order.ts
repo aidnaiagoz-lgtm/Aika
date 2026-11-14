@@ -33,7 +33,7 @@ export interface SalesOrderItemIn {
 export interface SalesOrderIn {
   customer: { phone: string; name: string; city?: string };
   channel?: string;
-  car: { make?: string; model?: string; year?: number | null };
+  car: { make?: string; model?: string; year?: number | null; generation?: string; originCountry?: string };
   items: SalesOrderItemIn[];
   payments: PaymentIn[];
   pickupMethod?: string;
@@ -103,7 +103,13 @@ export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10:
     customer: { phone: raw.customer.phone, name, city: clean(raw.customer.city, 60) },
     phone10: phone.value,
     channel: clean(raw.channel, 60),
-    car: { make: clean(raw.car?.make, 60), model: clean(raw.car?.model, 80), year: year && year > 1950 && year < 2100 ? year : null },
+    car: {
+      make: clean(raw.car?.make, 60),
+      model: clean(raw.car?.model, 80),
+      year: year && year > 1950 && year < 2100 ? year : null,
+      generation: clean(raw.car?.generation, 40),
+      originCountry: clean(raw.car?.originCountry, 60),
+    },
     items,
     payments,
     pickupMethod: clean(raw.pickupMethod, 60),
@@ -138,7 +144,20 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
       where: { customerId: customer.id, make: { equals: make, mode: "insensitive" }, model: { equals: model, mode: "insensitive" }, year: input.car.year ?? null },
       select: { id: true },
     });
-    vehicleId = same?.id ?? (await prisma.customerCar.create({ data: { customerId: customer.id, make, model, year: input.car.year ?? undefined } })).id;
+    vehicleId =
+      same?.id ??
+      (
+        await prisma.customerCar.create({
+          data: {
+            customerId: customer.id,
+            make,
+            model,
+            year: input.car.year ?? undefined,
+            generation: input.car.generation,
+            originCountry: input.car.originCountry,
+          },
+        })
+      ).id;
   }
 
   const moneyRows = input.items.map((i) => itemMoney(i.price, i.soldFor));
