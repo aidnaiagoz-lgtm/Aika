@@ -6,7 +6,7 @@ import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
 import { autoGeneration, COUNTRY_OPTIONS, generationOptions, originCountryFor } from "./car-data";
 import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
-import { groupProducts, kindById, PRODUCT_KINDS, productKind, type KindId } from "./product-kinds";
+import { groupProducts, kindById, PRODUCT_KINDS, productKind, type KindId } from "@/lib/domain/orders/product-kinds";
 
 type Options = Record<string, string[]>;
 

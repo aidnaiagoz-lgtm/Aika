@@ -4,7 +4,7 @@ import { ForbiddenError } from "@/lib/rbac";
 import { isLeader } from "@/lib/access";
 import type { Locale } from "@/lib/i18n";
 import { tr } from "@/lib/tr";
-import { listUnifiedOrders, type UnifiedFilters, type UnifiedRow } from "@/lib/domain/orders/unified";
+import { listUnifiedOrders, type UnifiedFilters, type UnifiedItem, type UnifiedRow, type WorkshopMark } from "@/lib/domain/orders/unified";
 import type { ActingUser } from "@/lib/domain/orders/types";
 import { ORDER_PERIODS, type OrderPeriod } from "@/lib/domain/orders/unified-calc";
 
@@ -134,7 +134,14 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
             {q ? t("Ештеңе табылмады — телефонның соңғы 7 цифрын жазып көріңіз", "Ничего не найдено — попробуйте последние 7 цифр телефона") : t("Заказ жоқ", "Заказов нет")}
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Телефонда — карточкалар (кесте кең) */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {rows.map((r) => (
+              <MobileCard key={r.key} r={r} t={t} date={dateFmt.format(r.date)} />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs text-text-secondary">
@@ -143,12 +150,11 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                     t("Көзі", "Источник"),
                     t("Клиент", "Клиент"),
                     t("Көлік", "Авто"),
-                    t("Тауар", "Товар"),
-                    t("Сомасы", "Сумма"),
+                    t("Тауарлар", "Товары"),
+                    t("Барлығы", "Итого"),
                     t("Төленді", "Оплачено"),
                     t("Қалдық", "Остаток"),
                     t("Менеджер", "Менеджер"),
-                    t("Цех", "Цех"),
                     "",
                   ].map((h, i) => (
                     <th key={i} className="whitespace-nowrap pb-3 pr-4 font-semibold">
@@ -164,6 +170,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {pages > 1 && <Pager page={page} pages={pages} href={(n) => href({ page: n })} t={t} />}
       </Card>
@@ -177,43 +184,113 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
   );
 }
 
-const WS: Record<UnifiedRow["workshop"], { kk: string; ru: string; dot: string } | null> = {
+const WS: Record<WorkshopMark, { kk: string; ru: string; dot: string } | null> = {
   none: null,
-  marked: { kk: "Цех ✓", ru: "Цех ✓", dot: "#9aa0b4" },
+  marked: { kk: "Цех", ru: "Цех", dot: "#9aa0b4" },
   NEW: { kk: "Кезекте", ru: "В очереди", dot: "#9aa0b4" },
-  IN_PROGRESS: { kk: "Тігілуде", ru: "Шьётся", dot: "#f2b01e" },
+  IN_PROGRESS: { kk: "Цехта", ru: "В цехе", dot: "#f2b01e" },
   DONE: { kk: "Дайын", ru: "Готово", dot: "#22a35a" },
   CANCELLED: { kk: "Тоқтатылды", ru: "Отменён", dot: "#e0483d" },
 };
 
-function Row({ r, t, date }: { r: UnifiedRow; t: (kk: string, ru: string) => string; date: string }) {
-  const ws = WS[r.workshop];
+type T = (kk: string, ru: string) => string;
+const SHOW = 3; // алғашқы 3 тауар көрінеді, қалғаны «+N тауар ▾»
+
+function ItemLine({ it, t }: { it: UnifiedItem; t: T }) {
+  const ws = WS[it.workshop];
   return (
-    <tr className={`border-t border-border align-middle ${r.mine ? "bg-accent/5" : ""}`}>
-      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">{date}</td>
-      <td className="whitespace-nowrap py-3 pr-4">
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${r.source === "site" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}
-        >
-          {r.source === "site" ? t("Сайт", "Сайт") : "Google"} · {r.label}
+    <div className="flex items-start justify-between gap-3 py-0.5">
+      <div className="min-w-0">
+        <div className="text-text-primary">
+          {it.kind && <span className="font-semibold">{it.kind} · </span>}
+          {it.name}
+          {ws && (
+            <span className="ml-1.5 inline-flex items-center gap-1 whitespace-nowrap text-xs text-text-secondary">
+              <span className="h-2 w-2 rounded-full" style={{ background: ws.dot }} />
+              {t(ws.kk, ws.ru)}
+            </span>
+          )}
+        </div>
+        {it.detail && <div className="truncate text-xs text-text-secondary">{it.detail}</div>}
+      </div>
+      <div className="shrink-0 font-semibold tabular-nums text-text-primary">{money(it.amount)}</div>
+    </div>
+  );
+}
+
+function Items({ r, t }: { r: UnifiedRow; t: T }) {
+  if (r.items.length === 0) return <span className="text-text-secondary">—</span>;
+  const head = r.items.slice(0, SHOW);
+  const rest = r.items.slice(SHOW);
+  return (
+    <div className="flex flex-col">
+      {r.items.length > 1 && (
+        <span className="mb-1 self-start rounded-full bg-accent/10 px-2 py-0.5 text-xs font-bold text-accent">
+          {r.items.length} {t("тауар", "товара")}
         </span>
+      )}
+      {head.map((it, i) => (
+        <ItemLine key={i} it={it} t={t} />
+      ))}
+      {rest.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer list-none py-0.5 text-xs font-bold text-accent">
+            <span className="group-open:hidden">+{rest.length} {t("тауар ▾", "товар ▾")}</span>
+            <span className="hidden group-open:inline">{t("Жию ▴", "Свернуть ▴")}</span>
+          </summary>
+          {rest.map((it, i) => (
+            <ItemLine key={i} it={it} t={t} />
+          ))}
+        </details>
+      )}
+    </div>
+  );
+}
+
+function SourceBadge({ r, t }: { r: UnifiedRow; t: T }) {
+  return (
+    <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${r.source === "site" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>
+      {r.source === "site" ? t("Сайт", "Сайт") : "Google"} · {r.label}
+    </span>
+  );
+}
+
+function Action({ r, t }: { r: UnifiedRow; t: T }) {
+  return r.href ? (
+    <Link href={r.href} className="font-semibold text-accent hover:underline">
+      {r.source === "site" ? t("Ашу", "Открыть") : r.canEdit ? t("Продажиде өзгерту ↗", "Изменить в Продажах ↗") : t("Продажиде ашу ↗", "Открыть в Продажах ↗")}
+    </Link>
+  ) : (
+    <span className="text-text-secondary">🔒 {t("тек көру", "только просмотр")}</span>
+  );
+}
+
+function Remainder({ r }: { r: UnifiedRow }) {
+  return <span className={`font-semibold tabular-nums ${r.remainder > 0 ? "text-danger" : "text-emerald-600"}`}>{r.remainder > 0 ? money(r.remainder) : "0 ✓"}</span>;
+}
+
+function Row({ r, t, date }: { r: UnifiedRow; t: T; date: string }) {
+  return (
+    <tr className={`border-t border-border align-top ${r.mine ? "bg-accent/5" : ""}`}>
+      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">{date}</td>
+      <td className="py-3 pr-4">
+        <SourceBadge r={r} t={t} />
       </td>
       <td className="whitespace-nowrap py-3 pr-4">
-        <div className="text-text-primary">{r.customerName || "—"}</div>
+        <div className="font-semibold text-text-primary">{r.customerName || "—"}</div>
         <div className="text-xs text-text-secondary">{r.phone}</div>
       </td>
       <td className="whitespace-nowrap py-3 pr-4">
         <div className="text-text-primary">{r.car || "—"}</div>
         {r.carYear && <div className="text-xs text-text-secondary">{r.carYear}</div>}
       </td>
-      <td className="min-w-[260px] max-w-[360px] py-3 pr-4">
-        <div className="line-clamp-2 text-text-primary">{r.products.join(", ") || "—"}</div>
-        {r.detail && <div className="truncate text-xs text-text-secondary">{r.detail}</div>}
+      <td className="min-w-[300px] max-w-[440px] py-3 pr-6">
+        <Items r={r} t={t} />
       </td>
-      <td className="whitespace-nowrap py-3 pr-4 tabular-nums">{money(r.total)}</td>
+      <td className="whitespace-nowrap py-3 pr-4 font-bold tabular-nums">{money(r.total)}</td>
       <td className="whitespace-nowrap py-3 pr-4 tabular-nums text-text-secondary">{money(r.paid)}</td>
-      <td className={`whitespace-nowrap py-3 pr-4 font-semibold tabular-nums ${r.remainder > 0 ? "text-danger" : "text-emerald-600"}`}>
-        {r.remainder > 0 ? money(r.remainder) : "0 ✓"}
+      <td className="whitespace-nowrap py-3 pr-4">
+        <Remainder r={r} />
       </td>
       <td className="whitespace-nowrap py-3 pr-4">
         <span className={r.mine ? "font-semibold text-text-primary" : "text-text-secondary"}>
@@ -221,26 +298,47 @@ function Row({ r, t, date }: { r: UnifiedRow; t: (kk: string, ru: string) => str
           {r.mine && ` (${t("мен", "я")})`}
         </span>
       </td>
-      <td className="whitespace-nowrap py-3 pr-4">
-        {ws ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: ws.dot }} />
-            {t(ws.kk, ws.ru)}
-          </span>
-        ) : (
-          <span className="text-text-secondary">—</span>
-        )}
-      </td>
       <td className="whitespace-nowrap py-3 pr-2 text-xs">
-        {r.href ? (
-          <Link href={r.href} className="font-semibold text-accent hover:underline">
-            {r.source === "site" ? t("Ашу", "Открыть") : r.canEdit ? t("Продажиде өзгерту ↗", "Изменить в Продажах ↗") : t("Продажиде ашу ↗", "Открыть в Продажах ↗")}
-          </Link>
-        ) : (
-          <span className="text-text-secondary">🔒 {t("тек көру", "только просмотр")}</span>
-        )}
+        <Action r={r} t={t} />
       </td>
     </tr>
+  );
+}
+
+/** Телефондағы карточка: клиент, көлік, тауарлар, сомалар. */
+function MobileCard({ r, t, date }: { r: UnifiedRow; t: T; date: string }) {
+  return (
+    <div className={`rounded-icon border border-border p-3 text-sm ${r.mine ? "bg-accent/5" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <SourceBadge r={r} t={t} />
+        <span className="text-xs text-text-secondary">{date}</span>
+      </div>
+      <div className="mt-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold text-text-primary">{r.customerName || "—"}</div>
+          <div className="text-xs text-text-secondary">{r.phone}</div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-text-primary">{r.car || "—"}</div>
+          {r.carYear && <div className="text-xs text-text-secondary">{r.carYear}</div>}
+        </div>
+      </div>
+      <div className="mt-2 border-t border-border pt-2">
+        <Items r={r} t={t} />
+      </div>
+      <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+        <span className="text-text-secondary">
+          {t("Барлығы", "Итого")} <b className="text-text-primary">{money(r.total)}</b> · {t("қалдық", "остаток")} <Remainder r={r} />
+        </span>
+      </div>
+      <div className="mt-1 flex items-center justify-between text-xs">
+        <span className={r.mine ? "font-semibold text-text-primary" : "text-text-secondary"}>
+          {r.manager || "—"}
+          {r.mine && ` (${t("мен", "я")})`}
+        </span>
+        <Action r={r} t={t} />
+      </div>
+    </div>
   );
 }
 

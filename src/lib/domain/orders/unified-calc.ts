@@ -69,3 +69,27 @@ export function periodDays(period: OrderPeriod, today: string): [string, string]
       return null;
   }
 }
+
+/** Кестедегі тауар атауын қысқарту: «3727 - Чехол - Style Z» → «Чехол - Style Z», «- - панель накидка» → «панель накидка». */
+export function shortProduct(p: string | null | undefined): string {
+  return (p ?? "")
+    .trim()
+    .replace(/^\d+\s*-\s*/, "")
+    .replace(/^(-\s*)+/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** Продажи жолдарын «заказға» топтау кілті: бір күн + бір клиент (телефон/аты) + бір менеджер. */
+export function ledgerGroupKey(r: { date: Date | null; phoneNorm: string | null; customerName: string | null; manager: string | null }): string {
+  return [r.date ? r.date.toISOString().slice(0, 10) : "-", r.phoneNorm ?? "", (r.customerName ?? "").trim().toLowerCase(), (r.manager ?? "").trim().toLowerCase()].join("|");
+}
+
+/** «№12460–12464» немесе «№12443» (нөмірлер қатар болмаса — «№12460, 12462…»). */
+export function ledgerLabel(nos: number[]): string {
+  const s = [...new Set(nos)].sort((a, b) => a - b);
+  if (s.length === 0) return "";
+  if (s.length === 1) return `№${s[0]}`;
+  const consecutive = s.every((n, i) => i === 0 || n === s[i - 1] + 1);
+  return consecutive ? `№${s[0]}–${s[s.length - 1]}` : `№${s.slice(0, 2).join(", ")}${s.length > 2 ? "…" : ""}`;
+}

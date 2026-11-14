@@ -41,3 +41,18 @@ test("periodDays: бүгін, кеше, апта (дүйсенбіден), ай"
   assert.equal(periodDays("all", today), null);
   assert.equal(almatyToday(new Date("2026-11-14T20:00:00Z")), "2026-11-15");
 });
+
+test("shortProduct, ledgerGroupKey, ledgerLabel", async () => {
+  const { shortProduct, ledgerGroupKey, ledgerLabel } = await import("./unified-calc");
+  assert.equal(shortProduct("3727 - Чехол - Style Z"), "Чехол - Style Z");
+  assert.equal(shortProduct("- - панель накидка"), "панель накидка");
+  assert.equal(shortProduct("3Д - Люкс - салон"), "3Д - Люкс - салон");
+  const d = new Date("2026-11-13T00:00:00Z");
+  assert.equal(
+    ledgerGroupKey({ date: d, phoneNorm: "7001112233", customerName: " Ержан ", manager: "Амина" }),
+    ledgerGroupKey({ date: d, phoneNorm: "7001112233", customerName: "ержан", manager: "амина " })
+  );
+  assert.equal(ledgerLabel([12464, 12460, 12461, 12462, 12463]), "№12460–12464");
+  assert.equal(ledgerLabel([12443]), "№12443");
+  assert.equal(ledgerLabel([5, 9, 12]), "№5, 9…");
+});
