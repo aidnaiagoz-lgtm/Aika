@@ -175,6 +175,30 @@ export async function getLedgerOptions(branchId: string) {
   return { options, priceByProduct };
 }
 
+/** Көлік маркасы → сол маркада бұрын сатылған модельдер (жиілігі бойынша). Кілт — кіші әріппен. */
+export async function getModelsByMake(branchId: string): Promise<Record<string, string[]>> {
+  const since = new Date(Date.now() - 2 * 365 * 86400_000);
+  const groups = await prisma.salesLedgerRow.groupBy({
+    by: ["car", "brand"],
+    where: { branchId, date: { gte: since }, car: { not: null }, brand: { not: null } },
+    _count: { _all: true },
+  });
+  const byMake = new Map<string, Map<string, number>>();
+  for (const g of groups) {
+    const make = (g.car ?? "").trim().toLowerCase();
+    const model = (g.brand ?? "").trim();
+    if (!make || !model) continue;
+    const m = byMake.get(make) ?? new Map<string, number>();
+    m.set(model, (m.get(model) ?? 0) + g._count._all);
+    byMake.set(make, m);
+  }
+  const out: Record<string, string[]> = {};
+  for (const [make, models] of byMake) {
+    out[make] = [...models.entries()].sort((a, b) => b[1] - a[1]).slice(0, 200).map(([m]) => m);
+  }
+  return out;
+}
+
 /** Өздігінен есептелетін бағандар: Год/Мес — Датадан, Остаток = Продали за − (Чек1+Чек2+Чек3). */
 export async function recomputeLedgerRow(id: string) {
   const r = await prisma.salesLedgerRow.findUniqueOrThrow({ where: { id } });

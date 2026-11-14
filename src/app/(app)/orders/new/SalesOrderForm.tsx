@@ -66,7 +66,18 @@ function Section({ n, title, children }: { n: number; title: string; children: R
   );
 }
 
-export function SalesOrderForm({ options, priceByProduct, managerName }: { options: Options; priceByProduct: Record<string, number>; managerName: string }) {
+export function SalesOrderForm({
+  options,
+  priceByProduct,
+  modelsByMake,
+  managerName,
+}: {
+  options: Options;
+  priceByProduct: Record<string, number>;
+  /** Марка (кіші әріппен) → сол маркадағы модельдер — «Марка (модель)» тізімі тек сол маркаға қарай сүзіледі */
+  modelsByMake: Record<string, string[]>;
+  managerName: string;
+}) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [city, setCity] = useState("Алматы");
@@ -85,6 +96,15 @@ export function SalesOrderForm({ options, priceByProduct, managerName }: { optio
 
   const setItem = (k: number, patch: Partial<ItemState>) => setItems((xs) => xs.map((x, i) => (i === k ? { ...x, ...patch } : x)));
   const setPay = (k: number, patch: Partial<PayState>) => setPays((xs) => xs.map((x, i) => (i === k ? { ...x, ...patch } : x)));
+
+  // Марка жазылса — модель тізімі тек сол маркадағылар; марка белгісіз болса — барлығы
+  const models = useMemo(() => {
+    const key = make.trim().toLowerCase();
+    if (!key) return options.brand ?? [];
+    if (modelsByMake[key]) return modelsByMake[key];
+    const near = Object.keys(modelsByMake).filter((k) => k.startsWith(key) || key.startsWith(k));
+    return near.length ? [...new Set(near.flatMap((k) => modelsByMake[k]))] : options.brand ?? [];
+  }, [make, modelsByMake, options.brand]);
 
   const totals = useMemo(() => {
     const price = items.reduce((s, i) => s + (num(i.price) ?? num(i.soldFor) ?? 0), 0);
@@ -156,7 +176,7 @@ export function SalesOrderForm({ options, priceByProduct, managerName }: { optio
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       {Object.entries({
-        "o-channel": options.contactChannel, "o-city": options.contactCity, "o-car": options.car, "o-brand": options.brand,
+        "o-channel": options.contactChannel, "o-city": options.contactCity, "o-car": options.car, "o-brand": models,
         "o-product": options.product, "o-leather": options.leatherType, "o-thread": options.leatherThread, "o-piping": options.leatherPiping,
         "o-mat": options.matType, "o-matthread": options.matThread, "o-matpiping": options.matPiping, "o-pay": options.receipt1Method,
         "o-pickup": options.pickupMethod,
@@ -189,10 +209,10 @@ export function SalesOrderForm({ options, priceByProduct, managerName }: { optio
         <Section n={2} title="Көлік">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Авто (марка)">
-              <ListInput value={make} onChange={setMake} list="o-car" placeholder="тойота" />
+              <ListInput value={make} onChange={(v) => { setMake(v); if (model && !(modelsByMake[v.trim().toLowerCase()] ?? []).includes(model)) setModel(""); }} list="o-car" placeholder="тойота" />
             </Field>
             <Field label="Марка (модель)">
-              <ListInput value={model} onChange={setModel} list="o-brand" placeholder="камри 70" />
+              <ListInput value={model} onChange={setModel} list="o-brand" placeholder={models[0] ?? "модель"} />
             </Field>
             <Field label="Жылы">
               <ListInput value={year} onChange={setYear} placeholder="2021" inputMode="numeric" />
