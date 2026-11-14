@@ -6,10 +6,12 @@ import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
 import { autoGeneration, COUNTRY_OPTIONS, generationOptions, originCountryFor } from "./car-data";
 import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
+import { groupProducts, kindById, PRODUCT_KINDS, productKind, type KindId } from "./product-kinds";
 
 type Options = Record<string, string[]>;
 
 interface ItemState {
+  kind: KindId | ""; // тауар түрі (CEO, 2026-11-14): әр түрге тек өз өрістері
   product: string;
   price: string;
   soldFor: string;
@@ -31,8 +33,9 @@ interface PayState {
 
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 const emptyItem = (): ItemState => ({
+  kind: "",
   product: "", price: "", soldFor: "", leatherType: "", leatherThread: "", leatherPiping: "",
-  matType: "", matThread: "", matPiping: "", pocketsPairs: "", pocketsLogo: false, workshop: true,
+  matType: "", matThread: "", matPiping: "", pocketsPairs: "", pocketsLogo: false, workshop: false,
 });
 const num = (s: string) => {
   const n = Number(s.replace(/\s/g, "").replace(",", "."));
@@ -108,6 +111,21 @@ export function SalesOrderForm({
     return near.length ? [...new Set(near.flatMap((k) => modelsByMake[k]))] : options.brand ?? [];
   }, [make, modelsByMake, options.brand]);
 
+  const productsByKind = useMemo(() => groupProducts(options.product ?? []), [options.product]);
+  /** Тауар түрін таңдау: «Цех» әдепкісі, қатысы жоқ өрістер мен басқа түрдің тауары тазаланады. */
+  const chooseKind = (k: number, kind: KindId) => {
+    const it = items[k];
+    const kd = kindById(kind);
+    const keepProduct = it.product && productKind(it.product) === kind;
+    setItem(k, {
+      kind,
+      workshop: kd.workshop,
+      ...(keepProduct ? {} : { product: "", price: "" }),
+      ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "" }),
+      ...(kd.mat ? {} : { matType: "", matThread: "", matPiping: "" }),
+      ...(kd.pockets ? {} : { pocketsPairs: "", pocketsLogo: false }),
+    });
+  };
   const genOptions = useMemo(() => generationOptions(make, model, num(year)), [make, model, year]);
 
   // Марка + модель + жыл бойынша буын бір ғана болса — өзі қойылады (менеджер өзгерте алады)
@@ -130,7 +148,16 @@ export function SalesOrderForm({
         customer: { phone, name, city },
         channel,
         car: { make, model, year: num(year), generation, originCountry },
-        items: items.map((i) => ({
+        items: items.map((it) => {
+          // Тауар түріне қатысы жоқ өрістер жіберілмейді (мыс. чехолға кожа)
+          const kd = kindById(it.kind || productKind(it.product));
+          const i = {
+            ...it,
+            ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "" }),
+            ...(kd.mat ? {} : { matType: "", matThread: "", matPiping: "" }),
+            ...(kd.pockets ? {} : { pocketsPairs: "", pocketsLogo: false }),
+          };
+          return {
           product: i.product,
           price: num(i.price),
           soldFor: num(i.soldFor),
@@ -143,7 +170,8 @@ export function SalesOrderForm({
           pocketsPairs: num(i.pocketsPairs),
           pocketsLogo: i.pocketsLogo,
           workshop: i.workshop,
-        })),
+          };
+        }),
         payments: pays.map((p) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date })),
         pickupMethod: pickup,
         comment,
@@ -192,6 +220,13 @@ export function SalesOrderForm({
       }).map(([id, list]) => (
         <datalist key={id} id={id}>
           {(list ?? []).map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+      ))}
+      {Object.entries(productsByKind).map(([id, list]) => (
+        <datalist key={id} id={`o-product-${id}`}>
+          {list.map((v) => (
             <option key={v} value={v} />
           ))}
         </datalist>
@@ -262,43 +297,88 @@ export function SalesOrderForm({
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="Товар *" wide>
-                  <ListInput
-                    value={it.product}
-                    list="o-product"
-                    placeholder="3Д - Люкс - салон полный 2 ряд"
-                    onChange={(v) => setItem(k, { product: v, ...(priceByProduct[v] != null && !it.price ? { price: String(priceByProduct[v]) } : {}) })}
-                  />
-                </Field>
-                <Field label="Кожа вид" wide>
-                  <ListInput value={it.leatherType} onChange={(v) => setItem(k, { leatherType: v })} list="o-leather" />
-                </Field>
-                <Field label="Кожа нитка">
-                  <ListInput value={it.leatherThread} onChange={(v) => setItem(k, { leatherThread: v })} list="o-thread" />
-                </Field>
-                <Field label="Кожа окантовка">
-                  <ListInput value={it.leatherPiping} onChange={(v) => setItem(k, { leatherPiping: v })} list="o-piping" />
-                </Field>
-                <Field label="Съёмный полик вид" wide>
-                  <ListInput value={it.matType} onChange={(v) => setItem(k, { matType: v })} list="o-mat" />
-                </Field>
-                <Field label="Съёмный нитка">
-                  <ListInput value={it.matThread} onChange={(v) => setItem(k, { matThread: v })} list="o-matthread" />
-                </Field>
-                <Field label="Съёмный окантовка">
-                  <ListInput value={it.matPiping} onChange={(v) => setItem(k, { matPiping: v })} list="o-matpiping" />
-                </Field>
-                <Field label="Кармашки (жұп)">
-                  <ListInput value={it.pocketsPairs} onChange={(v) => setItem(k, { pocketsPairs: v })} inputMode="numeric" placeholder="1" />
-                </Field>
-                <label className="flex min-h-11 items-center gap-2 self-end text-sm font-semibold text-text-primary">
-                  <input type="checkbox" className="h-5 w-5" checked={it.pocketsLogo} onChange={(e) => setItem(k, { pocketsLogo: e.target.checked })} /> Кармашки лого
-                </label>
-                <label className="flex min-h-11 items-center gap-2 self-end rounded-icon bg-[#f1eeff] px-3 text-sm font-bold text-[#6a4ff5] sm:col-span-2">
-                  <input type="checkbox" className="h-5 w-5" checked={it.workshop} onChange={(e) => setItem(k, { workshop: e.target.checked })} /> Цех — цехта тігіледі
-                </label>
-              </div>
+              {(() => {
+                const kd = it.kind ? kindById(it.kind) : null;
+                return (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {PRODUCT_KINDS.map((pk) => (
+                        <button
+                          key={pk.id}
+                          type="button"
+                          onClick={() => chooseKind(k, pk.id)}
+                          className={`min-h-10 rounded-icon border-[1.5px] px-3.5 text-sm font-semibold ${
+                            it.kind === pk.id ? "border-accent bg-accent/10 text-accent" : "border-border bg-surface text-text-primary hover:border-accent/50"
+                          }`}
+                        >
+                          {pk.label}
+                        </button>
+                      ))}
+                    </div>
+                    {!kd ? (
+                      <p className="m-0 text-sm text-text-secondary">Алдымен тауар түрін таңдаңыз — сосын тек соған керек өрістер шығады.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Field label={`${kd.label} *`} wide>
+                          <ListInput
+                            value={it.product}
+                            list={`o-product-${kd.id}`}
+                            placeholder={productsByKind[kd.id]?.[0] ?? "Тауар атауы"}
+                            onChange={(v) => {
+                              const auto = v.trim() ? productKind(v) : kd.id;
+                              setItem(k, {
+                                product: v,
+                                ...(priceByProduct[v] != null && !it.price ? { price: String(priceByProduct[v]) } : {}),
+                                // Басқа түрдің тауары таңдалса — түрі өзі ауысады
+                                ...(auto !== kd.id && auto !== "other" ? { kind: auto, workshop: kindById(auto).workshop } : {}),
+                              });
+                            }}
+                          />
+                        </Field>
+                        {kd.leather && (
+                          <>
+                            <Field label="Кожа вид" wide>
+                              <ListInput value={it.leatherType} onChange={(v) => setItem(k, { leatherType: v })} list="o-leather" />
+                            </Field>
+                            <Field label="Кожа нитка">
+                              <ListInput value={it.leatherThread} onChange={(v) => setItem(k, { leatherThread: v })} list="o-thread" />
+                            </Field>
+                            <Field label="Кожа окантовка">
+                              <ListInput value={it.leatherPiping} onChange={(v) => setItem(k, { leatherPiping: v })} list="o-piping" />
+                            </Field>
+                          </>
+                        )}
+                        {kd.mat && (
+                          <>
+                            <Field label="Съёмный полик вид" wide>
+                              <ListInput value={it.matType} onChange={(v) => setItem(k, { matType: v })} list="o-mat" />
+                            </Field>
+                            <Field label="Съёмный нитка">
+                              <ListInput value={it.matThread} onChange={(v) => setItem(k, { matThread: v })} list="o-matthread" />
+                            </Field>
+                            <Field label="Съёмный окантовка">
+                              <ListInput value={it.matPiping} onChange={(v) => setItem(k, { matPiping: v })} list="o-matpiping" />
+                            </Field>
+                          </>
+                        )}
+                        {kd.pockets && (
+                          <>
+                            <Field label="Кармашки (жұп)">
+                              <ListInput value={it.pocketsPairs} onChange={(v) => setItem(k, { pocketsPairs: v })} inputMode="numeric" placeholder="1" />
+                            </Field>
+                            <label className="flex min-h-11 items-center gap-2 self-end text-sm font-semibold text-text-primary">
+                              <input type="checkbox" className="h-5 w-5" checked={it.pocketsLogo} onChange={(e) => setItem(k, { pocketsLogo: e.target.checked })} /> Кармашки лого
+                            </label>
+                          </>
+                        )}
+                        <label className="flex min-h-11 items-center gap-2 self-end rounded-icon bg-[#f1eeff] px-3 text-sm font-bold text-[#6a4ff5] sm:col-span-2">
+                          <input type="checkbox" className="h-5 w-5" checked={it.workshop} onChange={(e) => setItem(k, { workshop: e.target.checked })} /> Цех — цехта тігіледі
+                        </label>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           ))}
           <button type="button" onClick={() => setItems((xs) => [...xs, emptyItem()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
