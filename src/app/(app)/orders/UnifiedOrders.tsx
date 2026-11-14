@@ -74,7 +74,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
       </div>
 
       {/* Сүзгілер компьютерде экранның үстінде қатып тұрады (CEO өтініші); телефонда биік болғандықтан — жоқ. */}
-      <div className="md:sticky md:-top-8 md:z-20 md:-mt-8 md:bg-page-bg md:pb-1 md:pt-8">
+      <div className="md:sticky md:-top-8 md:z-20 md:-mt-4 md:bg-page-bg md:pb-1 md:pt-4">
         <Card>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <Segment
