@@ -149,6 +149,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                 <tr className="text-xs text-text-secondary">
                   {[
                     t("Күні", "Дата"),
+                    t("Уақыты", "Время"),
                     t("Көзі", "Источник"),
                     t("Клиент", "Клиент"),
                     t("Көлік", "Авто"),
@@ -274,10 +275,8 @@ function Remainder({ r }: { r: UnifiedRow }) {
 function Row({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; time: string | null }) {
   return (
     <tr className={`border-t border-border align-top ${r.mine ? "bg-accent/5" : ""}`}>
-      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">
-        <div>{date}</div>
-        {time && <div className="text-xs font-semibold text-text-primary">🕒 {time}</div>}
-      </td>
+      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">{date}</td>
+      <td className="whitespace-nowrap py-3 pr-4 font-semibold tabular-nums text-text-primary">{time ?? <span className="font-normal text-text-secondary">—</span>}</td>
       <td className="py-3 pr-4">
         <SourceBadge r={r} t={t} />
       </td>
