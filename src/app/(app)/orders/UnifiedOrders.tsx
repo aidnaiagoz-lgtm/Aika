@@ -6,11 +6,12 @@ import type { Locale } from "@/lib/i18n";
 import { tr } from "@/lib/tr";
 import { listUnifiedOrders, type UnifiedFilters, type UnifiedRow } from "@/lib/domain/orders/unified";
 import type { ActingUser } from "@/lib/domain/orders/types";
+import { ORDER_PERIODS, type OrderPeriod } from "@/lib/domain/orders/unified-calc";
 
 type Props = {
   user: ActingUser;
   locale: Locale;
-  filters: { who?: string; src?: string; q?: string; page?: string };
+  filters: { who?: string; src?: string; q?: string; page?: string; period?: string };
 };
 
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
@@ -21,22 +22,31 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
   const q = (filters.q ?? "").trim().slice(0, 80);
   // Басшыға әдепкі — «Барлығы»; менеджерге — «Менің»; іздегенде — бүкіл тарих (клиент басқа менеджерден алған болуы мүмкін).
   const who: UnifiedFilters["who"] = filters.who === "mine" || filters.who === "all" ? filters.who : isLeader(user) || q ? "all" : "mine";
+  const period: OrderPeriod = ORDER_PERIODS.includes(filters.period as OrderPeriod) ? (filters.period as OrderPeriod) : "all";
+  const PERIOD_LABEL: Record<OrderPeriod, string> = {
+    today: t("Бүгін", "Сегодня"),
+    yesterday: t("Кеше", "Вчера"),
+    week: t("Апта", "Неделя"),
+    month: t("Ай", "Месяц"),
+    all: t("Барлығы", "Всё время"),
+  };
   const src: UnifiedFilters["src"] = filters.src === "site" || filters.src === "sheet" ? filters.src : "all";
 
   let data: Awaited<ReturnType<typeof listUnifiedOrders>> | "forbidden";
   try {
-    data = await listUnifiedOrders(user, { who, src, q, page: Number(filters.page) || 1 });
+    data = await listUnifiedOrders(user, { who, src, q, period, page: Number(filters.page) || 1 });
   } catch (e) {
     if (e instanceof ForbiddenError) data = "forbidden";
     else throw e;
   }
   if (data === "forbidden") return <AccessDenied locale={locale} />;
-  const { rows, total, page, pages } = data;
+  const { rows, total, sum, page, pages } = data;
 
-  const href = (p: Partial<{ who: string; src: string; q: string; page: number }>) => {
+  const href = (p: Partial<{ who: string; src: string; q: string; page: number; period: OrderPeriod }>) => {
     const sp = new URLSearchParams();
-    const next = { who, src, q, page: 1, ...p };
+    const next = { who, src, q, period, page: 1, ...p };
     sp.set("who", next.who);
+    if (next.period !== "all") sp.set("period", next.period);
     if (next.src !== "all") sp.set("src", next.src);
     if (next.q) sp.set("q", next.q);
     if (next.page > 1) sp.set("page", String(next.page));
@@ -81,6 +91,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
           <form method="GET" action="/orders" className="flex flex-1 gap-2">
             <input type="hidden" name="who" value={filters.who === "mine" || filters.who === "all" ? filters.who : ""} />
             {src !== "all" && <input type="hidden" name="src" value={src} />}
+            {period !== "all" && <input type="hidden" name="period" value={period} />}
             <input
               type="search"
               name="q"
@@ -93,6 +104,17 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
             </button>
           </form>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+          <Segment items={ORDER_PERIODS.map((p) => ({ on: period === p, href: href({ period: p }), label: PERIOD_LABEL[p] }))} />
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+            <span className="text-text-secondary">
+              {t("Заказ", "Заказов")}: <b className="text-text-primary">{money(total)}</b>
+            </span>
+            <span className="text-text-secondary">
+              {t("Сомасы", "Сумма")}: <b className="text-lg text-text-primary">{money(sum)} ₸</b>
+            </span>
+          </div>
+        </div>
       </Card>
 
       <Card
@@ -100,8 +122,8 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
           q
             ? t(`Табылды: ${total} заказ — клиенттің тарихы`, `Найдено: ${total} — история клиента`)
             : who === "mine"
-              ? t(`Менің заказдарым · барлығы ${money(total)}`, `Мои заказы · всего ${money(total)}`)
-              : t(`Барлық заказдар · ${money(total)}`, `Все заказы · ${money(total)}`)
+              ? t(`Менің заказдарым · ${PERIOD_LABEL[period]} · ${money(total)}`, `Мои заказы · ${PERIOD_LABEL[period]} · ${money(total)}`)
+              : t(`Барлық заказдар · ${PERIOD_LABEL[period]} · ${money(total)}`, `Все заказы · ${PERIOD_LABEL[period]} · ${money(total)}`)
         }
       >
         {rows.length === 0 ? (
