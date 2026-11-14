@@ -12,6 +12,7 @@ import {
   ledgerGroupKey,
   ledgerLabel,
   paidOf,
+  pickLedgerTime,
   periodDays,
   phoneNeedles,
   shortProduct,
@@ -44,6 +45,8 @@ export interface UnifiedRow {
   key: string;
   source: OrderSource;
   date: Date;
+  /** Заказ түскен уақыт (сағат:минут үшін); белгісіз болса — null. */
+  time: Date | null;
   label: string; // «AM-2026-000004» немесе «№12460–12464»
   customerName: string;
   phone: string;
@@ -232,6 +235,7 @@ export async function listUnifiedOrders(
       key: "o:" + o.id,
       source: "site",
       date: o.createdAt,
+      time: o.createdAt,
       label: o.orderNumber,
       customerName: o.customer.fullName,
       phone: formatPhone(o.customer.phone),
@@ -284,6 +288,7 @@ export async function listUnifiedOrders(
           soldFor: true,
           remainder: true,
           receipt1Amount: true,
+          receipt1At: true,
           receipt2Amount: true,
           receipt3Amount: true,
         },
@@ -323,6 +328,7 @@ export async function listUnifiedOrders(
       key: "l:" + k,
       source: "sheet",
       date,
+      time: pickLedgerTime(r0.date, rows.flatMap((r) => [r.createdAt, r.receipt1At])),
       label: ledgerLabel(rows.map((r) => r.no)),
       customerName: rows.find((r) => r.customerName)?.customerName ?? "",
       phone: formatPhone(r0.phoneNorm ?? rows.find((r) => r.customerPhone)?.customerPhone),
@@ -342,5 +348,13 @@ export async function listUnifiedOrders(
   const rows = slice
     .map((k) => byId.get(k.kind === "o" ? "o:" + k.id : "l:" + k.key))
     .filter((r): r is UnifiedRow => !!r);
+  // Бір күннің ішінде — түскен уақыты бойынша (жаңасы жоғарыда); уақыты белгісіздер — сол күннің соңында
+  const dayOf = (d: Date) => new Date(d.getTime() + 5 * 3600_000).toISOString().slice(0, 10);
+  rows.sort((a, b) => {
+    const da = dayOf(a.date);
+    const db = dayOf(b.date);
+    if (da !== db) return da < db ? 1 : -1;
+    return (b.time?.getTime() ?? 0) - (a.time?.getTime() ?? 0);
+  });
   return { rows, total, sum, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }

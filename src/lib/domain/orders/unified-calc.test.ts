@@ -56,3 +56,17 @@ test("shortProduct, ledgerGroupKey, ledgerLabel", async () => {
   assert.equal(ledgerLabel([12443]), "№12443");
   assert.equal(ledgerLabel([5, 9, 12]), "№5, 9…");
 });
+
+test("pickLedgerTime: тек сол күнгі (Алматы) ең ерте уақыт", async () => {
+  const { pickLedgerTime } = await import("./unified-calc");
+  const day = new Date("2026-11-14T00:00:00Z");
+  const a = new Date("2026-11-14T10:42:00Z"); // 15:42 Алматы
+  const b = new Date("2026-11-14T05:10:00Z"); // 10:10 Алматы
+  const old = new Date("2026-11-01T08:00:00Z"); // басқа күн (жаппай импорт)
+  const late = new Date("2026-11-14T20:00:00Z"); // 15-і 01:00 Алматы — басқа күн
+  assert.equal(pickLedgerTime(day, [a, b, old, null])?.toISOString(), b.toISOString());
+  assert.equal(pickLedgerTime(day, [old, late]), null);
+  assert.equal(pickLedgerTime(null, [a]), null);
+  assert.equal(pickLedgerTime(day, [new Date("2026-11-14T00:00:00Z")]), null); // тек күн
+
+});

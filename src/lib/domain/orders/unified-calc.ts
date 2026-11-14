@@ -93,3 +93,21 @@ export function ledgerLabel(nos: number[]): string {
   const consecutive = s.every((n, i) => i === 0 || n === s[i - 1] + 1);
   return consecutive ? `№${s[0]}–${s[s.length - 1]}` : `№${s.slice(0, 2).join(", ")}${s.length > 2 ? "…" : ""}`;
 }
+
+/**
+ * Google/Продажи жолының «түскен уақыты»: кестеде тек күн бар, сондықтан сол күнге (Алматы) сәйкес келетін
+ * ең ерте уақытты аламыз — жолдың сайтқа түскен уақыты (синхрон ~2 мин) немесе 1-чектің уақыты. Сәйкес келмесе — null
+ * (мыс. ескі жолдар бір күнде жаппай импортталған).
+ */
+export function pickLedgerTime(day: Date | null, candidates: (Date | null | undefined)[]): Date | null {
+  if (!day) return null;
+  const want = day.toISOString().slice(0, 10);
+  const ok = candidates.filter(
+    (d): d is Date =>
+      !!d &&
+      // тек күні жазылған чек (UTC 00:00) — уақыты белгісіз, алмаймыз
+      d.toISOString().slice(11, 19) !== "00:00:00" &&
+      new Date(d.getTime() + 5 * 3600_000).toISOString().slice(0, 10) === want
+  );
+  return ok.length ? new Date(Math.min(...ok.map((d) => d.getTime()))) : null;
+}
