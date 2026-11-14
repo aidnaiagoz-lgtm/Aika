@@ -1,0 +1,152 @@
+// Google кестеде марка/модель кириллицамен де, латынша да жазылады ("тойота", "тойота хайлюкс", "камри 70"),
+// сондықтан әр марка мен модельдің жазылу нұсқалары (alias) бойынша танимыз.
+
+interface Gen {
+  code: string;
+  from: number;
+  to: number | null;
+}
+
+interface ModelDef {
+  aliases: string[];
+  gens: Gen[];
+}
+
+interface MakeDef {
+  aliases: string[];
+  country: string;
+  models?: ModelDef[];
+}
+
+const g = (code: string, from: number, to: number | null): Gen => ({ code, from, to });
+
+// Модель тізіміндегі рет маңызды: ұзынырақ/нақтырақ атау бірінші (прадо → ленд крузерден бұрын).
+const MAKES: MakeDef[] = [
+  {
+    aliases: ["toyota", "тойота", "тоёта"],
+    country: "Жапония",
+    models: [
+      { aliases: ["camry", "камри", "кэмри"], gens: [g("XV40", 2006, 2011), g("XV50", 2011, 2017), g("XV70", 2017, 2023), g("XV80", 2023, null)] },
+      { aliases: ["corolla", "королла", "каролла", "корола"], gens: [g("E140/150", 2006, 2013), g("E160/170", 2013, 2019), g("E210", 2019, null)] },
+      { aliases: ["rav4", "rav 4", "рав4", "рав 4", "рав-4"], gens: [g("XA30", 2005, 2013), g("XA40", 2013, 2018), g("XA50", 2018, null)] },
+      { aliases: ["prado", "прадо"], gens: [g("J120", 2002, 2009), g("J150", 2009, 2024), g("J250", 2024, null)] },
+      { aliases: ["land cruiser", "landcruiser", "ленд крузер", "лэнд крузер", "ленд круизер", "крузер"], gens: [g("J200", 2007, 2021), g("J300", 2021, null)] },
+      { aliases: ["highlander", "хайлендер", "хайлэндер", "хайлендэр"], gens: [g("XU40", 2007, 2013), g("XU50", 2013, 2019), g("XU70", 2019, null)] },
+      { aliases: ["hilux", "хайлюкс", "хайлакс", "хайлукс"], gens: [g("AN120/130", 2015, null)] },
+    ],
+  },
+  {
+    aliases: ["hyundai", "хендай", "хундай", "хёндай", "хюндай", "хендэ", "хюндэ"],
+    country: "Оңтүстік Корея",
+    models: [
+      { aliases: ["tucson", "туксон", "тусан", "таксон", "туссан"], gens: [g("JM", 2004, 2009), g("LM", 2009, 2015), g("TL", 2015, 2020), g("NX4", 2020, null)] },
+      { aliases: ["santa fe", "santafe", "санта фе", "санта-фе", "сантафе"], gens: [g("CM", 2006, 2012), g("DM", 2012, 2018), g("TM", 2018, 2023), g("MX5", 2023, null)] },
+      { aliases: ["elantra", "элантра", "елантра"], gens: [g("HD", 2006, 2010), g("MD", 2010, 2015), g("AD", 2015, 2020), g("CN7", 2020, null)] },
+      { aliases: ["sonata", "соната"], gens: [g("NF", 2004, 2009), g("YF", 2009, 2014), g("LF", 2014, 2019), g("DN8", 2019, null)] },
+      { aliases: ["accent", "акцент"], gens: [g("MC", 2005, 2010), g("RB", 2010, 2017), g("HC", 2017, null)] },
+    ],
+  },
+  {
+    aliases: ["kia", "киа"],
+    country: "Оңтүстік Корея",
+    models: [
+      { aliases: ["sportage", "спортейдж", "спортаж", "спортэйдж"], gens: [g("KM", 2004, 2010), g("SL", 2010, 2015), g("QL", 2015, 2021), g("NQ5", 2021, null)] },
+      { aliases: ["sorento", "соренто"], gens: [g("BL", 2002, 2009), g("XM", 2009, 2014), g("UM", 2014, 2020), g("MQ4", 2020, null)] },
+      { aliases: ["cerato", "церато", "серато"], gens: [g("TD", 2008, 2013), g("YD", 2013, 2018), g("BD", 2018, null)] },
+      { aliases: ["rio", "рио"], gens: [g("JB", 2005, 2011), g("UB", 2011, 2017), g("YB", 2017, 2023), g("SC", 2023, null)] },
+    ],
+  },
+  {
+    aliases: ["nissan", "ниссан", "нисан"],
+    country: "Жапония",
+    models: [
+      { aliases: ["x-trail", "x trail", "xtrail", "икс трейл", "икс-трейл", "х-трейл", "х трейл", "хтрейл"], gens: [g("T30", 2000, 2007), g("T31", 2007, 2014), g("T32", 2013, 2022), g("T33", 2022, null)] },
+      { aliases: ["qashqai", "кашкай"], gens: [g("J10", 2006, 2013), g("J11", 2013, 2021), g("J12", 2021, null)] },
+    ],
+  },
+  {
+    aliases: ["bmw", "бмв"],
+    country: "Германия",
+    models: [
+      { aliases: ["3 series", "3-series", "3 серия", "3 серии", "3er"], gens: [g("E90", 2005, 2012), g("F30", 2012, 2019), g("G20", 2019, null)] },
+      { aliases: ["5 series", "5-series", "5 серия", "5 серии", "5er"], gens: [g("E60", 2003, 2010), g("F10", 2010, 2017), g("G30", 2017, 2023), g("G60", 2023, null)] },
+    ],
+  },
+  {
+    aliases: ["mercedes-benz", "mercedes", "мерседес", "мерс"],
+    country: "Германия",
+    models: [
+      { aliases: ["c-class", "c class", "с-класс", "c-класс", "с класс"], gens: [g("W203", 2000, 2007), g("W204", 2007, 2014), g("W205", 2014, 2021), g("W206", 2021, null)] },
+      { aliases: ["e-class", "e class", "е-класс", "e-класс", "е класс"], gens: [g("W211", 2002, 2009), g("W212", 2009, 2016), g("W213", 2016, 2023), g("W214", 2023, null)] },
+    ],
+  },
+  {
+    aliases: ["volkswagen", "vw", "фольксваген", "фольцваген"],
+    country: "Германия",
+    models: [
+      { aliases: ["passat", "пассат"], gens: [g("B6", 2005, 2010), g("B7", 2010, 2014), g("B8", 2014, null)] },
+      { aliases: ["tiguan", "тигуан"], gens: [g("5N", 2007, 2016), g("AD1", 2016, null)] },
+    ],
+  },
+  { aliases: ["lexus", "лексус"], country: "Жапония" },
+  { aliases: ["mazda", "мазда"], country: "Жапония" },
+  { aliases: ["honda", "хонда"], country: "Жапония" },
+  { aliases: ["mitsubishi", "митсубиси", "мицубиси", "митсубиши", "мицубиши"], country: "Жапония" },
+  { aliases: ["audi", "ауди"], country: "Германия" },
+  { aliases: ["chevrolet", "шевроле", "шевролет"], country: "Өзбекстан" },
+  { aliases: ["ravon", "равон"], country: "Өзбекстан" },
+  { aliases: ["daewoo", "дэу", "деу"], country: "Өзбекстан" },
+  { aliases: ["renault", "рено"], country: "Франция" },
+  { aliases: ["skoda", "шкода"], country: "Чехия" },
+  { aliases: ["ford", "форд"], country: "АҚШ" },
+  { aliases: ["chery", "чери"], country: "Қытай" },
+  { aliases: ["geely", "джили"], country: "Қытай" },
+  { aliases: ["haval", "хавал", "хавейл"], country: "Қытай" },
+  { aliases: ["changan", "чанган"], country: "Қытай" },
+  { aliases: ["great wall", "грейт волл", "грейт вол"], country: "Қытай" },
+  { aliases: ["tank", "танк"], country: "Қытай" },
+  { aliases: ["lada", "лада", "ваз"], country: "Ресей" },
+  { aliases: ["gaz", "газ"], country: "Ресей" },
+  { aliases: ["uaz", "уаз"], country: "Ресей" },
+];
+
+export const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия"];
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
+
+function findMake(make: string): MakeDef | undefined {
+  const m = norm(make);
+  if (!m) return undefined;
+  return MAKES.find((d) => d.aliases.some((a) => m === a || m.startsWith(a + " ") || m.startsWith(a + "(")));
+}
+
+// Модель өрісінде марка да тұруы мүмкін ("тойота хайлюкс") — сондықтан ішінен іздейміз.
+function findModel(make: MakeDef, model: string): ModelDef | undefined {
+  const m = norm(model);
+  if (!m) return undefined;
+  return make.models?.find((d) => d.aliases.some((a) => m.includes(a)));
+}
+
+export function originCountryFor(make: string): string | undefined {
+  return findMake(make)?.country;
+}
+
+/** Буын ұсыныстары: модель танылса — сол модельдікі, әйтпесе марканың бәрі; жыл болса — жылға сай келетіндері. */
+export function generationOptions(make: string, model: string, year: number | null): string[] {
+  const mk = findMake(make);
+  if (!mk?.models) return [];
+  const md = findModel(mk, model);
+  const gens = md ? md.gens : mk.models.flatMap((x) => x.gens);
+  const fit = year ? gens.filter((x) => year >= x.from && (x.to === null || year <= x.to)) : gens;
+  return [...new Set(fit.map((x) => x.code))];
+}
+
+/** Марка + модель + жыл бойынша буын нақты анықталса (бір ғана сәйкес келсе) — соны қайтарады. */
+export function autoGeneration(make: string, model: string, year: number | null): string | undefined {
+  const mk = findMake(make);
+  if (!mk || !year) return undefined;
+  const md = findModel(mk, model);
+  if (!md) return undefined;
+  const fit = generationOptions(make, model, year);
+  return fit.length === 1 ? fit[0] : undefined;
+}
