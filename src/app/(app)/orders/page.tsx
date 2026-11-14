@@ -9,6 +9,7 @@ import { PermissionAction } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { tr } from "@/lib/tr";
 import { deleteOrderAction } from "./actions";
+import { UnifiedOrders } from "./UnifiedOrders";
 import {
   orderStatusLabel,
   ORDER_STATUS_TONE,
@@ -19,6 +20,10 @@ import {
 } from "@/lib/order-labels";
 
 interface OrderFilters {
+  view?: string;
+  who?: string;
+  src?: string;
+  q?: string;
   search?: string;
   status?: string;
   managerId?: string;
@@ -33,11 +38,18 @@ interface OrderFilters {
   dateTo?: string;
 }
 
+const ERP_FILTER_KEYS = [
+  "view", "search", "status", "managerId", "branchId", "source", "vehicleBrand", "productId", "city", "fulfillmentType", "paymentStatus", "dateFrom", "dateTo",
+] as const;
+
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<OrderFilters> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   const locale = await getLocale();
   const filters = await searchParams;
+  // 2026-11-14: әдепкі көрініс — сайт заказдары + Google кестедегі ескі заказдар бір тізімде.
+  // Бұрынғы ERP сүзгілері («Қосымша сүзгілер») толтырылса ғана бұрынғы кесте шығады.
+  if (!ERP_FILTER_KEYS.some((k) => filters[k])) return <UnifiedOrders user={user} locale={locale} filters={filters} />;
   const canDelete = can(user, "orders", PermissionAction.DELETE);
 
   // §39 — cron жоқ, сондықтан тізім бетінің әр жүктелуінде idempotent тексеріс жүреді
@@ -76,7 +88,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     return (
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-text-primary">{t("Заказдар", "Заказы")}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-text-primary">{t("Заказдар", "Заказы")}</h1>
+            <Link href="/orders" className="text-sm font-semibold text-accent hover:underline">
+              {t("← Жалпы тізім", "← Общий список")}
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
             <Link
               href="/orders/analytics"
@@ -103,6 +120,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
         <Card>
           <form className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" method="GET">
+            <input type="hidden" name="view" value="erp" />
             <Field label={t("Іздеу", "Поиск")}>
               <input
                 type="search"
