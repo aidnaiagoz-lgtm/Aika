@@ -94,3 +94,13 @@ test("нақты схема өз-өзімен салыстырғанда таз�
   assert.ok(parsed.models.size > 20);
   assert.deepEqual(findDestructiveChanges(real, real), []);
 });
+
+test("бар кестеге жаңа @unique / @@unique — тоқтатады (db push data-loss ескертуі)", () => {
+  const head1 = BASE.replace("  title  String\n", "  title  String\n  code   String? @unique\n");
+  assert.ok(findDestructiveChanges(BASE, head1).some((x) => x.includes("Post.code")));
+  const head2 = BASE.replace("  title  String\n}", "  title  String\n  @@unique([userId, title])\n}");
+  assert.ok(findDestructiveChanges(BASE, head2).some((x) => x.includes("@@unique")));
+  // жаңа модельдегі @unique — рұқсат
+  const head3 = BASE + "\nmodel Fresh {\n  id String @id\n  key String @unique\n}\n";
+  assert.deepEqual(findDestructiveChanges(BASE, head3), []);
+});
