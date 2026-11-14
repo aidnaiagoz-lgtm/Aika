@@ -277,7 +277,14 @@ function Pager({
   const nums = [...new Set([1, page - 2, page - 1, page, page + 1, page + 2, pages])].filter((n) => n >= 1 && n <= Math.min(pages, 200)).sort((a, b) => a - b);
   const btn = "min-w-9 rounded-pill px-3 py-1.5 text-center text-sm font-semibold";
   return (
-    <div className={`flex flex-wrap items-center justify-center gap-1.5 ${top ? "pb-4 lg:justify-end" : "pt-4"}`}>
+    <div
+      className={`flex flex-wrap items-center justify-center gap-1.5 ${
+        top
+          ? "pb-4 lg:justify-end"
+          : // Астындағысы экранның төменгі жағында қатып тұрады (sticky) — CEO өтініші; телефонда төменгі мәзірдің үстінде.
+            "sticky bottom-[52px] z-10 -mx-5 -mb-5 mt-2 rounded-b-card border-t border-border/60 bg-surface px-5 py-2.5 md:-bottom-8"
+      }`}
+    >
       {page > 1 && (
         <Link href={href(page - 1)} className={`${btn} bg-page-bg text-text-primary hover:bg-border`}>
           ← {t("Алдыңғы", "Назад")}
