@@ -275,12 +275,6 @@ export function SalesOrderForm({
                     onChange={(v) => setItem(k, { product: v, ...(priceByProduct[v] != null && !it.price ? { price: String(priceByProduct[v]) } : {}) })}
                   />
                 </Field>
-                <Field label="Цена">
-                  <ListInput value={it.price} onChange={(v) => setItem(k, { price: v })} inputMode="numeric" placeholder="95000" />
-                </Field>
-                <Field label="Продали за">
-                  <ListInput value={it.soldFor} onChange={(v) => setItem(k, { soldFor: v })} inputMode="numeric" placeholder={it.price || "90000"} />
-                </Field>
                 <Field label="Кожа вид" wide>
                   <ListInput value={it.leatherType} onChange={(v) => setItem(k, { leatherType: v })} list="o-leather" />
                 </Field>
@@ -317,6 +311,20 @@ export function SalesOrderForm({
         </Section>
 
         <Section n={4} title="Төлем">
+          {items.map((it, k) => (
+            <div key={k} className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
+              <Field label={`Тауар ${k + 1}`}>
+                <div className="flex min-h-11 items-center truncate text-[15px] font-semibold text-text-primary">{it.product || "—"}</div>
+              </Field>
+              <Field label="Цена">
+                <ListInput value={it.price} onChange={(v) => setItem(k, { price: v })} inputMode="numeric" placeholder="95000" />
+              </Field>
+              <Field label="Продали за">
+                <ListInput value={it.soldFor} onChange={(v) => setItem(k, { soldFor: v })} inputMode="numeric" placeholder={it.price || "90000"} />
+              </Field>
+            </div>
+          ))}
+          <hr className="my-1 border-border" />
           {pays.map((p, k) => (
             <div key={k} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.4fr_1fr_auto]">
               <Field label={`Чек ${k + 1} сумма`}>
