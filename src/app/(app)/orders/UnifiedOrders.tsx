@@ -73,49 +73,52 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
         </div>
       </div>
 
-      <Card>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <Segment
-            items={[
-              { on: who === "mine", href: href({ who: "mine" }), label: t("Менің заказдарым", "Мои заказы") },
-              { on: who === "all", href: href({ who: "all" }), label: t("Барлығы", "Все") },
-            ]}
-          />
-          <Segment
-            items={[
-              { on: src === "all", href: href({ src: "all" }), label: t("Бәрі", "Все") },
-              { on: src === "site", href: href({ src: "site" }), label: t("🟢 Сайттан", "🟢 С сайта") },
-              { on: src === "sheet", href: href({ src: "sheet" }), label: t("🔵 Google (ескі)", "🔵 Google (старые)") },
-            ]}
-          />
-          <form method="GET" action="/orders" className="flex flex-1 gap-2">
-            <input type="hidden" name="who" value={filters.who === "mine" || filters.who === "all" ? filters.who : ""} />
-            {src !== "all" && <input type="hidden" name="src" value={src} />}
-            {period !== "all" && <input type="hidden" name="period" value={period} />}
-            <input
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder={t("🔍 Телефон, клиент аты, көлік, тауар...", "🔍 Телефон, имя клиента, авто, товар...")}
-              className="min-w-0 flex-1 rounded-pill border-2 border-accent/40 bg-page-bg px-4 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+      {/* Сүзгілер компьютерде экранның үстінде қатып тұрады (CEO өтініші); телефонда биік болғандықтан — жоқ. */}
+      <div className="md:sticky md:-top-8 md:z-20 md:-mt-8 md:bg-page-bg md:pb-1 md:pt-8">
+        <Card>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <Segment
+              items={[
+                { on: who === "mine", href: href({ who: "mine" }), label: t("Менің заказдарым", "Мои заказы") },
+                { on: who === "all", href: href({ who: "all" }), label: t("Барлығы", "Все") },
+              ]}
             />
-            <button type="submit" className="rounded-pill bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">
-              {t("Іздеу", "Найти")}
-            </button>
-          </form>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
-          <Segment items={ORDER_PERIODS.map((p) => ({ on: period === p, href: href({ period: p }), label: PERIOD_LABEL[p] }))} />
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-            <span className="text-text-secondary">
-              {t("Заказ", "Заказов")}: <b className="text-text-primary">{money(total)}</b>
-            </span>
-            <span className="text-text-secondary">
-              {t("Сомасы", "Сумма")}: <b className="text-lg text-text-primary">{money(sum)} ₸</b>
-            </span>
+            <Segment
+              items={[
+                { on: src === "all", href: href({ src: "all" }), label: t("Бәрі", "Все") },
+                { on: src === "site", href: href({ src: "site" }), label: t("🟢 Сайттан", "🟢 С сайта") },
+                { on: src === "sheet", href: href({ src: "sheet" }), label: t("🔵 Google (ескі)", "🔵 Google (старые)") },
+              ]}
+            />
+            <form method="GET" action="/orders" className="flex flex-1 gap-2">
+              <input type="hidden" name="who" value={filters.who === "mine" || filters.who === "all" ? filters.who : ""} />
+              {src !== "all" && <input type="hidden" name="src" value={src} />}
+              {period !== "all" && <input type="hidden" name="period" value={period} />}
+              <input
+                type="search"
+                name="q"
+                defaultValue={q}
+                placeholder={t("🔍 Телефон, клиент аты, көлік, тауар...", "🔍 Телефон, имя клиента, авто, товар...")}
+                className="min-w-0 flex-1 rounded-pill border-2 border-accent/40 bg-page-bg px-4 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+              />
+              <button type="submit" className="rounded-pill bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">
+                {t("Іздеу", "Найти")}
+              </button>
+            </form>
           </div>
-        </div>
-      </Card>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+            <Segment items={ORDER_PERIODS.map((p) => ({ on: period === p, href: href({ period: p }), label: PERIOD_LABEL[p] }))} />
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+              <span className="text-text-secondary">
+                {t("Заказ", "Заказов")}: <b className="text-text-primary">{money(total)}</b>
+              </span>
+              <span className="text-text-secondary">
+                {t("Сомасы", "Сумма")}: <b className="text-lg text-text-primary">{money(sum)} ₸</b>
+              </span>
+            </div>
+          </div>
+        </Card>
+      </div>
 
       <Card
         title={
