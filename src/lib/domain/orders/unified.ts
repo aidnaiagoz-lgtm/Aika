@@ -15,6 +15,7 @@ import {
   pickLedgerTime,
   periodDays,
   phoneNeedles,
+  rowNoNeedle,
   shortProduct,
   textNeedle,
   type OrderPeriod,
@@ -111,8 +112,10 @@ export async function listUnifiedOrders(
   let sum = 0;
   const days = periodDays(f.period ?? "all", almatyToday());
   const phones = phoneNeedles(f.q);
-  const text = textNeedle(f.q);
-  const hasSearch = phones.length > 0 || !!text;
+  // «№12459» — Google кестедегі жол нөмірі бойынша іздеу (CEO, 2026-11-14)
+  const rowNo = rowNoNeedle(f.q);
+  const text = rowNo != null && /№/.test(f.q) ? null : textNeedle(f.q);
+  const hasSearch = phones.length > 0 || !!text || rowNo != null;
   const keys: PageKey[] = [];
 
   // ---- Сайт заказдары: сүзгі + кілттер ----
@@ -123,6 +126,10 @@ export async function listUnifiedOrders(
     if (hasSearch) {
       orderWhere.OR = [
         ...phones.map((p) => ({ customer: { phone: { contains: p } } })),
+        // сайт заказы: «AM-2026-000004» — соңғы цифрлары бойынша, немесе оның Продажи жолының № бойынша
+        ...(rowNo != null
+          ? [{ orderNumber: { endsWith: String(rowNo).padStart(6, "0") } }, { items: { some: { ledgerRow: { no: rowNo } } } }]
+          : []),
         ...(text
           ? [
               { orderNumber: { contains: text, mode: "insensitive" as const } },
@@ -158,6 +165,7 @@ export async function listUnifiedOrders(
     if (hasSearch) {
       ledgerWhere.OR = [
         ...phones.flatMap((p) => [{ phoneNorm: { contains: p } }, { customerPhone: { contains: p } }]),
+        ...(rowNo != null ? [{ no: rowNo }] : []),
         ...(text
           ? [
               { customerName: { contains: text, mode: "insensitive" as const } },

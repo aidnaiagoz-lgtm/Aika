@@ -100,7 +100,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                 type="search"
                 name="q"
                 defaultValue={q}
-                placeholder={t("🔍 Телефон, клиент аты, көлік, тауар...", "🔍 Телефон, имя клиента, авто, товар...")}
+                placeholder={t("🔍 №, телефон, клиент аты, көлік, тауар...", "🔍 №, телефон, имя клиента, авто, товар...")}
                 className="min-w-0 flex-1 rounded-pill border-2 border-accent/40 bg-page-bg px-4 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
               />
               <button type="submit" className="rounded-pill bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">
