@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
 import { autoGeneration, COUNTRY_OPTIONS, generationOptions, originCountryFor } from "./car-data";
+import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
 
 type Options = Record<string, string[]>;
 
@@ -102,7 +103,7 @@ export function SalesOrderForm({
 
   // Марка жазылса — модель тізімі тек сол маркадағылар; марка белгісіз болса — барлығы
   const models = useMemo(() => {
-    const key = make.trim().toLowerCase();
+    const key = canonicalMake(make).toLowerCase();
     if (!key) return options.brand ?? [];
     if (modelsByMake[key]) return modelsByMake[key];
     const near = Object.keys(modelsByMake).filter((k) => k.startsWith(key) || key.startsWith(k));
@@ -230,7 +231,7 @@ export function SalesOrderForm({
                 value={make}
                 onChange={(v) => {
                   setMake(v);
-                  const keepModel = !model || (modelsByMake[v.trim().toLowerCase()] ?? []).includes(model);
+                  const keepModel = !model || (modelsByMake[canonicalMake(v).toLowerCase()] ?? []).includes(model);
                   if (!keepModel) setModel("");
                   const country = originCountryFor(v);
                   if (country) setOriginCountry(country);
