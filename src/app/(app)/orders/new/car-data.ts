@@ -27,7 +27,7 @@ const MAKES: MakeDef[] = [
   {
     name: "Toyota",
     aliases: ["toyota", "тойота", "тоёта"],
-    country: "Жапония",
+    country: "Japan",
     models: [
       { name: "Camry", aliases: ["camry", "камри", "кэмри"], gens: [g("XV40", 2006, 2011), g("XV50", 2011, 2017), g("XV70", 2017, 2023), g("XV80", 2023, null)] },
       { name: "Corolla", aliases: ["corolla", "королла", "каролла", "корола"], gens: [g("E140/150", 2006, 2013), g("E160/170", 2013, 2019), g("E210", 2019, null)] },
@@ -41,7 +41,7 @@ const MAKES: MakeDef[] = [
   {
     name: "Hyundai",
     aliases: ["hyundai", "хендай", "хундай", "хёндай", "хюндай", "хендэ", "хюндэ"],
-    country: "Оңтүстік Корея",
+    country: "South Korea",
     models: [
       { name: "Tucson", aliases: ["tucson", "туксон", "тусан", "таксон", "туссан"], gens: [g("JM", 2004, 2009), g("LM", 2009, 2015), g("TL", 2015, 2020), g("NX4", 2020, null)] },
       { name: "Santa Fe", aliases: ["santa fe", "santafe", "санта фе", "санта-фе", "сантафе"], gens: [g("CM", 2006, 2012), g("DM", 2012, 2018), g("TM", 2018, 2023), g("MX5", 2023, null)] },
@@ -53,7 +53,7 @@ const MAKES: MakeDef[] = [
   {
     name: "Kia",
     aliases: ["kia", "киа"],
-    country: "Оңтүстік Корея",
+    country: "South Korea",
     models: [
       { name: "Sportage", aliases: ["sportage", "спортейдж", "спортаж", "спортэйдж"], gens: [g("KM", 2004, 2010), g("SL", 2010, 2015), g("QL", 2015, 2021), g("NQ5", 2021, null)] },
       { name: "Sorento", aliases: ["sorento", "соренто"], gens: [g("BL", 2002, 2009), g("XM", 2009, 2014), g("UM", 2014, 2020), g("MQ4", 2020, null)] },
@@ -64,7 +64,7 @@ const MAKES: MakeDef[] = [
   {
     name: "Nissan",
     aliases: ["nissan", "ниссан", "нисан"],
-    country: "Жапония",
+    country: "Japan",
     models: [
       { name: "X-Trail", aliases: ["x-trail", "x trail", "xtrail", "икс трейл", "икс-трейл", "х-трейл", "х трейл", "хтрейл"], gens: [g("T30", 2000, 2007), g("T31", 2007, 2014), g("T32", 2013, 2022), g("T33", 2022, null)] },
       { name: "Qashqai", aliases: ["qashqai", "кашкай"], gens: [g("J10", 2006, 2013), g("J11", 2013, 2021), g("J12", 2021, null)] },
@@ -73,7 +73,7 @@ const MAKES: MakeDef[] = [
   {
     name: "BMW",
     aliases: ["bmw", "бмв"],
-    country: "Германия",
+    country: "Germany",
     models: [
       { name: "3 Series", aliases: ["3 series", "3-series", "3 серия", "3 серии", "3er"], gens: [g("E90", 2005, 2012), g("F30", 2012, 2019), g("G20", 2019, null)] },
       { name: "5 Series", aliases: ["5 series", "5-series", "5 серия", "5 серии", "5er"], gens: [g("E60", 2003, 2010), g("F10", 2010, 2017), g("G30", 2017, 2023), g("G60", 2023, null)] },
@@ -82,7 +82,7 @@ const MAKES: MakeDef[] = [
   {
     name: "Mercedes-Benz",
     aliases: ["mercedes-benz", "mercedes", "мерседес", "мерс"],
-    country: "Германия",
+    country: "Germany",
     models: [
       { name: "C-Class", aliases: ["c-class", "c class", "с-класс", "c-класс", "с класс"], gens: [g("W203", 2000, 2007), g("W204", 2007, 2014), g("W205", 2014, 2021), g("W206", 2021, null)] },
       { name: "E-Class", aliases: ["e-class", "e class", "е-класс", "e-класс", "е класс"], gens: [g("W211", 2002, 2009), g("W212", 2009, 2016), g("W213", 2016, 2023), g("W214", 2023, null)] },
@@ -91,51 +91,51 @@ const MAKES: MakeDef[] = [
   {
     name: "Volkswagen",
     aliases: ["volkswagen", "vw", "фольксваген", "фольцваген"],
-    country: "Германия",
+    country: "Germany",
     models: [
       { name: "Passat", aliases: ["passat", "пассат"], gens: [g("B6", 2005, 2010), g("B7", 2010, 2014), g("B8", 2014, null)] },
       { name: "Tiguan", aliases: ["tiguan", "тигуан"], gens: [g("5N", 2007, 2016), g("AD1", 2016, null)] },
     ],
   },
-  { aliases: ["lexus", "лексус"], country: "Жапония" },
-  { aliases: ["mazda", "мазда"], country: "Жапония" },
-  { aliases: ["honda", "хонда"], country: "Жапония" },
-  { aliases: ["mitsubishi", "митсубиси", "мицубиси", "митсубиши", "мицубиши"], country: "Жапония" },
-  { aliases: ["audi", "ауди"], country: "Германия" },
-  { aliases: ["chevrolet", "шевроле", "шевролет"], country: "Өзбекстан" },
-  { aliases: ["ravon", "равон"], country: "Өзбекстан" },
-  { aliases: ["daewoo", "дэу", "деу"], country: "Өзбекстан" },
-  { aliases: ["renault", "рено"], country: "Франция" },
-  { aliases: ["skoda", "шкода"], country: "Чехия" },
-  { aliases: ["ford", "форд"], country: "АҚШ" },
-  { aliases: ["chery", "чери"], country: "Қытай" },
-  { aliases: ["geely", "джили"], country: "Қытай" },
-  { aliases: ["haval", "хавал", "хавейл"], country: "Қытай" },
-  { aliases: ["changan", "чанган"], country: "Қытай" },
-  { aliases: ["great wall", "грейт волл", "грейт вол"], country: "Қытай" },
-  { aliases: ["tank", "танк"], country: "Қытай" },
-  { aliases: ["lada", "лада", "ваз"], country: "Ресей" },
-  { aliases: ["gaz", "газ"], country: "Ресей" },
-  { aliases: ["uaz", "уаз"], country: "Ресей" },
-  { aliases: ["byd", "бид", "биди"], country: "Қытай" },
-  { aliases: ["li auto", "lixiang", "li xiang", "ли авто", "лисян", "лисиан"], country: "Қытай" },
-  { aliases: ["zeekr", "зикр", "зекр"], country: "Қытай" },
-  { aliases: ["jetour", "джетур"], country: "Қытай" },
-  { aliases: ["exeed", "эксид"], country: "Қытай" },
-  { aliases: ["omoda", "омода"], country: "Қытай" },
-  { aliases: ["hongqi", "хончи", "хунцы"], country: "Қытай" },
-  { aliases: ["jac", "джак"], country: "Қытай" },
-  { aliases: ["subaru", "субару"], country: "Жапония" },
-  { aliases: ["infiniti", "инфинити"], country: "Жапония" },
-  { aliases: ["suzuki", "сузуки"], country: "Жапония" },
-  { aliases: ["ssangyong", "ссангйонг", "санг енг", "сангйонг", "kgm"], country: "Оңтүстік Корея" },
-  { aliases: ["genesis", "генезис"], country: "Оңтүстік Корея" },
-  { aliases: ["porsche", "порше"], country: "Германия" },
-  { aliases: ["land rover", "range rover", "ленд ровер", "рендж ровер"], country: "Ұлыбритания" },
-  { aliases: ["volvo", "вольво"], country: "Швеция" },
+  { aliases: ["lexus", "лексус"], country: "Japan" },
+  { aliases: ["mazda", "мазда"], country: "Japan" },
+  { aliases: ["honda", "хонда"], country: "Japan" },
+  { aliases: ["mitsubishi", "митсубиси", "мицубиси", "митсубиши", "мицубиши"], country: "Japan" },
+  { aliases: ["audi", "ауди"], country: "Germany" },
+  { aliases: ["chevrolet", "шевроле", "шевролет"], country: "Uzbekistan" },
+  { aliases: ["ravon", "равон"], country: "Uzbekistan" },
+  { aliases: ["daewoo", "дэу", "деу"], country: "Uzbekistan" },
+  { aliases: ["renault", "рено"], country: "France" },
+  { aliases: ["skoda", "шкода"], country: "Czech Republic" },
+  { aliases: ["ford", "форд"], country: "USA" },
+  { aliases: ["chery", "чери"], country: "China" },
+  { aliases: ["geely", "джили"], country: "China" },
+  { aliases: ["haval", "хавал", "хавейл"], country: "China" },
+  { aliases: ["changan", "чанган"], country: "China" },
+  { aliases: ["great wall", "грейт волл", "грейт вол"], country: "China" },
+  { aliases: ["tank", "танк"], country: "China" },
+  { aliases: ["lada", "лада", "ваз"], country: "Russia" },
+  { aliases: ["gaz", "газ"], country: "Russia" },
+  { aliases: ["uaz", "уаз"], country: "Russia" },
+  { aliases: ["byd", "бид", "биди"], country: "China" },
+  { aliases: ["li auto", "lixiang", "li xiang", "ли авто", "лисян", "лисиан"], country: "China" },
+  { aliases: ["zeekr", "зикр", "зекр"], country: "China" },
+  { aliases: ["jetour", "джетур"], country: "China" },
+  { aliases: ["exeed", "эксид"], country: "China" },
+  { aliases: ["omoda", "омода"], country: "China" },
+  { aliases: ["hongqi", "хончи", "хунцы"], country: "China" },
+  { aliases: ["jac", "джак"], country: "China" },
+  { aliases: ["subaru", "субару"], country: "Japan" },
+  { aliases: ["infiniti", "инфинити"], country: "Japan" },
+  { aliases: ["suzuki", "сузуки"], country: "Japan" },
+  { aliases: ["ssangyong", "ссангйонг", "санг енг", "сангйонг", "kgm"], country: "South Korea" },
+  { aliases: ["genesis", "генезис"], country: "South Korea" },
+  { aliases: ["porsche", "порше"], country: "Germany" },
+  { aliases: ["land rover", "range rover", "ленд ровер", "рендж ровер"], country: "United Kingdom" },
+  { aliases: ["volvo", "вольво"], country: "Sweden" },
 ];
 
-export const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия", "Ұлыбритания", "Швеция"];
+export const COUNTRY_OPTIONS = ["Japan", "South Korea", "Germany", "China", "Russia", "Uzbekistan", "Kazakhstan", "USA", "France", "Czech Republic", "United Kingdom", "Sweden"];
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
 
