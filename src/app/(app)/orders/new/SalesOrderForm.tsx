@@ -92,8 +92,6 @@ export function SalesOrderForm({
   const [items, setItems] = useState<ItemState[]>([emptyItem()]);
   const [pays, setPays] = useState<PayState[]>([{ amount: "", method: "", date: today() }]);
   const [pickup, setPickup] = useState("");
-  const [bonus, setBonus] = useState("");
-  const [cert, setCert] = useState("");
   const [comment, setComment] = useState("");
   const [pending, start] = useTransition();
   const [result, setResult] = useState<SalesOrderResult | null>(null);
@@ -148,8 +146,6 @@ export function SalesOrderForm({
         })),
         payments: pays.map((p) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date })),
         pickupMethod: pickup,
-        managerBonus: num(bonus),
-        certificateNo: cert,
         comment,
       });
       setResult(r);
@@ -160,7 +156,7 @@ export function SalesOrderForm({
   function reset() {
     setPhone(""); setName(""); setChannel(""); setMake(""); setModel(""); setYear(""); setGeneration(""); setOriginCountry("");
     setItems([emptyItem()]); setPays([{ amount: "", method: "", date: today() }]);
-    setPickup(""); setBonus(""); setCert(""); setComment(""); setResult(null);
+    setPickup(""); setComment(""); setResult(null);
   }
 
   if (result?.ok) {
@@ -351,12 +347,6 @@ export function SalesOrderForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Способ вывоза">
               <ListInput value={pickup} onChange={setPickup} list="o-pickup" />
-            </Field>
-            <Field label="Бонус менеджера">
-              <ListInput value={bonus} onChange={setBonus} inputMode="numeric" />
-            </Field>
-            <Field label="Номер сертификата">
-              <ListInput value={cert} onChange={setCert} />
             </Field>
             <Field label="Комментарий" wide>
               <ListInput value={comment} onChange={setComment} />
