@@ -53,6 +53,8 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
     return `/orders?${sp.toString()}`;
   };
   const dateFmt = new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "kk-KZ", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Almaty" });
+  const timeFmt = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty" });
+  const tm = (r: UnifiedRow) => (r.time ? timeFmt.format(r.time) : null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -138,7 +140,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
           {/* Телефонда — карточкалар (кесте кең) */}
           <div className="flex flex-col gap-3 md:hidden">
             {rows.map((r) => (
-              <MobileCard key={r.key} r={r} t={t} date={dateFmt.format(r.date)} />
+              <MobileCard key={r.key} r={r} t={t} date={dateFmt.format(r.date)} time={tm(r)} />
             ))}
           </div>
           <div className="hidden overflow-x-auto md:block">
@@ -165,7 +167,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <Row key={r.key} r={r} t={t} date={dateFmt.format(r.date)} />
+                  <Row key={r.key} r={r} t={t} date={dateFmt.format(r.date)} time={tm(r)} />
                 ))}
               </tbody>
             </table>
@@ -269,10 +271,13 @@ function Remainder({ r }: { r: UnifiedRow }) {
   return <span className={`font-semibold tabular-nums ${r.remainder > 0 ? "text-danger" : "text-emerald-600"}`}>{r.remainder > 0 ? money(r.remainder) : "0 ✓"}</span>;
 }
 
-function Row({ r, t, date }: { r: UnifiedRow; t: T; date: string }) {
+function Row({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; time: string | null }) {
   return (
     <tr className={`border-t border-border align-top ${r.mine ? "bg-accent/5" : ""}`}>
-      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">{date}</td>
+      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">
+        <div>{date}</div>
+        {time && <div className="text-xs font-semibold text-text-primary">🕒 {time}</div>}
+      </td>
       <td className="py-3 pr-4">
         <SourceBadge r={r} t={t} />
       </td>
@@ -306,12 +311,15 @@ function Row({ r, t, date }: { r: UnifiedRow; t: T; date: string }) {
 }
 
 /** Телефондағы карточка: клиент, көлік, тауарлар, сомалар. */
-function MobileCard({ r, t, date }: { r: UnifiedRow; t: T; date: string }) {
+function MobileCard({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; time: string | null }) {
   return (
     <div className={`rounded-icon border border-border p-3 text-sm ${r.mine ? "bg-accent/5" : ""}`}>
       <div className="flex items-center justify-between gap-2">
         <SourceBadge r={r} t={t} />
-        <span className="text-xs text-text-secondary">{date}</span>
+        <span className="text-xs text-text-secondary">
+          {date}
+          {time && <b className="ml-1 text-text-primary">· {time}</b>}
+        </span>
       </div>
       <div className="mt-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
