@@ -200,8 +200,8 @@ export function SalesOrderForm({
         </datalist>
       ))}
       <datalist id="o-generation">
-        {genOptions.map((v) => (
-          <option key={v} value={v} />
+        {genOptions.map((o) => (
+          <option key={o.code + o.label} value={o.code} label={o.label} />
         ))}
       </datalist>
 
@@ -237,20 +237,19 @@ export function SalesOrderForm({
                   fillGeneration(v, keepModel ? model : "", year);
                 }}
                 list="o-car"
-                placeholder="тойота"
               />
             </Field>
             <Field label="Марка (модель)">
-              <ListInput value={model} onChange={(v) => { setModel(v); fillGeneration(make, v, year); }} list="o-brand" placeholder={models[0] ?? "модель"} />
+              <ListInput value={model} onChange={(v) => { setModel(v); fillGeneration(make, v, year); }} list="o-brand" />
             </Field>
             <Field label="Жылы">
-              <ListInput value={year} onChange={(v) => { setYear(v); fillGeneration(make, model, v); }} placeholder="2021" inputMode="numeric" />
+              <ListInput value={year} onChange={(v) => { setYear(v); fillGeneration(make, model, v); }} inputMode="numeric" />
             </Field>
             <Field label="Буын (мыс. XV70)">
-              <ListInput value={generation} onChange={setGeneration} list="o-generation" placeholder="XV70" />
+              <ListInput value={generation} onChange={setGeneration} list="o-generation" />
             </Field>
             <Field label="Қай елдің өндірісі">
-              <ListInput value={originCountry} onChange={setOriginCountry} list="o-country" placeholder="Жапония" />
+              <ListInput value={originCountry} onChange={setOriginCountry} list="o-country" />
             </Field>
           </div>
         </Section>
