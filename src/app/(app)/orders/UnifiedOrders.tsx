@@ -125,8 +125,8 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               ? t(`Менің заказдарым · ${PERIOD_LABEL[period]} · ${money(total)}`, `Мои заказы · ${PERIOD_LABEL[period]} · ${money(total)}`)
               : t(`Барлық заказдар · ${PERIOD_LABEL[period]} · ${money(total)}`, `Все заказы · ${PERIOD_LABEL[period]} · ${money(total)}`)
         }
-        action={pages > 1 ? <MiniPager page={page} pages={pages} total={total} href={(n) => href({ page: n })} /> : undefined}
       >
+        {pages > 1 && <Pager page={page} pages={pages} href={(n) => href({ page: n })} t={t} top />}
         {rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-text-secondary">
             {q ? t("Ештеңе табылмады — телефонның соңғы 7 цифрын жазып көріңіз", "Ничего не найдено — попробуйте последние 7 цифр телефона") : t("Заказ жоқ", "Заказов нет")}
@@ -259,12 +259,25 @@ function Segment({ items }: { items: { on: boolean; href: string; label: string 
   );
 }
 
-function Pager({ page, pages, href, t }: { page: number; pages: number; href: (n: number) => string; t: (kk: string, ru: string) => string }) {
+function Pager({
+  page,
+  pages,
+  href,
+  t,
+  top = false,
+}: {
+  page: number;
+  pages: number;
+  href: (n: number) => string;
+  t: (kk: string, ru: string) => string;
+  /** Тізімнің үстіндегі нұсқасы (CEO: беттер үстінде де тұрсын). */
+  top?: boolean;
+}) {
   // 1 … 4 5 [6] 7 8 … 125
   const nums = [...new Set([1, page - 2, page - 1, page, page + 1, page + 2, pages])].filter((n) => n >= 1 && n <= Math.min(pages, 200)).sort((a, b) => a - b);
   const btn = "min-w-9 rounded-pill px-3 py-1.5 text-center text-sm font-semibold";
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4">
+    <div className={`flex flex-wrap items-center justify-center gap-1.5 ${top ? "pb-4 lg:justify-end" : "pt-4"}`}>
       {page > 1 && (
         <Link href={href(page - 1)} className={`${btn} bg-page-bg text-text-primary hover:bg-border`}>
           ← {t("Алдыңғы", "Назад")}
@@ -282,38 +295,6 @@ function Pager({ page, pages, href, t }: { page: number; pages: number; href: (n
         <Link href={href(page + 1)} className={`${btn} bg-page-bg text-text-primary hover:bg-border`}>
           {t("Келесі 100", "Следующие 100")} →
         </Link>
-      )}
-    </div>
-  );
-}
-
-/** Тізімнің үстіндегі шағын беттегіш: «1–100 / 12 456  ‹ 1 / 125 ›» — төмен түспей-ақ келесі бетке өту үшін. */
-function MiniPager({ page, pages, total, href }: { page: number; pages: number; total: number; href: (n: number) => string }) {
-  const last = Math.min(pages, 200);
-  const from = (page - 1) * 100 + 1;
-  const to = Math.min(page * 100, total);
-  const arrow = "inline-flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold";
-  return (
-    <div className="flex shrink-0 items-center gap-2 text-sm font-semibold">
-      <span className="mr-1 hidden text-text-secondary sm:inline">
-        {money(from)}–{money(to)} / {money(total)}
-      </span>
-      {page > 1 ? (
-        <Link href={href(page - 1)} aria-label="←" className={`${arrow} bg-page-bg text-text-primary hover:bg-border`}>
-          ‹
-        </Link>
-      ) : (
-        <span className={`${arrow} bg-page-bg text-text-secondary/40`}>‹</span>
-      )}
-      <span className="whitespace-nowrap px-1 tabular-nums text-text-primary">
-        {page} / {last}
-      </span>
-      {page < last ? (
-        <Link href={href(page + 1)} aria-label="→" className={`${arrow} bg-accent text-white hover:bg-accent-hover`}>
-          ›
-        </Link>
-      ) : (
-        <span className={`${arrow} bg-page-bg text-text-secondary/40`}>›</span>
       )}
     </div>
   );
