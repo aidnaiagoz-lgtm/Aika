@@ -52,6 +52,57 @@ const MAKE_COUNTRY: Record<string, string> = {
 };
 const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия"];
 
+// Марка/модель бойынша белгілі буын кодтары — тек сенімді, кеңінен танымал жағдайлар ғана.
+// Модель дәл сәйкес келмесе де, сол маркадағы барлық буын кодтары ұсыныс ретінде көрсетіледі.
+const MODEL_GENERATIONS: Record<string, Record<string, string[]>> = {
+  toyota: {
+    camry: ["XV40", "XV50", "XV70", "XV80"],
+    corolla: ["E140/150", "E160/170", "E210"],
+    rav4: ["XA30", "XA40", "XA50"],
+    "land cruiser prado": ["J120", "J150", "J250"],
+    "land cruiser": ["J200", "J300"],
+    highlander: ["XU40", "XU50", "XU70"],
+    hilux: ["AN120/130"],
+  },
+  hyundai: {
+    tucson: ["JM", "LM", "TL", "NX4"],
+    "santa fe": ["CM", "DM", "TM", "MX5"],
+    elantra: ["HD", "MD", "AD", "CN7"],
+    sonata: ["NF", "YF", "LF", "DN8"],
+    accent: ["MC", "RB", "HC"],
+  },
+  kia: {
+    sportage: ["KM", "SL", "QL", "NQ5"],
+    sorento: ["BL", "XM", "UM", "MQ4"],
+    rio: ["JB", "UB", "YB", "SC"],
+    cerato: ["TD", "YD", "BD"],
+  },
+  nissan: {
+    "x-trail": ["T30", "T31", "T32", "T33"],
+    qashqai: ["J10", "J11", "J12"],
+  },
+  bmw: {
+    "3 series": ["E90", "F30", "G20"],
+    "5 series": ["E60", "F10", "G30", "G60"],
+  },
+  "mercedes-benz": {
+    "c-class": ["W203", "W204", "W205", "W206"],
+    "e-class": ["W211", "W212", "W213", "W214"],
+  },
+  volkswagen: {
+    passat: ["B6", "B7", "B8"],
+    tiguan: ["5N", "AD1"],
+  },
+};
+
+function generationOptions(make: string, model: string): string[] {
+  const byMake = MODEL_GENERATIONS[make.trim().toLowerCase()];
+  if (!byMake) return [];
+  const byModel = byMake[model.trim().toLowerCase()];
+  if (byModel) return byModel;
+  return [...new Set(Object.values(byMake).flat())];
+}
+
 const inputCls =
   "min-h-11 w-full rounded-icon border border-border bg-page-bg px-3 text-[15px] text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30";
 
@@ -121,6 +172,8 @@ export function SalesOrderForm({
     const near = Object.keys(modelsByMake).filter((k) => k.startsWith(key) || key.startsWith(k));
     return near.length ? [...new Set(near.flatMap((k) => modelsByMake[k]))] : options.brand ?? [];
   }, [make, modelsByMake, options.brand]);
+
+  const genOptions = useMemo(() => generationOptions(make, model), [make, model]);
 
   const totals = useMemo(() => {
     const price = items.reduce((s, i) => s + (num(i.price) ?? num(i.soldFor) ?? 0), 0);
@@ -204,6 +257,11 @@ export function SalesOrderForm({
           ))}
         </datalist>
       ))}
+      <datalist id="o-generation">
+        {genOptions.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <Section n={1} title="Клиент">
@@ -245,7 +303,7 @@ export function SalesOrderForm({
               <ListInput value={year} onChange={setYear} placeholder="2021" inputMode="numeric" />
             </Field>
             <Field label="Буын (мыс. XV70)">
-              <ListInput value={generation} onChange={setGeneration} placeholder="XV70" />
+              <ListInput value={generation} onChange={setGeneration} list="o-generation" placeholder="XV70" />
             </Field>
             <Field label="Қай елдің өндірісі">
               <ListInput value={originCountry} onChange={setOriginCountry} list="o-country" placeholder="Жапония" />
