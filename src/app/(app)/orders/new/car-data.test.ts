@@ -5,10 +5,10 @@ import { autoGeneration, generationOptions as genOpts, originCountryFor } from "
 const generationOptions = (make: string, model: string, year: number | null) => genOpts(make, model, year).map((o) => o.code);
 
 test("марка кириллицамен де, латынша да танылады", () => {
-  assert.equal(originCountryFor("тойота"), "Жапония");
-  assert.equal(originCountryFor("Toyota"), "Жапония");
-  assert.equal(originCountryFor("хендай"), "Оңтүстік Корея");
-  assert.equal(originCountryFor("киа"), "Оңтүстік Корея");
+  assert.equal(originCountryFor("тойота"), "Japan");
+  assert.equal(originCountryFor("Toyota"), "Japan");
+  assert.equal(originCountryFor("хендай"), "South Korea");
+  assert.equal(originCountryFor("киа"), "South Korea");
   assert.equal(originCountryFor("белгісіз"), undefined);
 });
 
@@ -44,6 +44,6 @@ test("марка жазылмаса да бүкіл тізім шығады, ә�
 test("танылмаған марка (мыс. BYD сияқты буын коды жоқ) — басқа маркалардың тізімі шықпайды", () => {
   assert.deepEqual(genOpts("BYD", "", null), []);
   assert.deepEqual(genOpts("белгісіз марка", "", null), []);
-  assert.equal(originCountryFor("BYD"), "Қытай");
-  assert.equal(originCountryFor("бид"), "Қытай");
+  assert.equal(originCountryFor("BYD"), "China");
+  assert.equal(originCountryFor("бид"), "China");
 });
