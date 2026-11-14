@@ -25,6 +25,7 @@ export interface ProductKind {
   mat: boolean; // Съёмный полик вид / нитка / окантовка
   pockets: boolean; // Кармашки + лого
   workshop: boolean; // «Цех» әдепкі белгісі
+  rare?: boolean; // сирек — «Тағы…» ішінде
   match: (p: string) => boolean;
 }
 
@@ -39,11 +40,11 @@ export const PRODUCT_KINDS: ProductKind[] = [
   { id: "wheel", label: "Руль", leather: false, mat: false, pockets: false, workshop: false, match: has(/- руль|^руль/) },
   { id: "heel", label: "Подпятник", leather: false, mat: false, pockets: false, workshop: false, match: has(/подпятник/) },
   { id: "cape", label: "Накидка", leather: false, mat: false, pockets: false, workshop: false, match: has(/накидк/) },
-  { id: "organizer", label: "Органайзер", leather: false, mat: false, pockets: false, workshop: false, match: has(/органайзер/) },
-  { id: "pillow", label: "Подушка", leather: false, mat: false, pockets: false, workshop: false, match: has(/подушк/) },
-  { id: "armrest", label: "Подлокотник", leather: false, mat: false, pockets: false, workshop: false, match: has(/подлокотник/) },
+  { id: "organizer", rare: true, label: "Органайзер", leather: false, mat: false, pockets: false, workshop: false, match: has(/органайзер/) },
+  { id: "pillow", rare: true, label: "Подушка", leather: false, mat: false, pockets: false, workshop: false, match: has(/подушк/) },
+  { id: "armrest", rare: true, label: "Подлокотник", leather: false, mat: false, pockets: false, workshop: false, match: has(/подлокотник/) },
   { id: "mat", label: "Съёмный / EVA", leather: false, mat: true, pockets: false, workshop: false, match: has(/^съ[её]мн|^-? ?ева|^eva|eva кил|^тпе|^tpe|полик/) },
-  { id: "other", label: "Басқа", leather: false, mat: false, pockets: false, workshop: false, match: () => true },
+  { id: "other", rare: true, label: "Басқа", leather: false, mat: false, pockets: false, workshop: false, match: () => true },
 ];
 
 const BY_ID = new Map(PRODUCT_KINDS.map((k) => [k.id, k]));
