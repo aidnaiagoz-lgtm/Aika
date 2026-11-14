@@ -12,6 +12,8 @@ type Options = Record<string, string[]>;
 
 interface ItemState {
   kind: KindId | ""; // тауар түрі (CEO, 2026-11-14): әр түрге тек өз өрістері
+  open: boolean; // толтырылған тауар бір жолға жиналады
+  more: boolean; // сирек түрлерді көрсету
   product: string;
   price: string;
   soldFor: string;
@@ -34,6 +36,8 @@ interface PayState {
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 const emptyItem = (): ItemState => ({
   kind: "",
+  open: true,
+  more: false,
   product: "", price: "", soldFor: "", leatherType: "", leatherThread: "", leatherPiping: "",
   matType: "", matThread: "", matPiping: "", pocketsPairs: "", pocketsLogo: false, workshop: false,
 });
@@ -289,31 +293,58 @@ export function SalesOrderForm({
         <Section n={3} title="Тауар">
           {items.map((it, k) => (
             <div key={k} className="flex flex-col gap-3 rounded-icon border border-border p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-text-primary">Тауар {k + 1}</span>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => it.product && setItem(k, { open: !it.open })}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-bold text-text-primary"
+                >
+                  <span className="shrink-0">Тауар {k + 1}</span>
+                  {!it.open && (
+                    <span className="min-w-0 truncate font-semibold text-text-secondary">
+                      · {it.kind ? kindById(it.kind).label + " · " : ""}
+                      {it.product}
+                      {num(it.soldFor) ?? num(it.price) ? ` · ${money(num(it.soldFor) ?? num(it.price) ?? 0)}` : ""}
+                    </span>
+                  )}
+                  {it.product && <span className="ml-auto shrink-0 text-xs font-bold text-accent">{it.open ? "Жию ▴" : "Ашу ▾"}</span>}
+                </button>
                 {items.length > 1 && (
                   <button type="button" aria-label="Тауарды алып тастау" onClick={() => setItems((xs) => xs.filter((_, i) => i !== k))} className="grid h-9 w-9 place-items-center rounded-icon text-text-secondary hover:bg-page-bg">
                     <Trash2 size={16} />
                   </button>
                 )}
               </div>
-              {(() => {
+              {it.open && (() => {
                 const kd = it.kind ? kindById(it.kind) : null;
+                const base = num(it.price);
+                const sold = num(it.soldFor);
+                const disc = base != null && sold != null && sold < base ? base - sold : 0;
                 return (
                   <>
-                    <div className="flex flex-wrap gap-2">
-                      {PRODUCT_KINDS.map((pk) => (
+                    {/* Негізгі түрлер; сирек түрлер — «Тағы…» ішінде. Телефонда бір қатар, жанына сырғиды. */}
+                    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+                      {PRODUCT_KINDS.filter((pk) => !pk.rare || it.more || it.kind === pk.id).map((pk) => (
                         <button
                           key={pk.id}
                           type="button"
                           onClick={() => chooseKind(k, pk.id)}
-                          className={`min-h-10 rounded-icon border-[1.5px] px-3.5 text-sm font-semibold ${
+                          className={`min-h-10 shrink-0 whitespace-nowrap rounded-icon border-[1.5px] px-3.5 text-sm font-semibold ${
                             it.kind === pk.id ? "border-accent bg-accent/10 text-accent" : "border-border bg-surface text-text-primary hover:border-accent/50"
                           }`}
                         >
                           {pk.label}
                         </button>
                       ))}
+                      {!it.more && (
+                        <button
+                          type="button"
+                          onClick={() => setItem(k, { more: true })}
+                          className="min-h-10 shrink-0 rounded-icon border-[1.5px] border-dashed border-border px-3.5 text-sm font-semibold text-text-secondary hover:border-accent/50"
+                        >
+                          Тағы…
+                        </button>
+                      )}
                     </div>
                     {!kd ? (
                       <p className="m-0 text-sm text-text-secondary">Алдымен тауар түрін таңдаңыз — сосын тек соған керек өрістер шығады.</p>
@@ -328,12 +359,28 @@ export function SalesOrderForm({
                               const auto = v.trim() ? productKind(v) : kd.id;
                               setItem(k, {
                                 product: v,
-                                ...(priceByProduct[v] != null && !it.price ? { price: String(priceByProduct[v]) } : {}),
+                                // Баға өзі қойылады: бос болса немесе алдыңғы тауардың бағасы тұрса
+                                ...(priceByProduct[v] != null && (!it.price || it.price === String(priceByProduct[it.product] ?? ""))
+                                  ? { price: String(priceByProduct[v]) }
+                                  : {}),
                                 // Басқа түрдің тауары таңдалса — түрі өзі ауысады
                                 ...(auto !== kd.id && auto !== "other" ? { kind: auto, workshop: kindById(auto).workshop } : {}),
                               });
                             }}
                           />
+                        </Field>
+                        <Field label="Цена">
+                          <ListInput value={it.price} onChange={(v) => setItem(k, { price: v })} inputMode="numeric" placeholder="95000" />
+                        </Field>
+                        <Field label="Продали за">
+                          <div className="relative">
+                            <ListInput value={it.soldFor} onChange={(v) => setItem(k, { soldFor: v })} inputMode="numeric" placeholder={it.price || "90000"} />
+                            {disc > 0 && (
+                              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                                −{money(disc).replace(" ₸", "")} ({Math.round((disc / base!) * 100)}%)
+                              </span>
+                            )}
+                          </div>
                         </Field>
                         {kd.leather && (
                           <>
@@ -381,26 +428,12 @@ export function SalesOrderForm({
               })()}
             </div>
           ))}
-          <button type="button" onClick={() => setItems((xs) => [...xs, emptyItem()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
+          <button type="button" onClick={() => setItems((xs) => [...xs.map((x) => (x.product ? { ...x, open: false } : x)), emptyItem()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
             <Plus size={16} /> Тағы тауар қосу
           </button>
         </Section>
 
         <Section n={4} title="Төлем">
-          {items.map((it, k) => (
-            <div key={k} className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
-              <Field label={`Тауар ${k + 1}`}>
-                <div className="flex min-h-11 items-center truncate text-[15px] font-semibold text-text-primary">{it.product || "—"}</div>
-              </Field>
-              <Field label="Цена">
-                <ListInput value={it.price} onChange={(v) => setItem(k, { price: v })} inputMode="numeric" placeholder="95000" />
-              </Field>
-              <Field label="Продали за">
-                <ListInput value={it.soldFor} onChange={(v) => setItem(k, { soldFor: v })} inputMode="numeric" placeholder={it.price || "90000"} />
-              </Field>
-            </div>
-          ))}
-          <hr className="my-1 border-border" />
           {pays.map((p, k) => (
             <div key={k} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.4fr_1fr_auto]">
               <Field label={`Чек ${k + 1} сумма`}>
