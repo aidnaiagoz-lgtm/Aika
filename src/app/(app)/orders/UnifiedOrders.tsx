@@ -126,7 +126,6 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               : t(`Барлық заказдар · ${PERIOD_LABEL[period]} · ${money(total)}`, `Все заказы · ${PERIOD_LABEL[period]} · ${money(total)}`)
         }
       >
-        {pages > 1 && <Pager page={page} pages={pages} href={(n) => href({ page: n })} t={t} top />}
         {rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-text-secondary">
             {q ? t("Ештеңе табылмады — телефонның соңғы 7 цифрын жазып көріңіз", "Ничего не найдено — попробуйте последние 7 цифр телефона") : t("Заказ жоқ", "Заказов нет")}
