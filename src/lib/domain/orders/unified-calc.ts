@@ -111,3 +111,9 @@ export function pickLedgerTime(day: Date | null, candidates: (Date | null | unde
   );
   return ok.length ? new Date(Math.min(...ok.map((d) => d.getTime()))) : null;
 }
+
+/** Кестедегі «№» бойынша іздеу: «12459» / «№12459» / «№ 12459» → 12459. 1–6 цифр болмаса — null. */
+export function rowNoNeedle(q: string): number | null {
+  const m = q.trim().match(/^(?:№|no\.?|n)?\s*(\d{1,6})$/i);
+  return m ? Number(m[1]) : null;
+}

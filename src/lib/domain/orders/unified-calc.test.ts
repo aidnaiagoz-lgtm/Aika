@@ -70,3 +70,13 @@ test("pickLedgerTime: тек сол күнгі (Алматы) ең ерте уа
   assert.equal(pickLedgerTime(day, [new Date("2026-11-14T00:00:00Z")]), null); // тек күн
 
 });
+
+test("rowNoNeedle: № бойынша іздеу", async () => {
+  const { rowNoNeedle, textNeedle } = await import("./unified-calc");
+  assert.equal(rowNoNeedle("12459"), 12459);
+  assert.equal(rowNoNeedle("№12459"), 12459);
+  assert.equal(rowNoNeedle(" № 12459 "), 12459);
+  assert.equal(rowNoNeedle("87023545203"), null); // телефон — № емес
+  assert.equal(rowNoNeedle("Ержан"), null);
+  assert.equal(textNeedle("№12459"), "№12459"); // сондықтан № болса мәтін іздеуі өшіріледі (unified.ts)
+});
