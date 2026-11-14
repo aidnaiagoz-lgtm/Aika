@@ -49,6 +49,8 @@ export interface UnifiedRow {
   /** Заказ түскен уақыт (сағат:минут үшін); белгісіз болса — null. */
   time: Date | null;
   label: string; // «AM-2026-000004» немесе «№12460–12464»
+  /** Google кестедегі № (Продажи жолы): «12460–12464»; жоқ болса — "". */
+  no: string;
   customerName: string;
   phone: string;
   car: string;
@@ -223,6 +225,7 @@ export async function listUnifiedOrders(
               productName: true,
               workshop: true,
               ledgerRowId: true,
+              ledgerRow: { select: { no: true } },
               unitPrice: true,
               qty: true,
               product: { select: { name: true } },
@@ -245,6 +248,7 @@ export async function listUnifiedOrders(
       date: o.createdAt,
       time: o.createdAt,
       label: o.orderNumber,
+      no: ledgerLabel(o.items.flatMap((i) => (i.ledgerRow ? [i.ledgerRow.no] : []))).replace("№", ""),
       customerName: o.customer.fullName,
       phone: formatPhone(o.customer.phone),
       car: o.vehicle ? `${o.vehicle.make} ${o.vehicle.model}`.trim() : "",
@@ -338,6 +342,7 @@ export async function listUnifiedOrders(
       date,
       time: pickLedgerTime(r0.date, rows.flatMap((r) => [r.createdAt, r.receipt1At])),
       label: ledgerLabel(rows.map((r) => r.no)),
+      no: ledgerLabel(rows.map((r) => r.no)).replace("№", ""),
       customerName: rows.find((r) => r.customerName)?.customerName ?? "",
       phone: formatPhone(r0.phoneNorm ?? rows.find((r) => r.customerPhone)?.customerPhone),
       car: [firstCar.car, firstCar.brand].filter(Boolean).join(" "),
