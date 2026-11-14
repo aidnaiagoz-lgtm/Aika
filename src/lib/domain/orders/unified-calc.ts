@@ -1,0 +1,71 @@
+// «Заказдар» бетіндегі ортақ тізім (сайт заказдары + Google/Продажи ескі жолдары) — таза функциялар.
+
+/** Іздеу мәтінінен телефон бөлігін шығарады: «8 701 555» → ["8701555", "701555"]. Цифр аз болса — бос. */
+export function phoneNeedles(q: string): string[] {
+  const digits = q.replace(/\D/g, "");
+  if (digits.length < 4) return [];
+  const out = [digits];
+  if ((digits.startsWith("8") || digits.startsWith("7")) && digits.length >= 5) out.push(digits.slice(1));
+  return [...new Set(out)];
+}
+
+/** Мәтін іздеуі: телефонсыз сөз бөлігі (кемінде 2 әріп). */
+export function textNeedle(q: string): string | null {
+  const s = q.trim();
+  if (/^[\d\s+()-]+$/.test(s)) return null;
+  return s.length >= 2 ? s.slice(0, 80) : null;
+}
+
+const norm = (s: string | null | undefined) => (s ?? "").trim().toLocaleLowerCase("ru");
+
+/** Продажи жолы осы менеджердікі ме: «Менеджер» бағаны аты бойынша немесе жолды өзі енгізген. */
+export function isOwnLedgerRow(row: { manager: string | null; createdById: string | null }, me: { employeeId?: string | null; fullName?: string | null }): boolean {
+  if (me.employeeId && row.createdById === me.employeeId) return true;
+  const n = norm(me.fullName);
+  return n !== "" && norm(row.manager) === n;
+}
+
+/** Чектердің қосындысы (төленген). */
+export function paidOf(row: { receipt1Amount?: unknown; receipt2Amount?: unknown; receipt3Amount?: unknown }): number {
+  return [row.receipt1Amount, row.receipt2Amount, row.receipt3Amount].reduce<number>((s, v) => s + (Number(v ?? 0) || 0), 0);
+}
+
+/** Телефонды көрсету: «7015551234» / «+77015551234» → «+7 701 555 12 34». */
+export function formatPhone(p: string | null | undefined): string {
+  const d = (p ?? "").replace(/\D/g, "");
+  const ten = d.length === 11 && (d[0] === "7" || d[0] === "8") ? d.slice(1) : d.length === 10 ? d : null;
+  if (!ten) return p ?? "";
+  return `+7 ${ten.slice(0, 3)} ${ten.slice(3, 6)} ${ten.slice(6, 8)} ${ten.slice(8)}`;
+}
+
+export type OrderPeriod = "today" | "yesterday" | "week" | "month" | "all";
+export const ORDER_PERIODS: OrderPeriod[] = ["today", "yesterday", "week", "month", "all"];
+
+const addDays = (day: string, n: number) => {
+  const d = new Date(day + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** Алматы бойынша бүгінгі күн (YYYY-MM-DD). */
+export const almatyToday = (now = new Date()) => new Date(now.getTime() + 5 * 3600_000).toISOString().slice(0, 10);
+
+/** Кезең → [бастап, дейін] күндері (Алматы). Апта — дүйсенбіден (рейтингтегідей), ай — 1-күннен. «all» → null. */
+export function periodDays(period: OrderPeriod, today: string): [string, string] | null {
+  switch (period) {
+    case "today":
+      return [today, today];
+    case "yesterday": {
+      const y = addDays(today, -1);
+      return [y, y];
+    }
+    case "week": {
+      const dow = (new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7;
+      return [addDays(today, -dow), today];
+    }
+    case "month":
+      return [today.slice(0, 8) + "01", today];
+    default:
+      return null;
+  }
+}

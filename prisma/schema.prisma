@@ -363,6 +363,7 @@ model CustomerCar {
   make         String // Vehicle: Brand
   model        String // Vehicle: Model
   generation   String? // Order Module §4
+  originCountry String? // Қай елдің өндірісі
   body         String? // Order Module §4
   year         Int? // Production Year
   numberOfRows Int? // Order Module §4
@@ -539,6 +540,7 @@ model Order {
   certificateNo   String? // Номер сертификата
   managerBonus    Decimal?              @db.Decimal(14, 2) // Бонус менеджеров
   fulfillmentType OrderFulfillmentType?
+  pickupMethod    String? // 2026-11: Google кестедегі «Способ вывоза»
   totalAmount     Decimal               @default(0) @db.Decimal(14, 2)
   discountAmount  Decimal               @default(0) @db.Decimal(14, 2)
   finalAmount     Decimal               @default(0) @db.Decimal(14, 2)
@@ -633,7 +635,15 @@ model OrderItem {
 
   configuration ProductConfiguration?
 
+  // 2026-11 (Google-дан көшу): сатылым заказы — әр тауар Продажи кестесінде бір жол болады
+  productName String? // Google кестедегі «Товар» мәтіні (мыс. «3Д - Люкс - салон полный 2 ряд»)
+  workshop    Boolean         @default(false) // «Цех ✓» — цехта тігіледі
+  // @unique ЕМЕС: бар кестеге unique қосу prisma db push-ты «data loss» ескертуімен тоқтатады
+  ledgerRowId String?
+  ledgerRow   SalesLedgerRow? @relation(fields: [ledgerRowId], references: [id], onDelete: SetNull)
+
   @@index([orderId])
+  @@index([ledgerRowId])
   @@map("order_items")
 }
 
@@ -668,6 +678,8 @@ model ProductConfiguration {
   embroidery       Boolean @default(false)
   extraAccessories String?
   photoUrl         String?
+  // 2026-11: Google кестедегі «Кожа вид» мәтіні (мыс. «4050 - Кожа - Жанек ромб қара»)
+  leatherType      String?
 
   @@map("product_configurations")
 }
@@ -993,6 +1005,7 @@ model SalesLedgerRow {
   leads       SalesLead[]
   cashEvents  CashHandoverEvent[]
   workshopJob WorkshopJob?
+  orderItems  OrderItem[]
 
   @@index([branchId])
   @@index([date])

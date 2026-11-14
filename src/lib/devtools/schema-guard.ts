@@ -20,12 +20,13 @@ export interface Field {
   optional: boolean;
   list: boolean;
   hasDefault: boolean;
+  unique: boolean;
   column: string; // @map болса — сол, әйтпесе өріс аты
   updatedAt: boolean;
 }
 
 export interface ParsedSchema {
-  models: Map<string, { table: string; fields: Map<string, Field> }>;
+  models: Map<string, { table: string; fields: Map<string, Field>; uniques: Set<string> }>;
   enums: Map<string, Set<string>>;
 }
 
@@ -48,6 +49,7 @@ export function parseSchema(text: string): ParsedSchema {
   let block: { kind: "model" | "enum"; name: string } | null = null;
   let modelFields = new Map<string, Field>();
   let table = "";
+  let uniques = new Set<string>();
   let enumValues = new Set<string>();
 
   for (const raw of lines) {
@@ -59,6 +61,7 @@ export function parseSchema(text: string): ParsedSchema {
       if (m) {
         block = { kind: m[1] as "model" | "enum", name: m[2] };
         modelFields = new Map();
+        uniques = new Set();
         enumValues = new Set();
         table = m[2];
       }
@@ -66,7 +69,7 @@ export function parseSchema(text: string): ParsedSchema {
     }
 
     if (line.startsWith("}")) {
-      if (block.kind === "model") models.set(block.name, { table, fields: modelFields });
+      if (block.kind === "model") models.set(block.name, { table, fields: modelFields, uniques });
       else enums.set(block.name, enumValues);
       block = null;
       continue;
@@ -83,6 +86,8 @@ export function parseSchema(text: string): ParsedSchema {
     if (line.startsWith("@@")) {
       const map = /^@@map\(\s*"([^"]+)"/.exec(line);
       if (map) table = map[1];
+      const uq = /^@@unique\(\s*\[([^\]]+)\]/.exec(line);
+      if (uq) uniques.add(uq[1].replace(/\s+/g, ""));
       continue;
     }
     const f = /^(\w+)\s+([\w.]+(?:\([^)]*\))?)(\[\])?(\?)?(.*)$/.exec(line);
@@ -95,6 +100,7 @@ export function parseSchema(text: string): ParsedSchema {
       optional: !!opt,
       list: !!list,
       hasDefault: /@default\(/.test(rest),
+      unique: /@unique\b/.test(rest),
       column: mapAttr ? mapAttr[1] : name,
       updatedAt: /@updatedAt\b/.test(rest),
     });
@@ -152,11 +158,22 @@ export function findDestructiveChanges(baseText: string, headText: string): stri
       }
     }
     for (const [fname, nf] of next.fields) {
+      const old = model.fields.get(fname);
+      if (nf.unique && !old?.unique) {
+        problems.push(`${name}.${fname}: бар кестеге жаңа @unique — prisma db push «data loss» ескертуімен тоқтайды (@@index қолданыңыз)`);
+      }
       if (model.fields.has(fname)) continue;
       if (!isColumn(nf, headEnums)) continue;
       if (!nf.optional && !nf.list && !nf.hasDefault && !nf.updatedAt) {
         problems.push(`${name}.${fname}: жаңа міндетті баған @default-сыз — «?» немесе @default(...) қосыңыз`);
       }
+    }
+  }
+  for (const [name, model] of base.models) {
+    const next = head.models.get(name);
+    if (!next) continue;
+    for (const u of next.uniques) {
+      if (!model.uniques.has(u)) problems.push(`${name}: бар кестеге жаңа @@unique([${u}]) — prisma db push «data loss» ескертуімен тоқтайды`);
     }
   }
   return problems;
