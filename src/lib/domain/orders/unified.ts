@@ -4,7 +4,7 @@ import { assertPermission, can } from "@/lib/rbac";
 import { canEditLedgerRow } from "@/lib/domain/sales-ledger";
 import { workshopStatusByLedger } from "@/lib/domain/workshop";
 import type { ActingUser } from "./types";
-import { formatPhone, isOwnLedgerRow, paidOf, phoneNeedles, textNeedle } from "./unified-calc";
+import { almatyToday, formatPhone, isOwnLedgerRow, paidOf, periodDays, phoneNeedles, textNeedle, type OrderPeriod } from "./unified-calc";
 
 /**
  * «Заказдар» бетінің ортақ тізімі (2026-11-14, CEO шешімі):
@@ -44,6 +44,8 @@ export interface UnifiedFilters {
   q: string;
   /** Бет нөмірі (1-ден): әр бетте 100 заказ. */
   page?: number;
+  /** Бүгін / Кеше / Апта / Ай / Барлығы (Алматы уақытымен). */
+  period?: OrderPeriod;
 }
 
 export const PAGE_SIZE = 100;
@@ -54,7 +56,7 @@ const almatyMonth = (d: Date) => new Date(d.getTime() + 5 * 3600_000).toISOStrin
 export async function listUnifiedOrders(
   user: ActingUser,
   f: UnifiedFilters
-): Promise<{ rows: UnifiedRow[]; total: number; page: number; pages: number }> {
+): Promise<{ rows: UnifiedRow[]; total: number; sum: number; page: number; pages: number }> {
   const orderScope = assertPermission(user, "orders", PermissionAction.VIEW);
   const canSeeLedger = can(user, "deals", PermissionAction.VIEW);
   const me = user.employee?.id
@@ -64,6 +66,8 @@ export async function listUnifiedOrders(
   const page = Math.max(1, Math.min(200, Math.floor(f.page ?? 1)));
   const limit = PAGE_SIZE * page;
   let total = 0;
+  let sum = 0;
+  const days = periodDays(f.period ?? "all", almatyToday());
   const phones = phoneNeedles(f.q);
   const text = textNeedle(f.q);
   const hasSearch = phones.length > 0 || !!text;
@@ -72,6 +76,7 @@ export async function listUnifiedOrders(
   let siteRows: UnifiedRow[] = [];
   if (f.src !== "sheet") {
     const where: Prisma.OrderWhereInput = { deletedAt: null };
+    if (days) where.createdAt = { gte: new Date(`${days[0]}T00:00:00+05:00`), lte: new Date(`${days[1]}T23:59:59.999+05:00`) };
     if (f.who === "mine") where.salesManagerId = me?.id ?? "__none__";
     if (hasSearch) {
       where.OR = [
@@ -87,7 +92,9 @@ export async function listUnifiedOrders(
           : []),
       ];
     }
-    total += await prisma.order.count({ where });
+    const agg = await prisma.order.aggregate({ where, _count: { _all: true }, _sum: { finalAmount: true } });
+    total += agg._count._all;
+    sum += Number(agg._sum.finalAmount ?? 0);
     const orders = await prisma.order.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -149,6 +156,8 @@ export async function listUnifiedOrders(
   let sheetRows: UnifiedRow[] = [];
   if (f.src !== "site" && canSeeLedger) {
     const where: Prisma.SalesLedgerRowWhereInput = { orderItems: { none: {} } };
+    // Продажи «Дата» — күн (UTC 00:00 ретінде сақталады)
+    if (days) where.date = { gte: new Date(`${days[0]}T00:00:00Z`), lte: new Date(`${days[1]}T23:59:59.999Z`) };
     if (f.who === "mine") {
       where.AND = [
         {
@@ -172,7 +181,9 @@ export async function listUnifiedOrders(
           : []),
       ];
     }
-    total += await prisma.salesLedgerRow.count({ where });
+    const agg = await prisma.salesLedgerRow.aggregate({ where, _count: { _all: true }, _sum: { soldFor: true } });
+    total += agg._count._all;
+    sum += Number(agg._sum.soldFor ?? 0);
     const rows = await prisma.salesLedgerRow.findMany({
       where,
       orderBy: [{ date: { sort: "desc", nulls: "last" } }, { no: "desc" }],
@@ -234,5 +245,5 @@ export async function listUnifiedOrders(
   }
 
   const all = [...siteRows, ...sheetRows].sort((a, b) => b.date.getTime() - a.date.getTime());
-  return { rows: all.slice(limit - PAGE_SIZE, limit), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+  return { rows: all.slice(limit - PAGE_SIZE, limit), total, sum, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }

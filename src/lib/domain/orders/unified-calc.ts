@@ -37,3 +37,35 @@ export function formatPhone(p: string | null | undefined): string {
   if (!ten) return p ?? "";
   return `+7 ${ten.slice(0, 3)} ${ten.slice(3, 6)} ${ten.slice(6, 8)} ${ten.slice(8)}`;
 }
+
+export type OrderPeriod = "today" | "yesterday" | "week" | "month" | "all";
+export const ORDER_PERIODS: OrderPeriod[] = ["today", "yesterday", "week", "month", "all"];
+
+const addDays = (day: string, n: number) => {
+  const d = new Date(day + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** Алматы бойынша бүгінгі күн (YYYY-MM-DD). */
+export const almatyToday = (now = new Date()) => new Date(now.getTime() + 5 * 3600_000).toISOString().slice(0, 10);
+
+/** Кезең → [бастап, дейін] күндері (Алматы). Апта — дүйсенбіден (рейтингтегідей), ай — 1-күннен. «all» → null. */
+export function periodDays(period: OrderPeriod, today: string): [string, string] | null {
+  switch (period) {
+    case "today":
+      return [today, today];
+    case "yesterday": {
+      const y = addDays(today, -1);
+      return [y, y];
+    }
+    case "week": {
+      const dow = (new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7;
+      return [addDays(today, -dow), today];
+    }
+    case "month":
+      return [today.slice(0, 8) + "01", today];
+    default:
+      return null;
+  }
+}
