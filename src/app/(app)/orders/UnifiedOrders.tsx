@@ -10,7 +10,7 @@ import type { ActingUser } from "@/lib/domain/orders/types";
 type Props = {
   user: ActingUser;
   locale: Locale;
-  filters: { who?: string; src?: string; q?: string };
+  filters: { who?: string; src?: string; q?: string; page?: string };
 };
 
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
@@ -25,20 +25,21 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
 
   let data: Awaited<ReturnType<typeof listUnifiedOrders>> | "forbidden";
   try {
-    data = await listUnifiedOrders(user, { who, src, q });
+    data = await listUnifiedOrders(user, { who, src, q, page: Number(filters.page) || 1 });
   } catch (e) {
     if (e instanceof ForbiddenError) data = "forbidden";
     else throw e;
   }
   if (data === "forbidden") return <AccessDenied locale={locale} />;
-  const { rows, limited } = data;
+  const { rows, total, page, pages } = data;
 
-  const href = (p: Partial<{ who: string; src: string; q: string }>) => {
+  const href = (p: Partial<{ who: string; src: string; q: string; page: number }>) => {
     const sp = new URLSearchParams();
-    const next = { who, src, q, ...p };
+    const next = { who, src, q, page: 1, ...p };
     sp.set("who", next.who);
     if (next.src !== "all") sp.set("src", next.src);
     if (next.q) sp.set("q", next.q);
+    if (next.page > 1) sp.set("page", String(next.page));
     return `/orders?${sp.toString()}`;
   };
   const dateFmt = new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "kk-KZ", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Almaty" });
@@ -97,10 +98,10 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
       <Card
         title={
           q
-            ? t(`Табылды: ${rows.length} заказ — клиенттің тарихы`, `Найдено: ${rows.length} — история клиента`)
+            ? t(`Табылды: ${total} заказ — клиенттің тарихы`, `Найдено: ${total} — история клиента`)
             : who === "mine"
-              ? t("Менің соңғы заказдарым", "Мои последние заказы")
-              : t("Соңғы заказдар", "Последние заказы")
+              ? t(`Менің заказдарым · барлығы ${money(total)}`, `Мои заказы · всего ${money(total)}`)
+              : t(`Барлық заказдар · ${money(total)}`, `Все заказы · ${money(total)}`)
         }
       >
         {rows.length === 0 ? (
@@ -139,11 +140,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
             </table>
           </div>
         )}
-        {limited && (
-          <p className="pt-3 text-center text-xs text-text-secondary">
-            {t("Соңғы заказдар ғана көрсетілді — ескісін табу үшін телефонмен немесе атымен іздеңіз", "Показаны только последние — для старых используйте поиск")}
-          </p>
-        )}
+        {pages > 1 && <Pager page={page} pages={pages} href={(n) => href({ page: n })} t={t} />}
       </Card>
 
       <p className="text-center text-xs text-text-secondary">
@@ -235,6 +232,34 @@ function Segment({ items }: { items: { on: boolean; href: string; label: string 
           {i.label}
         </Link>
       ))}
+    </div>
+  );
+}
+
+function Pager({ page, pages, href, t }: { page: number; pages: number; href: (n: number) => string; t: (kk: string, ru: string) => string }) {
+  // 1 … 4 5 [6] 7 8 … 125
+  const nums = [...new Set([1, page - 2, page - 1, page, page + 1, page + 2, pages])].filter((n) => n >= 1 && n <= Math.min(pages, 200)).sort((a, b) => a - b);
+  const btn = "min-w-9 rounded-pill px-3 py-1.5 text-center text-sm font-semibold";
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-4">
+      {page > 1 && (
+        <Link href={href(page - 1)} className={`${btn} bg-page-bg text-text-primary hover:bg-border`}>
+          ← {t("Алдыңғы", "Назад")}
+        </Link>
+      )}
+      {nums.map((n, i) => (
+        <span key={n} className="flex items-center gap-1.5">
+          {i > 0 && n - nums[i - 1] > 1 && <span className="text-text-secondary">…</span>}
+          <Link href={href(n)} className={`${btn} ${n === page ? "bg-accent text-white" : "bg-page-bg text-text-primary hover:bg-border"}`}>
+            {n}
+          </Link>
+        </span>
+      ))}
+      {page < Math.min(pages, 200) && (
+        <Link href={href(page + 1)} className={`${btn} bg-page-bg text-text-primary hover:bg-border`}>
+          {t("Келесі 100", "Следующие 100")} →
+        </Link>
+      )}
     </div>
   );
 }

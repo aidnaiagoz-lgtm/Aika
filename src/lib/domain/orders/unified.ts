@@ -42,18 +42,28 @@ export interface UnifiedFilters {
   who: "mine" | "all";
   src: "all" | "site" | "sheet";
   q: string;
+  /** Бет нөмірі (1-ден): әр бетте 100 заказ. */
+  page?: number;
 }
+
+export const PAGE_SIZE = 100;
 
 const isTrue = (v: string | null | undefined) => /^(true|1|да|иә|ok|✓|x)$/i.test((v ?? "").trim());
 const almatyMonth = (d: Date) => new Date(d.getTime() + 5 * 3600_000).toISOString().slice(0, 7);
 
-export async function listUnifiedOrders(user: ActingUser, f: UnifiedFilters): Promise<{ rows: UnifiedRow[]; limited: boolean }> {
+export async function listUnifiedOrders(
+  user: ActingUser,
+  f: UnifiedFilters
+): Promise<{ rows: UnifiedRow[]; total: number; page: number; pages: number }> {
   const orderScope = assertPermission(user, "orders", PermissionAction.VIEW);
   const canSeeLedger = can(user, "deals", PermissionAction.VIEW);
   const me = user.employee?.id
     ? await prisma.employee.findUnique({ where: { id: user.employee.id }, select: { id: true, fullName: true } })
     : null;
-  const limit = f.q ? 200 : 100;
+  // Екі көзден (сайт + Продажи) күні бойынша біріктіріп беттейміз: N-бет үшін әр көзден N×100 жол аламыз.
+  const page = Math.max(1, Math.min(200, Math.floor(f.page ?? 1)));
+  const limit = PAGE_SIZE * page;
+  let total = 0;
   const phones = phoneNeedles(f.q);
   const text = textNeedle(f.q);
   const hasSearch = phones.length > 0 || !!text;
@@ -77,6 +87,7 @@ export async function listUnifiedOrders(user: ActingUser, f: UnifiedFilters): Pr
           : []),
       ];
     }
+    total += await prisma.order.count({ where });
     const orders = await prisma.order.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -161,6 +172,7 @@ export async function listUnifiedOrders(user: ActingUser, f: UnifiedFilters): Pr
           : []),
       ];
     }
+    total += await prisma.salesLedgerRow.count({ where });
     const rows = await prisma.salesLedgerRow.findMany({
       where,
       orderBy: [{ date: { sort: "desc", nulls: "last" } }, { no: "desc" }],
@@ -222,5 +234,5 @@ export async function listUnifiedOrders(user: ActingUser, f: UnifiedFilters): Pr
   }
 
   const all = [...siteRows, ...sheetRows].sort((a, b) => b.date.getTime() - a.date.getTime());
-  return { rows: all.slice(0, limit), limited: all.length > limit || siteRows.length === limit || sheetRows.length === limit };
+  return { rows: all.slice(limit - PAGE_SIZE, limit), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
