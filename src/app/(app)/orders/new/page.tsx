@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getLedgerOptions, getModelsByMake } from "@/lib/domain/sales-ledger";
 import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
+import { canonicalModel } from "@/lib/domain/sales-ledger/normalize/car-model";
 import { SalesOrderForm } from "./SalesOrderForm";
 
 // Жаңа заказ — Google «продажи» кестесінің орнына (2026-11). Тізімдер (тауар, кожа, жіп, канал...) кестедегідей.
@@ -18,11 +19,14 @@ export default async function NewOrderPage() {
   const emp = await prisma.employee.findUnique({ where: { id: user.employee.id }, select: { fullName: true } });
   const rawModels = branch ? await getModelsByMake(branch.id) : {};
   // CEO (2026-11-14): марка ағылшынша — «тойота»/«тайота» → «Toyota». Тізім мен модельдер соған қарай біріктіріледі.
-  options.car = [...new Set((options.car ?? []).map(canonicalMake).filter(Boolean))];
+  // Модель де ағылшынша — «туксон» → «Tucson», «прадо150» → «Prado 150».
+  const en = (xs: string[], f: (x: string) => string) => [...new Set(xs.map(f).filter(Boolean))];
+  options.car = en(options.car ?? [], canonicalMake);
+  options.brand = en(options.brand ?? [], canonicalModel);
   const modelsByMake: Record<string, string[]> = {};
   for (const [make, list] of Object.entries(rawModels)) {
     const key = canonicalMake(make).toLowerCase();
-    modelsByMake[key] = [...new Set([...(modelsByMake[key] ?? []), ...list])];
+    modelsByMake[key] = en([...(modelsByMake[key] ?? []), ...list], canonicalModel);
   }
 
   return (
