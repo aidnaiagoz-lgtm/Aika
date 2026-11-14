@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { autoGeneration, generationOptions, originCountryFor } from "./car-data";
+import { autoGeneration, generationOptions as genOpts, originCountryFor } from "./car-data";
+
+const generationOptions = (make: string, model: string, year: number | null) => genOpts(make, model, year).map((o) => o.code);
 
 test("марка кириллицамен де, латынша да танылады", () => {
   assert.equal(originCountryFor("тойота"), "Жапония");
@@ -29,4 +31,12 @@ test("модель танылмаса — марканың барлық буын
   const all = generationOptions("тойота", "", null);
   assert.ok(all.includes("XV70") && all.includes("J200"));
   assert.deepEqual(generationOptions("лексус", "rx", null), []);
+});
+
+test("марка жазылмаса да бүкіл тізім шығады, әр кодтың қасында көлік пен жылдар", () => {
+  const all = genOpts("", "", null);
+  assert.ok(all.length > 50);
+  assert.ok(all.some((o) => o.code === "XV70" && o.label === "Toyota Camry · 2017–2023"));
+  assert.ok(all.some((o) => o.code === "NQ5" && o.label === "Kia Sportage · 2021–қазір"));
+  assert.deepEqual(genOpts("", "", 2019).find((o) => o.code === "XV70")?.label, "Toyota Camry · 2017–2023");
 });
