@@ -9,7 +9,7 @@ import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
 import { canonicalModel } from "@/lib/domain/sales-ledger/normalize/car-model";
 import type { ActingUser } from "./types";
 import { generateOrderNumber } from "./index";
-import { allocateReceipts, itemMoney, paymentEnum, type PaymentIn } from "./sales-order-calc";
+import { allocateReceipts, itemMoney, parseMoney, paymentEnum, type PaymentIn } from "./sales-order-calc";
 
 /**
  * Сатылым заказы — Google «продажи» кестесінің орнына (2026-11).
@@ -30,12 +30,24 @@ export interface SalesOrderItemIn {
   pocketsPairs?: number | null;
   pocketsLogo?: boolean;
   workshop: boolean;
+  /** Қай көлікке (cars ішіндегі индекс, 0-ден). Бір клиент 2–3 көлікке алуы мүмкін (CEO, 2026-11-14). */
+  carIndex?: number;
+}
+
+export interface SalesOrderCarIn {
+  make?: string;
+  model?: string;
+  year?: number | null;
+  generation?: string;
+  originCountry?: string;
 }
 
 export interface SalesOrderIn {
   customer: { phone: string; name: string; city?: string };
   channel?: string;
-  car: { make?: string; model?: string; year?: number | null; generation?: string; originCountry?: string };
+  car: SalesOrderCarIn;
+  /** Бірнеше көлік (болса). Жоқ болса — тек `car`. */
+  cars?: SalesOrderCarIn[];
   items: SalesOrderItemIn[];
   payments: PaymentIn[];
   pickupMethod?: string;
@@ -50,10 +62,7 @@ const clean = (v: unknown, max = 200) => {
   const s = typeof v === "string" ? v.trim() : "";
   return s ? s.slice(0, max) : undefined;
 };
-const money = (v: unknown) => {
-  const n = typeof v === "number" ? v : Number(String(v ?? "").replace(/\s/g, "").replace(",", "."));
-  return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
-};
+const money = parseMoney;
 const almatyToday = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
 
 /** Google кестедегі тауар атауы → Product (каталог). Жоқ болса жасалады. */
@@ -73,7 +82,7 @@ async function almatyBranchId(): Promise<string> {
 }
 
 /** Форманың мәндерін тексеріп, тазалайды (қате болса — түсінікті хабар). */
-export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10: string } {
+export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10: string; cars: SalesOrderCarIn[] } {
   const phone = normalizePhone(raw.customer?.phone);
   if (!phone.ok) throw new SalesOrderError("Клиенттің телефонын дұрыс жазыңыз (мыс. 8 701 123 45 67)");
   const name = clean(raw.customer?.name, 120);
@@ -92,6 +101,7 @@ export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10:
       pocketsPairs: i.pocketsPairs == null || Number.isNaN(Number(i.pocketsPairs)) ? null : Math.max(0, Math.min(10, Number(i.pocketsPairs))),
       pocketsLogo: !!i.pocketsLogo,
       workshop: !!i.workshop,
+      carIndex: i.carIndex,
     }))
     .filter((i) => i.product);
   if (items.length === 0) throw new SalesOrderError("Кемінде бір тауар таңдаңыз");
@@ -100,19 +110,25 @@ export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10:
     .map((p) => ({ amount: money(p.amount) ?? 0, method: clean(p.method, 60) ?? "", date: /^\d{4}-\d{2}-\d{2}$/.test(p.date ?? "") ? p.date : almatyToday() }))
     .filter((p) => p.amount > 0);
   if (payments.some((p) => !p.method)) throw new SalesOrderError("Әр төлемнің тәсілін таңдаңыз (Kaspi, қолма-қол...)");
-  const year = raw.car?.year ? Number(raw.car.year) : null;
+  const normCar = (c: SalesOrderCarIn | undefined) => {
+    const year = c?.year ? Number(c.year) : null;
+    return {
+      make: clean(canonicalMake(c?.make), 60),
+      model: clean(canonicalModel(c?.model), 80),
+      year: year && year > 1950 && year < 2100 ? year : null,
+      generation: clean(c?.generation, 40),
+      originCountry: clean(c?.originCountry, 60),
+    };
+  };
+  const cars = (raw.cars?.length ? raw.cars : [raw.car]).slice(0, 10).map(normCar);
+  const carCount = cars.length;
   return {
     customer: { phone: raw.customer.phone, name, city: clean(raw.customer.city, 60) },
     phone10: phone.value,
     channel: clean(raw.channel, 60),
-    car: {
-      make: clean(canonicalMake(raw.car?.make), 60),
-      model: clean(canonicalModel(raw.car?.model), 80),
-      year: year && year > 1950 && year < 2100 ? year : null,
-      generation: clean(raw.car?.generation, 40),
-      originCountry: clean(raw.car?.originCountry, 60),
-    },
-    items,
+    car: cars[0],
+    cars,
+    items: items.map((i) => ({ ...i, carIndex: Math.min(carCount - 1, Math.max(0, Math.floor(Number(i.carIndex) || 0))) })),
     payments,
     pickupMethod: clean(raw.pickupMethod, 60),
     managerBonus: money(raw.managerBonus),
@@ -137,30 +153,30 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
     create: { phone: phoneE164, fullName: input.customer.name, city: input.customer.city, source: input.channel },
   });
 
-  // Көлік
-  let vehicleId: string | null = null;
-  if (input.car.make || input.car.model) {
-    const make = input.car.make ?? "";
-    const model = input.car.model ?? "";
+  // Көлік(тер): бар көлік қайта қолданылады, жоқ болса жасалады. Бірінші көлік — заказдың негізгі көлігі.
+  const vehicleIds: (string | null)[] = [];
+  for (const car of input.cars) {
+    if (!car.make && !car.model) {
+      vehicleIds.push(null);
+      continue;
+    }
+    const make = car.make ?? "";
+    const model = car.model ?? "";
     const same = await prisma.customerCar.findFirst({
-      where: { customerId: customer.id, make: { equals: make, mode: "insensitive" }, model: { equals: model, mode: "insensitive" }, year: input.car.year ?? null },
+      where: { customerId: customer.id, make: { equals: make, mode: "insensitive" }, model: { equals: model, mode: "insensitive" }, year: car.year ?? null },
       select: { id: true },
     });
-    vehicleId =
+    vehicleIds.push(
       same?.id ??
-      (
-        await prisma.customerCar.create({
-          data: {
-            customerId: customer.id,
-            make,
-            model,
-            year: input.car.year ?? undefined,
-            generation: input.car.generation,
-            originCountry: input.car.originCountry,
-          },
-        })
-      ).id;
+        (
+          await prisma.customerCar.create({
+            data: { customerId: customer.id, make, model, year: car.year ?? undefined, generation: car.generation, originCountry: car.originCountry },
+          })
+        ).id
+    );
   }
+  const vehicleId = vehicleIds.find((v) => v) ?? null;
+  const carOf = (i: { carIndex?: number }) => input.cars[i.carIndex ?? 0] ?? input.car;
 
   const moneyRows = input.items.map((i) => itemMoney(i.price, i.soldFor));
   const totalAmount = moneyRows.reduce((s, m) => s + m.base, 0);
@@ -194,7 +210,7 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
           productName: i.product,
           productCategory: "Сатылым",
           workshop: i.workshop,
-          carId: vehicleId,
+          carId: vehicleIds[i.carIndex ?? 0] ?? vehicleId,
           qty: 1,
           basePrice: moneyRows[k].base,
           discountAmount: moneyRows[k].discount,
@@ -246,9 +262,9 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
       contactChannel: input.channel ?? null,
       contactCity: input.customer.city ?? null,
       certificateNo: k === 0 ? input.certificateNo ?? null : null,
-      car: input.car.make ?? null,
-      brand: input.car.model ?? null,
-      carYear: input.car.year ?? null,
+      car: carOf(i).make ?? null,
+      brand: carOf(i).model ?? null,
+      carYear: carOf(i).year ?? null,
       workshop: i.workshop ? "true" : "false",
       product: i.product,
       leatherType: i.leatherType ?? null,

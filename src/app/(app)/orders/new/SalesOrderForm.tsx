@@ -13,6 +13,7 @@ type Options = Record<string, string[]>;
 interface ItemState {
   kind: KindId | ""; // тауар түрі (CEO, 2026-11-14): әр түрге тек өз өрістері
   open: boolean; // толтырылған тауар бір жолға жиналады
+  carIndex: number; // қай көлікке (бірнеше көлік болса)
   more: boolean; // сирек түрлерді көрсету
   product: string;
   price: string;
@@ -27,6 +28,16 @@ interface ItemState {
   pocketsLogo: boolean;
   workshop: boolean;
 }
+interface CarState {
+  make: string;
+  model: string;
+  year: string;
+  generation: string;
+  originCountry: string;
+}
+const emptyCar = (): CarState => ({ make: "", model: "", year: "", generation: "", originCountry: "" });
+const carTitle = (c: CarState, n: number) => [c.make, c.model].filter(Boolean).join(" ") || `Көлік ${n + 1}`;
+
 interface PayState {
   amount: string;
   method: string;
@@ -38,6 +49,7 @@ const emptyItem = (): ItemState => ({
   kind: "",
   open: true,
   more: false,
+  carIndex: 0,
   product: "", price: "", soldFor: "", leatherType: "", leatherThread: "", leatherPiping: "",
   matType: "", matThread: "", matPiping: "", pocketsPairs: "", pocketsLogo: false, workshop: false,
 });
@@ -91,11 +103,9 @@ export function SalesOrderForm({
   const [name, setName] = useState("");
   const [city, setCity] = useState("Алматы");
   const [channel, setChannel] = useState("");
-  const [make, setMake] = useState("");
-  const [model, setModel] = useState("");
-  const [year, setYear] = useState("");
-  const [generation, setGeneration] = useState("");
-  const [originCountry, setOriginCountry] = useState("");
+  // Бір клиент 2–3 көлікке алуы мүмкін (CEO, 2026-11-14) — көліктер тізімі
+  const [cars, setCars] = useState<CarState[]>([emptyCar()]);
+  const setCar = (c: number, patch: Partial<CarState>) => setCars((xs) => xs.map((x, i) => (i === c ? { ...x, ...patch } : x)));
   const [items, setItems] = useState<ItemState[]>([emptyItem()]);
   const [pays, setPays] = useState<PayState[]>([{ amount: "", method: "", date: today() }]);
   const [pickup, setPickup] = useState("");
@@ -107,13 +117,13 @@ export function SalesOrderForm({
   const setPay = (k: number, patch: Partial<PayState>) => setPays((xs) => xs.map((x, i) => (i === k ? { ...x, ...patch } : x)));
 
   // Марка жазылса — модель тізімі тек сол маркадағылар; марка белгісіз болса — барлығы
-  const models = useMemo(() => {
+  const modelsFor = (make: string) => {
     const key = canonicalMake(make).toLowerCase();
     if (!key) return options.brand ?? [];
     if (modelsByMake[key]) return modelsByMake[key];
     const near = Object.keys(modelsByMake).filter((k) => k.startsWith(key) || key.startsWith(k));
     return near.length ? [...new Set(near.flatMap((k) => modelsByMake[k]))] : options.brand ?? [];
-  }, [make, modelsByMake, options.brand]);
+  };
 
   const productsByKind = useMemo(() => groupProducts(options.product ?? []), [options.product]);
   /** Тауар түрін таңдау: «Цех» әдепкісі, қатысы жоқ өрістер мен басқа түрдің тауары тазаланады. */
@@ -130,12 +140,10 @@ export function SalesOrderForm({
       ...(kd.pockets ? {} : { pocketsPairs: "", pocketsLogo: false }),
     });
   };
-  const genOptions = useMemo(() => generationOptions(make, model, num(year)), [make, model, year]);
-
   // Марка + модель + жыл бойынша буын бір ғана болса — өзі қойылады (менеджер өзгерте алады)
-  function fillGeneration(mk: string, md: string, yr: string) {
+  function fillGeneration(c: number, mk: string, md: string, yr: string) {
     const code = autoGeneration(mk, md, num(yr));
-    if (code) setGeneration(code);
+    if (code) setCar(c, { generation: code });
   }
 
   const totals = useMemo(() => {
@@ -151,7 +159,8 @@ export function SalesOrderForm({
       const r = await createSalesOrderAction({
         customer: { phone, name, city },
         channel,
-        car: { make, model, year: num(year), generation, originCountry },
+        car: { ...cars[0], year: num(cars[0].year) },
+        cars: cars.map((c) => ({ ...c, year: num(c.year) })),
         items: items.map((it) => {
           // Тауар түріне қатысы жоқ өрістер жіберілмейді (мыс. чехолға кожа)
           const kd = kindById(it.kind || productKind(it.product));
@@ -174,6 +183,7 @@ export function SalesOrderForm({
           pocketsPairs: num(i.pocketsPairs),
           pocketsLogo: i.pocketsLogo,
           workshop: i.workshop,
+          carIndex: cars.length > 1 ? i.carIndex : 0,
           };
         }),
         payments: pays.map((p) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date })),
@@ -186,7 +196,7 @@ export function SalesOrderForm({
   }
 
   function reset() {
-    setPhone(""); setName(""); setChannel(""); setMake(""); setModel(""); setYear(""); setGeneration(""); setOriginCountry("");
+    setPhone(""); setName(""); setChannel(""); setCars([emptyCar()]);
     setItems([emptyItem()]); setPays([{ amount: "", method: "", date: today() }]);
     setPickup(""); setComment(""); setResult(null);
   }
@@ -216,7 +226,7 @@ export function SalesOrderForm({
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       {Object.entries({
-        "o-channel": options.contactChannel, "o-city": options.contactCity, "o-car": options.car, "o-brand": models,
+        "o-channel": options.contactChannel, "o-city": options.contactCity, "o-car": options.car,
         "o-product": options.product, "o-leather": options.leatherType, "o-thread": options.leatherThread, "o-piping": options.leatherPiping,
         "o-mat": options.matType, "o-matthread": options.matThread, "o-matpiping": options.matPiping, "o-pay": options.receipt1Method,
         "o-pickup": options.pickupMethod,
@@ -235,11 +245,20 @@ export function SalesOrderForm({
           ))}
         </datalist>
       ))}
-      <datalist id="o-generation">
-        {genOptions.map((o) => (
-          <option key={o.code + o.label} value={o.code} label={o.label} />
-        ))}
-      </datalist>
+      {cars.map((c, ci) => (
+        <span key={ci} hidden>
+          <datalist id={`o-brand-${ci}`}>
+            {modelsFor(c.make).map((v) => (
+              <option key={v} value={v} />
+            ))}
+          </datalist>
+          <datalist id={`o-generation-${ci}`}>
+            {generationOptions(c.make, c.model, num(c.year)).map((o) => (
+              <option key={o.code + o.label} value={o.code} label={o.label} />
+            ))}
+          </datalist>
+        </span>
+      ))}
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <Section n={1} title="Клиент">
@@ -260,34 +279,61 @@ export function SalesOrderForm({
         </Section>
 
         <Section n={2} title="Көлік">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Авто (марка)">
-              <ListInput
-                value={make}
-                onChange={(v) => {
-                  setMake(v);
-                  const keepModel = !model || (modelsByMake[canonicalMake(v).toLowerCase()] ?? []).includes(model);
-                  if (!keepModel) setModel("");
-                  const country = originCountryFor(v);
-                  if (country) setOriginCountry(country);
-                  fillGeneration(v, keepModel ? model : "", year);
-                }}
-                list="o-car"
-              />
-            </Field>
-            <Field label="Марка (модель)">
-              <ListInput value={model} onChange={(v) => { setModel(v); fillGeneration(make, v, year); }} list="o-brand" />
-            </Field>
-            <Field label="Жылы">
-              <ListInput value={year} onChange={(v) => { setYear(v); fillGeneration(make, model, v); }} inputMode="numeric" />
-            </Field>
-            <Field label="Буын (мыс. XV70)">
-              <ListInput value={generation} onChange={setGeneration} list="o-generation" />
-            </Field>
-            <Field label="Қай елдің өндірісі">
-              <ListInput value={originCountry} onChange={setOriginCountry} list="o-country" />
-            </Field>
-          </div>
+          {cars.map((c, ci) => (
+            <div key={ci} className={cars.length > 1 ? "flex flex-col gap-3 rounded-icon border border-border p-3" : ""}>
+              {cars.length > 1 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-text-primary">
+                    Көлік {ci + 1}
+                    {(c.make || c.model) && <span className="font-semibold text-text-secondary"> · {carTitle(c, ci)}</span>}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Көлікті алып тастау"
+                    onClick={() => {
+                      setCars((xs) => xs.filter((_, i) => i !== ci));
+                      // Осы көлікке байланған тауарлар бірінші көлікке ауысады
+                      setItems((xs) => xs.map((x) => ({ ...x, carIndex: x.carIndex === ci ? 0 : x.carIndex > ci ? x.carIndex - 1 : x.carIndex })));
+                    }}
+                    className="grid h-9 w-9 place-items-center rounded-icon text-text-secondary hover:bg-page-bg"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Авто (марка)">
+                  <ListInput
+                    value={c.make}
+                    onChange={(v) => {
+                      const keepModel = !c.model || (modelsByMake[canonicalMake(v).toLowerCase()] ?? []).includes(c.model);
+                      const country = originCountryFor(v);
+                      setCar(ci, { make: v, ...(keepModel ? {} : { model: "" }), ...(country ? { originCountry: country } : {}) });
+                      fillGeneration(ci, v, keepModel ? c.model : "", c.year);
+                    }}
+                    list="o-car"
+                  />
+                </Field>
+                <Field label="Марка (модель)">
+                  <ListInput value={c.model} onChange={(v) => { setCar(ci, { model: v }); fillGeneration(ci, c.make, v, c.year); }} list={`o-brand-${ci}`} />
+                </Field>
+                <Field label="Жылы">
+                  <ListInput value={c.year} onChange={(v) => { setCar(ci, { year: v }); fillGeneration(ci, c.make, c.model, v); }} inputMode="numeric" />
+                </Field>
+                <Field label="Буын (мыс. XV70)">
+                  <ListInput value={c.generation} onChange={(v) => setCar(ci, { generation: v })} list={`o-generation-${ci}`} />
+                </Field>
+                <Field label="Қай елдің өндірісі">
+                  <ListInput value={c.originCountry} onChange={(v) => setCar(ci, { originCountry: v })} list="o-country" />
+                </Field>
+              </div>
+            </div>
+          ))}
+          {cars.length < 5 && (
+            <button type="button" onClick={() => setCars((xs) => [...xs, emptyCar()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
+              <Plus size={16} /> Тағы көлік қосу
+            </button>
+          )}
         </Section>
 
         <Section n={3} title="Тауар">
@@ -302,7 +348,8 @@ export function SalesOrderForm({
                   <span className="shrink-0">Тауар {k + 1}</span>
                   {!it.open && (
                     <span className="min-w-0 truncate font-semibold text-text-secondary">
-                      · {it.kind ? kindById(it.kind).label + " · " : ""}
+                      · {cars.length > 1 ? "🚗 " + carTitle(cars[it.carIndex] ?? cars[0], it.carIndex) + " · " : ""}
+                      {it.kind ? kindById(it.kind).label + " · " : ""}
                       {it.product}
                       {num(it.soldFor) ?? num(it.price) ? ` · ${money(num(it.soldFor) ?? num(it.price) ?? 0)}` : ""}
                     </span>
@@ -322,6 +369,23 @@ export function SalesOrderForm({
                 const disc = base != null && sold != null && sold < base ? base - sold : 0;
                 return (
                   <>
+                    {cars.length > 1 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-text-secondary">Қай көлікке:</span>
+                        {cars.map((c, ci) => (
+                          <button
+                            key={ci}
+                            type="button"
+                            onClick={() => setItem(k, { carIndex: ci })}
+                            className={`min-h-9 rounded-pill border-[1.5px] px-3 text-sm font-semibold ${
+                              it.carIndex === ci ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-border bg-surface text-text-primary hover:border-emerald-400"
+                            }`}
+                          >
+                            🚗 {carTitle(c, ci)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {/* Негізгі түрлер; сирек түрлер — «Тағы…» ішінде. Телефонда бір қатар, жанына сырғиды. */}
                     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
                       {PRODUCT_KINDS.filter((pk) => !pk.rare || it.more || it.kind === pk.id).map((pk) => (

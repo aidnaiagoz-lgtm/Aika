@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allocateReceipts, itemMoney, paymentEnum } from "./sales-order-calc";
+import { allocateReceipts, itemMoney, parseMoney, paymentEnum } from "./sales-order-calc";
 
 const d = "2026-11-14";
 
@@ -39,4 +39,18 @@ test("paymentEnum және itemMoney", () => {
   assert.deepEqual(itemMoney(95000, 90000), { base: 95000, sold: 90000, discount: 5000 });
   assert.deepEqual(itemMoney(null, 40000), { base: 40000, sold: 40000, discount: 0 });
   assert.deepEqual(itemMoney(50000, null), { base: 50000, sold: 50000, discount: 0 });
+});
+
+test("parseMoney: бос → null (0 емес), сан → бүтін", () => {
+  assert.equal(parseMoney(null), null);
+  assert.equal(parseMoney(undefined), null);
+  assert.equal(parseMoney(""), null);
+  assert.equal(parseMoney("  "), null);
+  assert.equal(parseMoney("90 000"), 90000);
+  assert.equal(parseMoney("1500,5"), 1501);
+  assert.equal(parseMoney(0), 0);
+  assert.equal(parseMoney(-5), null);
+  assert.equal(parseMoney("abc"), null);
+  // бос «Продали за» → баға алынады
+  assert.deepEqual(itemMoney(90000, parseMoney(null)), { base: 90000, sold: 90000, discount: 0 });
 });

@@ -57,3 +57,16 @@ export function itemMoney(price: number | null, soldFor: number | null) {
   const base = Math.max(sold, price ?? sold);
   return { base, sold, discount: base - sold };
 }
+
+/**
+ * Сома өрісі: «90 000» → 90000. Бос / null → null (МАҢЫЗДЫ: бос «Продали за» 0 емес, null — сонда баға алынады;
+ * 2026-11-14 дейін бос өріс 0 болып, сатылым 0 ₸ болып сақталатын).
+ */
+export function parseMoney(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) && v >= 0 ? Math.round(v) : null;
+  const s = String(v).replace(/\s/g, "").replace(",", ".");
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
