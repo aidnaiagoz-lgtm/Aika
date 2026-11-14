@@ -40,3 +40,10 @@ test("марка жазылмаса да бүкіл тізім шығады, ә�
   assert.ok(all.some((o) => o.code === "NQ5" && o.label === "Kia Sportage · 2021–қазір"));
   assert.deepEqual(genOpts("", "", 2019).find((o) => o.code === "XV70")?.label, "Toyota Camry · 2017–2023");
 });
+
+test("танылмаған марка (мыс. BYD сияқты буын коды жоқ) — басқа маркалардың тізімі шықпайды", () => {
+  assert.deepEqual(genOpts("BYD", "", null), []);
+  assert.deepEqual(genOpts("белгісіз марка", "", null), []);
+  assert.equal(originCountryFor("BYD"), "Қытай");
+  assert.equal(originCountryFor("бид"), "Қытай");
+});

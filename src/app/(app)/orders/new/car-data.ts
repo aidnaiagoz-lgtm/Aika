@@ -117,9 +117,25 @@ const MAKES: MakeDef[] = [
   { aliases: ["lada", "лада", "ваз"], country: "Ресей" },
   { aliases: ["gaz", "газ"], country: "Ресей" },
   { aliases: ["uaz", "уаз"], country: "Ресей" },
+  { aliases: ["byd", "бид", "биди"], country: "Қытай" },
+  { aliases: ["li auto", "lixiang", "li xiang", "ли авто", "лисян", "лисиан"], country: "Қытай" },
+  { aliases: ["zeekr", "зикр", "зекр"], country: "Қытай" },
+  { aliases: ["jetour", "джетур"], country: "Қытай" },
+  { aliases: ["exeed", "эксид"], country: "Қытай" },
+  { aliases: ["omoda", "омода"], country: "Қытай" },
+  { aliases: ["hongqi", "хончи", "хунцы"], country: "Қытай" },
+  { aliases: ["jac", "джак"], country: "Қытай" },
+  { aliases: ["subaru", "субару"], country: "Жапония" },
+  { aliases: ["infiniti", "инфинити"], country: "Жапония" },
+  { aliases: ["suzuki", "сузуки"], country: "Жапония" },
+  { aliases: ["ssangyong", "ссангйонг", "санг енг", "сангйонг", "kgm"], country: "Оңтүстік Корея" },
+  { aliases: ["genesis", "генезис"], country: "Оңтүстік Корея" },
+  { aliases: ["porsche", "порше"], country: "Германия" },
+  { aliases: ["land rover", "range rover", "ленд ровер", "рендж ровер"], country: "Ұлыбритания" },
+  { aliases: ["volvo", "вольво"], country: "Швеция" },
 ];
 
-export const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия"];
+export const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия", "Ұлыбритания", "Швеция"];
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
 
@@ -165,10 +181,12 @@ function optionsOf(list: Array<{ make: MakeDef; model: ModelDef }>, year: number
 
 /**
  * Буын тізімі (әр кодтың қасында қай көлік, қай жылдар). Модель танылса — сол модельдікі, марка ғана танылса —
- * марканың бәрі, ештеңе танылмаса — бүкіл тізім (менеджер марканы жазбай-ақ таңдай алады). Жыл болса — жылға сайлары.
+ * марканың бәрі, марка әлі жазылмаса — бүкіл тізім. Марка жазылып, бірақ танылмаса (мыс. BYD) — бос
+ * (басқа маркалардың буыны ұсынылмасын). Жыл болса — жылға сайлары.
  */
 export function generationOptions(make: string, model: string, year: number | null): GenOption[] {
   const mk = findMake(make);
+  if (make.trim() && !mk) return [];
   const md = mk ? findModel(mk, model) : undefined;
   const list = md
     ? [{ make: mk!, model: md }]
