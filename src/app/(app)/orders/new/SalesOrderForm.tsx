@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
+import { autoGeneration, COUNTRY_OPTIONS, generationOptions, originCountryFor } from "./car-data";
 
 type Options = Record<string, string[]>;
 
@@ -37,71 +38,6 @@ const num = (s: string) => {
   return s.trim() && Number.isFinite(n) ? n : null;
 };
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n)) + " ₸";
-
-// Марка бойынша әдепкі өндірілген ел (болжам ғана — өріс еркін өзгертіледі).
-const MAKE_COUNTRY: Record<string, string> = {
-  toyota: "Жапония", lexus: "Жапония", nissan: "Жапония", mazda: "Жапония", honda: "Жапония", mitsubishi: "Жапония",
-  hyundai: "Оңтүстік Корея", kia: "Оңтүстік Корея",
-  volkswagen: "Германия", bmw: "Германия", "mercedes-benz": "Германия", mercedes: "Германия", audi: "Германия",
-  chevrolet: "Өзбекстан", ravon: "Өзбекстан", daewoo: "Өзбекстан",
-  renault: "Франция",
-  skoda: "Чехия",
-  ford: "АҚШ",
-  chery: "Қытай", geely: "Қытай", haval: "Қытай", changan: "Қытай", "great wall": "Қытай", tank: "Қытай",
-  lada: "Ресей", ваз: "Ресей", gaz: "Ресей", uaz: "Ресей",
-};
-const COUNTRY_OPTIONS = ["Жапония", "Оңтүстік Корея", "Германия", "Қытай", "Ресей", "Өзбекстан", "Қазақстан", "АҚШ", "Франция", "Чехия"];
-
-// Марка/модель бойынша белгілі буын кодтары — тек сенімді, кеңінен танымал жағдайлар ғана.
-// Модель дәл сәйкес келмесе де, сол маркадағы барлық буын кодтары ұсыныс ретінде көрсетіледі.
-const MODEL_GENERATIONS: Record<string, Record<string, string[]>> = {
-  toyota: {
-    camry: ["XV40", "XV50", "XV70", "XV80"],
-    corolla: ["E140/150", "E160/170", "E210"],
-    rav4: ["XA30", "XA40", "XA50"],
-    "land cruiser prado": ["J120", "J150", "J250"],
-    "land cruiser": ["J200", "J300"],
-    highlander: ["XU40", "XU50", "XU70"],
-    hilux: ["AN120/130"],
-  },
-  hyundai: {
-    tucson: ["JM", "LM", "TL", "NX4"],
-    "santa fe": ["CM", "DM", "TM", "MX5"],
-    elantra: ["HD", "MD", "AD", "CN7"],
-    sonata: ["NF", "YF", "LF", "DN8"],
-    accent: ["MC", "RB", "HC"],
-  },
-  kia: {
-    sportage: ["KM", "SL", "QL", "NQ5"],
-    sorento: ["BL", "XM", "UM", "MQ4"],
-    rio: ["JB", "UB", "YB", "SC"],
-    cerato: ["TD", "YD", "BD"],
-  },
-  nissan: {
-    "x-trail": ["T30", "T31", "T32", "T33"],
-    qashqai: ["J10", "J11", "J12"],
-  },
-  bmw: {
-    "3 series": ["E90", "F30", "G20"],
-    "5 series": ["E60", "F10", "G30", "G60"],
-  },
-  "mercedes-benz": {
-    "c-class": ["W203", "W204", "W205", "W206"],
-    "e-class": ["W211", "W212", "W213", "W214"],
-  },
-  volkswagen: {
-    passat: ["B6", "B7", "B8"],
-    tiguan: ["5N", "AD1"],
-  },
-};
-
-function generationOptions(make: string, model: string): string[] {
-  const byMake = MODEL_GENERATIONS[make.trim().toLowerCase()];
-  if (!byMake) return [];
-  const byModel = byMake[model.trim().toLowerCase()];
-  if (byModel) return byModel;
-  return [...new Set(Object.values(byMake).flat())];
-}
 
 const inputCls =
   "min-h-11 w-full rounded-icon border border-border bg-page-bg px-3 text-[15px] text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30";
@@ -173,7 +109,13 @@ export function SalesOrderForm({
     return near.length ? [...new Set(near.flatMap((k) => modelsByMake[k]))] : options.brand ?? [];
   }, [make, modelsByMake, options.brand]);
 
-  const genOptions = useMemo(() => generationOptions(make, model), [make, model]);
+  const genOptions = useMemo(() => generationOptions(make, model, num(year)), [make, model, year]);
+
+  // Марка + модель + жыл бойынша буын бір ғана болса — өзі қойылады (менеджер өзгерте алады)
+  function fillGeneration(mk: string, md: string, yr: string) {
+    const code = autoGeneration(mk, md, num(yr));
+    if (code) setGeneration(code);
+  }
 
   const totals = useMemo(() => {
     const price = items.reduce((s, i) => s + (num(i.price) ?? num(i.soldFor) ?? 0), 0);
@@ -288,19 +230,21 @@ export function SalesOrderForm({
                 value={make}
                 onChange={(v) => {
                   setMake(v);
-                  if (model && !(modelsByMake[v.trim().toLowerCase()] ?? []).includes(model)) setModel("");
-                  const country = MAKE_COUNTRY[v.trim().toLowerCase()];
+                  const keepModel = !model || (modelsByMake[v.trim().toLowerCase()] ?? []).includes(model);
+                  if (!keepModel) setModel("");
+                  const country = originCountryFor(v);
                   if (country) setOriginCountry(country);
+                  fillGeneration(v, keepModel ? model : "", year);
                 }}
                 list="o-car"
                 placeholder="тойота"
               />
             </Field>
             <Field label="Марка (модель)">
-              <ListInput value={model} onChange={setModel} list="o-brand" placeholder={models[0] ?? "модель"} />
+              <ListInput value={model} onChange={(v) => { setModel(v); fillGeneration(make, v, year); }} list="o-brand" placeholder={models[0] ?? "модель"} />
             </Field>
             <Field label="Жылы">
-              <ListInput value={year} onChange={setYear} placeholder="2021" inputMode="numeric" />
+              <ListInput value={year} onChange={(v) => { setYear(v); fillGeneration(make, model, v); }} placeholder="2021" inputMode="numeric" />
             </Field>
             <Field label="Буын (мыс. XV70)">
               <ListInput value={generation} onChange={setGeneration} list="o-generation" placeholder="XV70" />
