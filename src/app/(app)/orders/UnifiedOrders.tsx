@@ -148,6 +148,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               <thead>
                 <tr className="text-xs text-text-secondary">
                   {[
+                    "№",
                     t("Күні", "Дата"),
                     t("Уақыты", "Время"),
                     t("Көзі", "Источник"),
@@ -253,7 +254,7 @@ function Items({ r, t }: { r: UnifiedRow; t: T }) {
 function SourceBadge({ r, t }: { r: UnifiedRow; t: T }) {
   return (
     <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${r.source === "site" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>
-      {r.source === "site" ? t("Сайт", "Сайт") : "Google"} · {r.label}
+      {r.source === "site" ? `${t("Сайт", "Сайт")} · ${r.label}` : "Google"}
     </span>
   );
 }
@@ -275,6 +276,7 @@ function Remainder({ r }: { r: UnifiedRow }) {
 function Row({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; time: string | null }) {
   return (
     <tr className={`border-t border-border align-top ${r.mine ? "bg-accent/5" : ""}`}>
+      <td className="whitespace-nowrap py-3 pr-4 font-bold tabular-nums text-text-primary">{r.no || "—"}</td>
       <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">{date}</td>
       <td className="whitespace-nowrap py-3 pr-4 font-semibold tabular-nums text-text-primary">{time ?? <span className="font-normal text-text-secondary">—</span>}</td>
       <td className="py-3 pr-4">
@@ -314,7 +316,10 @@ function MobileCard({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; t
   return (
     <div className={`rounded-icon border border-border p-3 text-sm ${r.mine ? "bg-accent/5" : ""}`}>
       <div className="flex items-center justify-between gap-2">
-        <SourceBadge r={r} t={t} />
+        <span className="flex items-center gap-2">
+          {r.no && <b className="tabular-nums text-text-primary">№{r.no}</b>}
+          <SourceBadge r={r} t={t} />
+        </span>
         <span className="text-xs text-text-secondary">
           {date}
           {time && <b className="ml-1 text-text-primary">· {time}</b>}
