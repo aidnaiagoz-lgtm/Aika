@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getLedgerOptions } from "@/lib/domain/sales-ledger";
+import { getLedgerOptions, getModelsByMake } from "@/lib/domain/sales-ledger";
 import { SalesOrderForm } from "./SalesOrderForm";
 
 // Жаңа заказ — Google «продажи» кестесінің орнына (2026-11). Тізімдер (тауар, кожа, жіп, канал...) кестедегідей.
@@ -15,6 +15,7 @@ export default async function NewOrderPage() {
   const branch = await prisma.branch.findFirst({ where: { name: { contains: "Алматы" } }, select: { id: true } });
   const { options, priceByProduct } = branch ? await getLedgerOptions(branch.id) : { options: {}, priceByProduct: {} };
   const emp = await prisma.employee.findUnique({ where: { id: user.employee.id }, select: { fullName: true } });
+  const modelsByMake = branch ? await getModelsByMake(branch.id) : {};
 
   return (
     <div className="mx-auto flex max-w-[1240px] flex-col gap-4">
@@ -27,7 +28,7 @@ export default async function NewOrderPage() {
           ← Заказдарға оралу
         </Link>
       </div>
-      <SalesOrderForm options={options} priceByProduct={priceByProduct} managerName={emp?.fullName ?? "—"} />
+      <SalesOrderForm options={options} priceByProduct={priceByProduct} modelsByMake={modelsByMake} managerName={emp?.fullName ?? "—"} />
     </div>
   );
 }
