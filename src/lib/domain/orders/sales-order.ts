@@ -5,6 +5,7 @@ import { assertPermission } from "@/lib/rbac";
 import { createLedgerRow, recomputeLedgerRow } from "@/lib/domain/sales-ledger";
 import { normalizePhone } from "@/lib/domain/sales-ledger/normalize/phone";
 import { parsePayment } from "@/lib/domain/sales-ledger/normalize/payment";
+import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
 import type { ActingUser } from "./types";
 import { generateOrderNumber } from "./index";
 import { allocateReceipts, itemMoney, paymentEnum, type PaymentIn } from "./sales-order-calc";
@@ -104,7 +105,7 @@ export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10:
     phone10: phone.value,
     channel: clean(raw.channel, 60),
     car: {
-      make: clean(raw.car?.make, 60),
+      make: clean(canonicalMake(raw.car?.make), 60),
       model: clean(raw.car?.model, 80),
       year: year && year > 1950 && year < 2100 ? year : null,
       generation: clean(raw.car?.generation, 40),
