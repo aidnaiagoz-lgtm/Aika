@@ -37,6 +37,7 @@ model User {
   tasksCreated      Task[]              @relation("TaskAssignedBy")
   taskComments      TaskComment[]
   trainingFolders   TrainingFolder[]
+  trainingMaterials TrainingMaterial[]
   cashHandovers     CashHandoverEvent[]
   pushSubscriptions PushSubscription[]
 
@@ -1067,15 +1068,37 @@ model SalesLead {
 // топтастыру үшін жасайтын папкалар. Файл/сабақ жүктеу әлі жоқ — тек ат қою.
 
 model TrainingFolder {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   section     String // "qualification" | "provision" — src/lib/i18n.ts DEPARTMENT_SLUGS тізіміне тәуелді емес
   name        String
   createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  createdBy   User               @relation(fields: [createdById], references: [id])
+  createdAt   DateTime           @default(now())
+  // Ішкі папка: null — бөлімнің ең жоғарғы деңгейі. Ішінде бірдеңе бар папка өшірілмейді (каскад жоқ).
+  parentId    String?
+  parent      TrainingFolder?    @relation("TrainingFolderTree", fields: [parentId], references: [id])
+  children    TrainingFolder[]   @relation("TrainingFolderTree")
+  materials   TrainingMaterial[]
 
   @@index([section])
+  @@index([parentId])
   @@map("training_folders")
+}
+
+// Папка ішіндегі оқу материалы. Қазір тек сілтеме (YouTube, Google Drive...); файл жүктеу үшін қойма керек.
+model TrainingMaterial {
+  id          String         @id @default(cuid())
+  folderId    String
+  folder      TrainingFolder @relation(fields: [folderId], references: [id])
+  kind        String         @default("link")
+  title       String
+  url         String
+  createdById String
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([folderId])
+  @@map("training_materials")
 }
 
 // ---------- Sales goals (айлық мақсаттар, CEO/РОП қояды) ----------
