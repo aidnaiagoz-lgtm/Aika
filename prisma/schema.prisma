@@ -1093,6 +1093,9 @@ model TrainingMaterial {
   kind        String         @default("link")
   title       String
   url         String
+  /// PDF файл болса: бастапқы аты мен көлемі (байт). Сілтемеде бос.
+  fileName    String?
+  fileSize    Int?
   createdById String
   createdBy   User           @relation(fields: [createdById], references: [id])
   createdAt   DateTime       @default(now())

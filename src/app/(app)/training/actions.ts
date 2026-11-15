@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDictionary } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import {
+  addTrainingFile,
   addTrainingLink,
   createTrainingFolder,
   deleteTrainingFolder,
@@ -82,6 +83,22 @@ export async function deleteTrainingMaterialAction(section: string, id: string):
   return run(async (user) => {
     const s = sectionOf(section);
     await deleteTrainingMaterial(user, id);
+    refresh(s);
+    return { ok: true };
+  });
+}
+
+export async function addTrainingFileAction(input: {
+  section: string;
+  folderId: string;
+  title: string;
+  url: string;
+  fileName: string;
+  fileSize: number;
+}): Promise<TrainingActionResult> {
+  return run(async (user) => {
+    const s = sectionOf(input.section);
+    await addTrainingFile(user.id, String(input.folderId), String(input.title ?? ""), String(input.url), String(input.fileName), Number(input.fileSize));
     refresh(s);
     return { ok: true };
   });

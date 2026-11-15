@@ -2,8 +2,10 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { upload } from "@vercel/blob/client";
+import { FileUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
+  addTrainingFileAction,
   addTrainingLinkAction,
   deleteTrainingFolderAction,
   deleteTrainingMaterialAction,
@@ -168,6 +170,84 @@ export function AddLinkForm({
       </div>
       {error && <p className="m-0 text-xs text-danger">{error}</p>}
     </form>
+  );
+}
+
+const PDF_MAX_BYTES = 50 * 1024 * 1024;
+
+/** «PDF жүктеу»: файл браузерден тікелей қоймаға кетеді, сосын материал ретінде базаға жазылады. */
+export function UploadPdfButton({
+  section,
+  folderId,
+  storageReady,
+  labels,
+}: {
+  section: string;
+  folderId: string;
+  storageReady: boolean;
+  labels: { upload: string; uploading: string; errors: Record<string, string>; genericError: string };
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function onFile(file: File) {
+    setError(null);
+    if (!/\.pdf$/i.test(file.name) || (file.type && file.type !== "application/pdf")) return setError(labels.errors.fileNotPdf);
+    if (file.size > PDF_MAX_BYTES) return setError(labels.errors.fileTooLarge);
+    setProgress(0);
+    try {
+      const safeName = file.name.replace(/[\\/?#%]+/g, "_");
+      const blob = await upload(`training/${folderId}/${safeName}`, file, {
+        access: "private",
+        contentType: "application/pdf",
+        handleUploadUrl: "/api/training/upload",
+        clientPayload: JSON.stringify({ folderId }),
+        multipart: file.size > 8 * 1024 * 1024,
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+      });
+      const r = await addTrainingFileAction({
+        section,
+        folderId,
+        title: file.name.replace(/\.pdf$/i, ""),
+        url: blob.url,
+        fileName: file.name,
+        fileSize: file.size,
+      });
+      if (!r.ok) setError(r.error);
+      else router.refresh();
+    } catch (e) {
+      console.error("[training upload]", e instanceof Error ? e.message : e);
+      setError(labels.errors.fileInvalid ?? labels.genericError);
+    } finally {
+      setProgress(null);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void onFile(f);
+        }}
+      />
+      <button
+        type="button"
+        disabled={progress !== null}
+        onClick={() => (storageReady ? inputRef.current?.click() : setError(labels.errors.storageMissing))}
+        className="flex items-center gap-1.5 rounded-pill border border-accent px-4 py-2 text-sm font-semibold text-accent transition-colors hover:bg-accent-tint disabled:opacity-60"
+      >
+        <FileUp size={16} /> {progress === null ? labels.upload : `${labels.uploading} ${progress}%`}
+      </button>
+      {error && <span className="text-xs text-danger">{error}</span>}
+    </span>
   );
 }
 
