@@ -1,3 +1,4 @@
+import { del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { isLeader } from "@/lib/access";
 
@@ -19,7 +20,11 @@ export type TrainingErrorCode =
   | "urlInvalid"
   | "urlProtocol"
   | "materialNotFound"
-  | "materialForbidden";
+  | "materialForbidden"
+  | "fileNotPdf"
+  | "fileTooLarge"
+  | "fileInvalid"
+  | "storageMissing";
 
 /** Пайдаланушыға көрсетілетін қате — мәтіні i18n-де (t.training.errors[code]), тіл ауысқанда да дұрыс шығады. */
 export class TrainingError extends Error {
@@ -140,13 +145,53 @@ export async function addTrainingLink(userId: string, folderId: string, title: s
   return prisma.trainingMaterial.create({ data: { folderId, kind: "link", title: cleanTitle, url, createdById: userId } });
 }
 
+/** PDF шегі: 50 МБ. Қоймаға тікелей браузерден жүктеледі (Vercel-дің 4.5 МБ шегі әсер етпейді). */
+export const TRAINING_PDF_MAX_BYTES = 50 * 1024 * 1024;
+
+/** Файл қоймасы (Vercel Blob) қосылған ба — BLOB_READ_WRITE_TOKEN Vercel-де өзі пайда болады. */
+export const isFileStorageConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+/** Тек біздің қоймадағы training/<folderId>/ жолы — бөтен сілтемені «файл» деп сақтатпаймыз. */
+export function isOwnTrainingBlobUrl(raw: string, folderId: string) {
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com") && u.pathname.startsWith(`/training/${folderId}/`);
+  } catch {
+    return false;
+  }
+}
+
+export async function addTrainingFile(userId: string, folderId: string, title: string, url: string, fileName: string, fileSize: number) {
+  const folder = await prisma.trainingFolder.findUnique({ where: { id: folderId }, select: { id: true } });
+  if (!folder) throw new TrainingError("folderNotFound");
+  if (!isOwnTrainingBlobUrl(url, folderId)) throw new TrainingError("fileInvalid");
+  if (!/\.pdf$/i.test(fileName)) throw new TrainingError("fileNotPdf");
+  if (!Number.isFinite(fileSize) || fileSize <= 0) throw new TrainingError("fileInvalid");
+  if (fileSize > TRAINING_PDF_MAX_BYTES) throw new TrainingError("fileTooLarge");
+  const cleanFileName = fileName.trim().slice(0, 200);
+  const cleanTitle = title.trim().replace(/\s+/g, " ").slice(0, 200) || cleanFileName.replace(/\.pdf$/i, "");
+  return prisma.trainingMaterial.create({
+    data: { folderId, kind: "pdf", title: cleanTitle, url, fileName: cleanFileName, fileSize: Math.round(fileSize), createdById: userId },
+  });
+}
+
 export async function deleteTrainingMaterial(user: Actor, id: string) {
   const m = await prisma.trainingMaterial.findUnique({ where: { id } });
   if (!m) throw new TrainingError("materialNotFound");
   if (!canManage(user, m.createdById)) throw new TrainingError("materialForbidden");
   await prisma.trainingMaterial.delete({ where: { id } });
   await prisma.auditLog.create({
-    data: { actorId: user.id, action: "DELETE", entityType: "TrainingMaterial", entityId: id, oldValue: { title: m.title, url: m.url, folderId: m.folderId } },
+    data: {
+      actorId: user.id,
+      action: "DELETE",
+      entityType: "TrainingMaterial",
+      entityId: id,
+      oldValue: { kind: m.kind, title: m.title, url: m.url, fileName: m.fileName, folderId: m.folderId },
+    },
   });
+  // Қоймадағы файлды да өшіреміз; сәтсіз болса — материал бәрібір өшті, тек логқа жазамыз.
+  if (m.kind === "pdf" && isFileStorageConfigured()) {
+    await del(m.url).catch((e) => console.error("[training] blob delete", e instanceof Error ? e.message : e));
+  }
   return m;
 }

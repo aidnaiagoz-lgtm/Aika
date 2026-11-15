@@ -5,9 +5,14 @@ import { Card } from "@/lib/ui";
 import { getCurrentUser } from "@/lib/auth";
 import { getDictionary } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { canManage, getTrainingFolder, type TrainingSection } from "@/lib/domain/training";
+import { canManage, getTrainingFolder, isFileStorageConfigured, type TrainingSection } from "@/lib/domain/training";
 import { FolderSection } from "./FolderSection";
-import { AddLinkForm, DeleteMaterialButton, FolderHeader } from "./FolderControls";
+import { AddLinkForm, DeleteMaterialButton, FolderHeader, UploadPdfButton } from "./FolderControls";
+
+function formatSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
 
 function linkIcon(url: string) {
   const host = new URL(url).hostname;
@@ -64,17 +69,30 @@ export async function FolderPage({ section, folderId }: { section: TrainingSecti
       <Card
         title={t.training.materialsTitle}
         action={
-          <AddLinkForm
-            section={section}
-            folderId={folder.id}
-            labels={{
-              addLink: t.training.addLink,
-              titlePlaceholder: t.training.linkTitlePlaceholder,
-              urlPlaceholder: t.training.linkUrlPlaceholder,
-              add: t.training.add,
-              cancel: t.training.cancel,
-            }}
-          />
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            <UploadPdfButton
+              section={section}
+              folderId={folder.id}
+              storageReady={isFileStorageConfigured()}
+              labels={{
+                upload: t.training.uploadPdf,
+                uploading: t.training.uploading,
+                errors: t.training.errors,
+                genericError: t.training.genericError,
+              }}
+            />
+            <AddLinkForm
+              section={section}
+              folderId={folder.id}
+              labels={{
+                addLink: t.training.addLink,
+                titlePlaceholder: t.training.linkTitlePlaceholder,
+                urlPlaceholder: t.training.linkUrlPlaceholder,
+                add: t.training.add,
+                cancel: t.training.cancel,
+              }}
+            />
+          </div>
         }
       >
         {folder.materials.length === 0 ? (
@@ -82,20 +100,23 @@ export async function FolderPage({ section, folderId }: { section: TrainingSecti
         ) : (
           <div className="flex flex-col divide-y divide-border">
             {folder.materials.map((m) => {
-              const Icon = linkIcon(m.url);
+              const isPdf = m.kind === "pdf";
+              const Icon = isPdf ? FileText : linkIcon(m.url);
+              const href = isPdf ? `/api/training/file/${m.id}` : m.url;
+              const source = isPdf ? `PDF${m.fileSize ? ` · ${formatSize(m.fileSize)}` : ""}` : new URL(m.url).hostname.replace(/^www\./, "");
               const author = m.createdBy.employee?.fullName ?? m.createdBy.email;
               return (
                 <div key={m.id} className="flex items-center gap-3 py-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent">
                     <Icon size={18} />
                   </span>
-                  <a href={m.url} target="_blank" rel="noopener noreferrer" className="group flex min-w-0 flex-1 flex-col">
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="group flex min-w-0 flex-1 flex-col">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-text-primary group-hover:text-accent">
                       <span className="truncate">{m.title}</span>
                       <ExternalLink size={13} className="shrink-0 opacity-60" />
                     </span>
                     <span className="truncate text-xs text-text-secondary">
-                      {new URL(m.url).hostname.replace(/^www\./, "")} · {t.training.addedBy}: {author}
+                      {source} · {t.training.addedBy}: {author}
                     </span>
                   </a>
                   {canManage(user, m.createdById) && (
