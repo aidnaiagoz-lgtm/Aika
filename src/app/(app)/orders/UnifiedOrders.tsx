@@ -165,7 +165,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                   ].map((h, i) => (
                     <th
                       key={i}
-                      className="sticky top-0 z-10 whitespace-nowrap border border-border bg-page-bg px-3 py-2 font-semibold shadow-[0_1px_0_var(--color-border)]"
+                      className="sticky -top-px z-20 whitespace-nowrap border border-border bg-page-bg px-3 py-2 font-semibold shadow-[0_1px_0_var(--color-border),0_-1px_0_var(--color-page-bg),0_4px_6px_-4px_rgba(0,0,0,0.12)]"
                     >
                       {h}
                     </th>
