@@ -35,7 +35,7 @@ export type OrderSource = "site" | "sheet";
 export type WorkshopMark = "none" | "marked" | "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
 
 export interface UnifiedItem {
-  kind: string; // «3Д салон», «Чехол»...
+  kind: string; // «3Д коврик», «Чехол»...
   name: string; // қысқартылған атауы
   detail: string | null; // кожа / жіп
   amount: number;
