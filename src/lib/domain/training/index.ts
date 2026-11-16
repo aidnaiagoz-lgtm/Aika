@@ -148,8 +148,20 @@ export async function addTrainingLink(userId: string, folderId: string, title: s
 /** PDF шегі: 50 МБ. Қоймаға тікелей браузерден жүктеледі (Vercel-дің 4.5 МБ шегі әсер етпейді). */
 export const TRAINING_PDF_MAX_BYTES = 50 * 1024 * 1024;
 
-/** Файл қоймасы (Vercel Blob) қосылған ба — BLOB_READ_WRITE_TOKEN Vercel-де өзі пайда болады. */
-export const isFileStorageConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+/**
+ * Vercel Blob токені. Әдетте BLOB_READ_WRITE_TOKEN, бірақ қойманы жобаға қосқанда
+ * басқа префикс таңдалса (мыс. AUTOMAX_FILES_READ_WRITE_TOKEN) — мәні "vercel_blob_rw_" деп басталатын кез келген айнымалы.
+ */
+export function blobToken(): string | undefined {
+  if (process.env.BLOB_READ_WRITE_TOKEN) return process.env.BLOB_READ_WRITE_TOKEN;
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.endsWith("READ_WRITE_TOKEN") && value?.startsWith("vercel_blob_rw_")) return value;
+  }
+  return undefined;
+}
+
+/** Файл қоймасы (Vercel Blob) қосылған ба. */
+export const isFileStorageConfigured = () => Boolean(blobToken());
 
 /** Тек біздің қоймадағы training/<folderId>/ жолы — бөтен сілтемені «файл» деп сақтатпаймыз. */
 export function isOwnTrainingBlobUrl(raw: string, folderId: string) {
@@ -191,7 +203,7 @@ export async function deleteTrainingMaterial(user: Actor, id: string) {
   });
   // Қоймадағы файлды да өшіреміз; сәтсіз болса — материал бәрібір өшті, тек логқа жазамыз.
   if (m.kind === "pdf" && isFileStorageConfigured()) {
-    await del(m.url).catch((e) => console.error("[training] blob delete", e instanceof Error ? e.message : e));
+    await del(m.url, { token: blobToken() }).catch((e) => console.error("[training] blob delete", e instanceof Error ? e.message : e));
   }
   return m;
 }

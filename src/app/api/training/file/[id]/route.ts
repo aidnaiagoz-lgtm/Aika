@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { blobToken } from "@/lib/domain/training";
 
 // PDF-ті ашу: файл жабық (private) қоймада — тек сайтқа кірген қызметкер осы маршрут арқылы көре алады.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const m = await prisma.trainingMaterial.findUnique({ where: { id }, select: { kind: true, url: true, fileName: true } });
   if (!m || m.kind !== "pdf") return new NextResponse("Not found", { status: 404 });
 
-  const file = await get(m.url, { access: "private" }).catch((e) => {
+  const file = await get(m.url, { access: "private", token: blobToken() }).catch((e) => {
     console.error("[training file]", e instanceof Error ? e.message : e);
     return null;
   });
