@@ -160,14 +160,13 @@ export function SalesOrderForm({
   };
 
   const productsByKind = useMemo(() => groupProducts(options.product ?? []), [options.product]);
-  /** Тауар түрін таңдау: «Цех» әдепкісі, қатысы жоқ өрістер мен басқа түрдің тауары тазаланады. */
+  /** Тауар түрін таңдау: қатысы жоқ өрістер мен басқа түрдің тауары тазаланады. «Цехқа жіберілді» өзі қойылмайды — менеджер өзі белгілейді (CEO, 2026-11-16). */
   const chooseKind = (k: number, kind: KindId) => {
     const it = items[k];
     const kd = kindById(kind);
     const keepProduct = it.product && productKind(it.product) === kind;
     setItem(k, {
       kind,
-      workshop: kd.workshop,
       ...(keepProduct ? {} : { product: "", price: "" }),
       ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "", leatherPipingThread: "" }),
       ...(kd.mat ? {} : { matType: "", matThread: "", matPiping: "" }),
@@ -465,7 +464,7 @@ export function SalesOrderForm({
                                   ? { price: String(priceByProduct[v]) }
                                   : {}),
                                 // Басқа түрдің тауары таңдалса — түрі өзі ауысады
-                                ...(auto !== kd.id && auto !== "other" ? { kind: auto, workshop: kindById(auto).workshop } : {}),
+                                ...(auto !== kd.id && auto !== "other" ? { kind: auto } : {}),
                               });
                             }}
                           />
