@@ -143,7 +143,8 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               <MobileCard key={r.key} r={r} t={t} date={dateFmt.format(r.date)} time={tm(r)} />
             ))}
           </div>
-          <div className="hidden overflow-x-auto md:block">
+          {/* Кестенің өз айналдыруы: бағандар атауы (thead) үстінде қатып тұрады, кесте кең болса — жанына да айналады (CEO, 2026-11-16) */}
+          <div className="hidden overflow-auto md:block md:max-h-[calc(100dvh-240px)] md:min-h-[320px]">
             {/* Google кесте сияқты: әр тауар — өз жолы, өз №-імен; заказдың ортақ ұяшықтары біріктірілген; барлық ұяшық сызықпен (CEO, 2026-11-16). */}
             <table className="w-full border-collapse text-left text-sm">
               <thead>
@@ -162,7 +163,10 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                     t("Менеджер", "Менеджер"),
                     "",
                   ].map((h, i) => (
-                    <th key={i} className="whitespace-nowrap border border-border px-3 py-2 font-semibold">
+                    <th
+                      key={i}
+                      className="sticky top-0 z-10 whitespace-nowrap border border-border bg-page-bg px-3 py-2 font-semibold shadow-[0_1px_0_var(--color-border)]"
+                    >
                       {h}
                     </th>
                   ))}
