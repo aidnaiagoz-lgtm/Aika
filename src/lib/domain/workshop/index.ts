@@ -174,16 +174,36 @@ async function maybeNotify(job: WorkshopJob): Promise<boolean> {
 
 // ---------- тізім және әрекеттер ----------
 
-export type JobView = "new" | "work" | "done";
+export type JobView = "all" | "new" | "work" | "done";
 
-export async function listJobs(user: SessionUser, view: JobView) {
+const DONE_DAYS = 14;
+
+/** Тапсырмалар тізімі. «all» — жаңа + жасалып жатқан + соңғы 14 күнде дайын болғандар. q — №, көлік, тауар, менеджер. */
+export async function listJobs(user: SessionUser, view: JobView, q?: string) {
   assertAccess(user);
-  const status: WorkshopJobStatus[] = view === "new" ? ["NEW"] : view === "work" ? ["IN_PROGRESS"] : ["DONE"];
+  const doneSince = new Date(Date.now() - DONE_DAYS * 86400_000);
+  const byView: Prisma.WorkshopJobWhereInput =
+    view === "new"
+      ? { status: "NEW" }
+      : view === "work"
+        ? { status: "IN_PROGRESS" }
+        : view === "done"
+          ? { status: "DONE", doneAt: { gte: doneSince } }
+          : { OR: [{ status: { in: ["NEW", "IN_PROGRESS"] } }, { status: "DONE", doneAt: { gte: doneSince } }] };
+  const text = (q ?? "").trim().slice(0, 60);
+  const search: Prisma.WorkshopJobWhereInput | null = text
+    ? {
+        OR: [
+          { orderNo: { contains: text.replace(/^№\s*/, "") } },
+          { car: { contains: text, mode: "insensitive" } },
+          { brand: { contains: text, mode: "insensitive" } },
+          { product: { contains: text, mode: "insensitive" } },
+          { manager: { contains: text, mode: "insensitive" } },
+        ],
+      }
+    : null;
   return prisma.workshopJob.findMany({
-    where: {
-      status: { in: status },
-      ...(view === "done" ? { doneAt: { gte: new Date(Date.now() - 14 * 86400_000) } } : {}),
-    },
+    where: search ? { AND: [byView, search] } : byView,
     orderBy: view === "done" ? { doneAt: "desc" } : { receivedAt: "asc" },
     take: 300,
   });
@@ -193,8 +213,8 @@ export async function jobCounts(user: SessionUser) {
   assertAccess(user);
   const rows = await prisma.workshopJob.groupBy({ by: ["status"], _count: { _all: true } });
   const c = Object.fromEntries(rows.map((r) => [r.status, r._count._all])) as Partial<Record<WorkshopJobStatus, number>>;
-  const doneRecent = await prisma.workshopJob.count({ where: { status: "DONE", doneAt: { gte: new Date(Date.now() - 14 * 86400_000) } } });
-  return { new: c.NEW ?? 0, work: c.IN_PROGRESS ?? 0, done: doneRecent };
+  const doneRecent = await prisma.workshopJob.count({ where: { status: "DONE", doneAt: { gte: new Date(Date.now() - DONE_DAYS * 86400_000) } } });
+  return { all: (c.NEW ?? 0) + (c.IN_PROGRESS ?? 0) + doneRecent, new: c.NEW ?? 0, work: c.IN_PROGRESS ?? 0, done: doneRecent };
 }
 
 export interface JobPatch {

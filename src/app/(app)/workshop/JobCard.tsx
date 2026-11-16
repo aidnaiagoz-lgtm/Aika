@@ -13,6 +13,8 @@ export interface ClientJob {
   doneAt: string | null;
   manager: string | null;
   headline: string;
+  car?: string; // «тойота камри 70 2021» (кесте үшін)
+  product?: string | null;
   leatherType: string | null;
   leatherThread: string | null;
   leatherPiping: string | null;

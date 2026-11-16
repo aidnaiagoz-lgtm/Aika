@@ -5,18 +5,20 @@ import { canUseWorkshop, isLeader } from "@/lib/access";
 import { jobCounts, listJobs, listWorkers, syncWorkshopJobs, workshopActiveSince, type JobView } from "@/lib/domain/workshop";
 import { jobHeadline, leatherNorm } from "@/lib/domain/workshop/calc";
 import { JobCard, type ClientJob } from "./JobCard";
+import { JobTable } from "./JobTable";
 import { ActivateButton } from "./ActivateButton";
 import { PushSetup } from "./PushSetup";
 
 export const dynamic = "force-dynamic";
 
 const TABS: Array<{ view: JobView; label: string }> = [
+  { view: "all", label: "Барлығы" },
   { view: "new", label: "Жаңа" },
   { view: "work", label: "Жасалып жатыр" },
   { view: "done", label: "Дайын (14 күн)" },
 ];
 
-export default async function WorkshopPage({ searchParams }: { searchParams: Promise<{ view?: string; job?: string }> }) {
+export default async function WorkshopPage({ searchParams }: { searchParams: Promise<{ view?: string; job?: string; q?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!canUseWorkshop(user)) redirect("/dashboard");
@@ -46,8 +48,9 @@ export default async function WorkshopPage({ searchParams }: { searchParams: Pro
   // Google-дан келген соңғы өзгерістерді тапсырмаларға көшіру (2 минуттық синхрондауды күтпей)
   await syncWorkshopJobs(undefined, { recentDays: 3 }).catch((e) => console.error("[workshop] sync", e instanceof Error ? e.message : e));
 
-  const view: JobView = sp.view === "work" || sp.view === "done" ? sp.view : "new";
-  const [jobs, counts, workers] = await Promise.all([listJobs(user, view), jobCounts(user), listWorkers(user)]);
+  const view: JobView = sp.view === "work" || sp.view === "done" || sp.view === "all" ? sp.view : "new";
+  const q = (sp.q ?? "").trim().slice(0, 60);
+  const [jobs, counts, workers] = await Promise.all([listJobs(user, view, q), jobCounts(user), listWorkers(user)]);
   const workerNames = workers.map((w) => w.name);
 
   const clientJobs: ClientJob[] = jobs.map((j) => ({
@@ -58,9 +61,12 @@ export default async function WorkshopPage({ searchParams }: { searchParams: Pro
     doneAt: j.doneAt?.toISOString() ?? null,
     manager: j.manager,
     headline: jobHeadline(j),
+    car: [jobHeadline({ car: j.car, brand: j.brand, carYear: j.carYear })].join(""),
+    product: j.product,
     leatherType: j.leatherType,
     leatherThread: j.leatherThread,
     leatherPiping: j.leatherPiping,
+    leatherPipingThread: j.leatherPipingThread,
     matType: j.matType,
     pocketsPairs: j.pocketsPairs == null ? null : Number(j.pocketsPairs),
     lekalaNote: j.lekalaNote,
@@ -76,7 +82,8 @@ export default async function WorkshopPage({ searchParams }: { searchParams: Pro
   const countOf: Record<JobView, number> = counts;
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+    // Компьютерде кең (кесте), телефонда — карточкалар (Бекзат телефоннан жұмыс істейді)
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 md:max-w-none">
       <div className="flex flex-col gap-1">
         <h1 className="m-0 text-2xl font-bold text-text-primary">Цех тапсырмалары</h1>
         <p className="m-0 text-sm text-text-secondary">
@@ -86,11 +93,12 @@ export default async function WorkshopPage({ searchParams }: { searchParams: Pro
 
       <PushSetup />
 
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
       <nav className="flex gap-2 overflow-x-auto" aria-label="Тапсырма күйі">
         {TABS.map((t) => (
           <Link
             key={t.view}
-            href={t.view === "new" ? "/workshop" : `/workshop?view=${t.view}`}
+            href={`/workshop?view=${t.view}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             className={`whitespace-nowrap rounded-pill px-4 py-2.5 text-sm font-semibold ${
               view === t.view ? "bg-[#0b1a45] text-white" : "border border-border bg-surface text-text-secondary"
             }`}
@@ -99,17 +107,38 @@ export default async function WorkshopPage({ searchParams }: { searchParams: Pro
           </Link>
         ))}
       </nav>
+        <form method="GET" action="/workshop" className="flex flex-1 gap-2 md:max-w-md">
+          <input type="hidden" name="view" value={view} />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="🔍 №, көлік, тауар, менеджер..."
+            className="min-h-11 min-w-0 flex-1 rounded-pill border-2 border-accent/40 bg-surface px-4 text-sm focus:border-accent focus:outline-none"
+          />
+          <button type="submit" className="rounded-pill bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-hover">
+            Іздеу
+          </button>
+        </form>
+      </div>
 
       {clientJobs.length === 0 ? (
         <p className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary shadow-card">
           {view === "new" ? "Жаңа тапсырма жоқ. Менеджер «Цех ✓» қойса, осында бірден шығады." : "Бұл бөлімде тапсырма жоқ."}
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {clientJobs.map((j) => (
-            <JobCard key={j.id} job={j} workers={workerNames} highlight={sp.job === j.id} />
-          ))}
-        </div>
+        <>
+          {/* Компьютер — кесте */}
+          <div className="hidden md:block">
+            <JobTable jobs={clientJobs} workers={workerNames} highlight={sp.job} />
+          </div>
+          {/* Телефон — карточкалар */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {clientJobs.map((j) => (
+              <JobCard key={j.id} job={j} workers={workerNames} highlight={sp.job === j.id} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
