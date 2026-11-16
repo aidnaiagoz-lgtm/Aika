@@ -6,7 +6,7 @@ import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
 import { autoGeneration, COUNTRY_OPTIONS, generationOptions, originCountryFor } from "./car-data";
 import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
-import { PAYMENT_KIND_LABEL, suggestPaymentKinds, type PaymentKind } from "@/lib/domain/orders/sales-order-calc";
+import { PAYMENT_KIND_LABEL, PAYMENT_KIND_LABEL_KK, suggestPaymentKinds, type PaymentKind } from "@/lib/domain/orders/sales-order-calc";
 import { groupProducts, kindById, PRODUCT_KINDS, productKind, type KindId } from "@/lib/domain/orders/product-kinds";
 
 type Options = Record<string, string[]>;
@@ -107,12 +107,15 @@ export function SalesOrderForm({
   priceByProduct,
   modelsByMake,
   managerName,
+  locale = "kk",
 }: {
   options: Options;
   priceByProduct: Record<string, number>;
   /** Марка (кіші әріппен) → сол маркадағы модельдер — «Марка (модель)» тізімі тек сол маркаға қарай сүзіледі */
   modelsByMake: Record<string, string[]>;
   managerName: string;
+  /** Интерфейс тілі (ҚАЗ / РУС) — төлем бөлімінің жазулары соған қарай. */
+  locale?: string;
 }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -122,6 +125,7 @@ export function SalesOrderForm({
   const [cars, setCars] = useState<CarState[]>([emptyCar()]);
   const setCar = (c: number, patch: Partial<CarState>) => setCars((xs) => xs.map((x, i) => (i === c ? { ...x, ...patch } : x)));
   const [items, setItems] = useState<ItemState[]>([emptyItem()]);
+  const ru = locale === "ru";
   const [pays, setPays] = useState<PayState[]>([serverPay()]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- бір рет: бет ашылғанда браузердің күні/уақыты қойылады
@@ -518,7 +522,7 @@ export function SalesOrderForm({
           </button>
         </Section>
 
-        <Section n={4} title="Төлем">
+        <Section n={4} title={ru ? "Оплата" : "Төлем"}>
           {pays.map((p, k) => {
             const kind = p.kind || suggestedKinds[k];
             // Осы чекке дейінгі қалдық — «Қалдығын толтыру» үшін
@@ -544,7 +548,7 @@ export function SalesOrderForm({
                             : "border-border bg-surface text-text-secondary hover:border-accent/50"
                         }`}
                       >
-                        {PAYMENT_KIND_LABEL[pk]}
+                        {(ru ? PAYMENT_KIND_LABEL : PAYMENT_KIND_LABEL_KK)[pk]}
                       </button>
                     ))}
                     {pays.length > 1 && (
@@ -555,21 +559,21 @@ export function SalesOrderForm({
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.4fr_1fr_0.7fr]">
-                  <Field label="Сумма">
+                  <Field label={ru ? "Сумма" : "Сомасы"}>
                     <ListInput value={p.amount} onChange={(v) => setPay(k, { amount: v })} inputMode="numeric" placeholder="50000" />
                     {restHere > 0 && num(p.amount) !== restHere && (
                       <button type="button" onClick={() => setPay(k, { amount: String(restHere) })} className="self-start text-xs font-bold text-accent hover:underline">
-                        Қалдығын толтыру: {money(restHere)}
+                        {ru ? "Заполнить остаток" : "Қалдығын толтыру"}: {money(restHere)}
                       </button>
                     )}
                   </Field>
-                  <Field label="Способ оплаты">
+                  <Field label={ru ? "Способ оплаты" : "Төлем тәсілі"}>
                     <ListInput value={p.method} onChange={(v) => setPay(k, { method: v })} list="o-pay" placeholder="каспий пэй" />
                   </Field>
-                  <Field label="Күні">
+                  <Field label={ru ? "Дата" : "Күні"}>
                     <input type="date" className={inputCls} value={p.date} onChange={(e) => setPay(k, { date: e.target.value })} />
                   </Field>
-                  <Field label="Уақыты">
+                  <Field label={ru ? "Время" : "Уақыты"}>
                     <input type="time" className={inputCls} value={p.time} onChange={(e) => setPay(k, { time: e.target.value })} />
                   </Field>
                 </div>
@@ -577,13 +581,13 @@ export function SalesOrderForm({
             );
           })}
           <button type="button" onClick={() => setPays((xs) => [...xs, emptyPay()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
-            <Plus size={16} /> Тағы чек
+            <Plus size={16} /> {ru ? "Ещё чек" : "Тағы чек"}
           </button>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Способ вывоза">
+            <Field label={ru ? "Способ вывоза" : "Алып кету тәсілі"}>
               <ListInput value={pickup} onChange={setPickup} list="o-pickup" />
             </Field>
-            <Field label="Комментарий" wide>
+            <Field label={ru ? "Комментарий" : "Түсініктеме"} wide>
               <ListInput value={comment} onChange={setComment} />
             </Field>
           </div>

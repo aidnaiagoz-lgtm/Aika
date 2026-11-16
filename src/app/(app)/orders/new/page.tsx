@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getLedgerOptions, getModelsByMake } from "@/lib/domain/sales-ledger";
 import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
 import { canonicalModel } from "@/lib/domain/sales-ledger/normalize/car-model";
+import { getLocale } from "@/lib/locale";
 import { SalesOrderForm } from "./SalesOrderForm";
 
 // Жаңа заказ — Google «продажи» кестесінің орнына (2026-11). Тізімдер (тауар, кожа, жіп, канал...) кестедегідей.
@@ -40,7 +41,7 @@ export default async function NewOrderPage() {
           ← Заказдарға оралу
         </Link>
       </div>
-      <SalesOrderForm options={options} priceByProduct={priceByProduct} modelsByMake={modelsByMake} managerName={emp?.fullName ?? "—"} />
+      <SalesOrderForm options={options} priceByProduct={priceByProduct} modelsByMake={modelsByMake} managerName={emp?.fullName ?? "—"} locale={await getLocale()} />
     </div>
   );
 }
