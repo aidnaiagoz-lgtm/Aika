@@ -664,6 +664,7 @@ model ProductConfiguration {
   threadColor String? // Кожа нитка
 
   edgingColor String? // Кожа окантовка
+  edgingThreadColor String? // Окантовка нитка (2026-11-16; Google кестеде бағаны жоқ)
 
   removableMatType        String? // EVA / Carpet / Fishing line / Other
   removableMatColor       String?
@@ -960,6 +961,8 @@ model SalesLedgerRow {
   leatherType   String? // Кожа вид
   leatherThread String? // Кожа нитка
   leatherPiping String? // Кожа окантовка
+  /// Окантовка нитка (2026-11-16) — сайттан ғана; Google кестеде бағаны жоқ
+  leatherPipingThread String?
   matType       String? // Сьемный полик вид
   matThread     String? // Сьемный полик нитка
   matPiping     String? // Сьемный полик окантовка
@@ -1204,6 +1207,7 @@ model WorkshopJob {
   leatherType   String?
   leatherThread String?
   leatherPiping String?
+  leatherPipingThread String? // Окантовка нитка (2026-11-16)
   matType       String?
   matThread     String?
   matPiping     String?

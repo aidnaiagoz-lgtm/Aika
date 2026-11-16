@@ -24,6 +24,8 @@ export interface SalesOrderItemIn {
   leatherType?: string;
   leatherThread?: string;
   leatherPiping?: string;
+  /** Окантовка нитка (2026-11-16) — Google кестеде бағаны жоқ, тек сайтта + цехта. */
+  leatherPipingThread?: string;
   matType?: string;
   matThread?: string;
   matPiping?: string;
@@ -95,6 +97,7 @@ export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10:
       leatherType: clean(i.leatherType),
       leatherThread: clean(i.leatherThread),
       leatherPiping: clean(i.leatherPiping),
+      leatherPipingThread: clean(i.leatherPipingThread),
       matType: clean(i.matType),
       matThread: clean(i.matThread),
       matPiping: clean(i.matPiping),
@@ -231,6 +234,7 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
               leatherType: i.leatherType,
               threadColor: i.leatherThread,
               edgingColor: i.leatherPiping,
+              edgingThreadColor: i.leatherPipingThread,
               removableMatType: i.matType,
               removableMatThreadColor: i.matThread,
               removableMatEdging: i.matPiping,
@@ -301,6 +305,8 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
       receipt3Method: rec[2]?.method ?? null,
       receipt3At: rec[2] ? `${rec[2].date}T${rec[2].time ?? "12:00"}:00+05:00` : null,
     } as never);
+    // «Окантовка нитка» — Продажи бағандарының тізімінде жоқ (Google кестеге бармайды), сондықтан бөлек жазылады
+    if (i.leatherPipingThread) await prisma.salesLedgerRow.update({ where: { id: row.id }, data: { leatherPipingThread: i.leatherPipingThread } });
     const updated = await recomputeLedgerRow(row.id);
     await prisma.orderItem.update({ where: { id: order.items[k].id }, data: { ledgerRowId: row.id } });
     ledgerIds.push(row.id);
