@@ -605,6 +605,10 @@ export function SalesOrderForm({
           <button type="button" onClick={() => setPays((xs) => [...xs, emptyPay()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
             <Plus size={16} /> {ru ? "Ещё чек" : "Тағы чек"}
           </button>
+        </Section>
+
+        {/* 5 — алып кету мен түсініктеме төлемнен бөлек (CEO, 2026-11-16) */}
+        <Section n={5} title={ru ? "Вывоз и комментарий" : "Алып кету және түсініктеме"}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label={ru ? "Способ вывоза" : "Алып кету тәсілі"}>
               <ListInput value={pickup} onChange={setPickup} list="o-pickup" />
