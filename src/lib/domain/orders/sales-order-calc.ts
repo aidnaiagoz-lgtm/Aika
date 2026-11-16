@@ -12,6 +12,8 @@ export interface PaymentIn {
 
 export type PaymentKind = "PREPAY" | "EXTRA" | "FULL";
 export const PAYMENT_KIND_LABEL: Record<PaymentKind, string> = { PREPAY: "Предоплата", EXTRA: "Доплата", FULL: "Полная оплата" };
+/** Қазақша атаулары (тіл ҚАЗ болғанда). */
+export const PAYMENT_KIND_LABEL_KK: Record<PaymentKind, string> = { PREPAY: "Алдын ала төлем", EXTRA: "Қосымша төлем", FULL: "Толық төлем" };
 
 /**
  * Төлем түрін ұсыну: бір чек бүкіл соманы жапса — Полная оплата; бірінші чек жаппаса — Предоплата; келесілері — Доплата.
