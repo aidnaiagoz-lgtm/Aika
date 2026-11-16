@@ -1,4 +1,4 @@
-// Тауар түрлері (CEO, 2026-11-14): Google кестеде тек кожа емес — чехол, руль, подпятник... Әр түрге тек өзіне
+// Тауар түрлері (CEO, 2026-11-14; атаулары 2026-11-16 — менеджерлер кестеде жазатындай: «3Д коврик», «5Д коврик с порогами»…): Google кестеде тек кожа емес — чехол, руль, подпятник... Әр түрге тек өзіне
 // қатысты өрістер шығады. Түрі тауар атауынан танылады («3Д - Люкс - ...», «3727 - Чехол - ...», «1025 - Подпятник - ...»).
 // Өрістер кестедегі нақты толтырылуына қарай (соңғы 1 жыл): салон — кожа+съёмный+кармашки, багажник — кожа(+съёмный),
 // съёмный/EVA/ТПЕ — тек съёмный, қалғаны — тек тауардың өзі.
@@ -32,10 +32,10 @@ export interface ProductKind {
 const has = (re: RegExp) => (p: string) => re.test(p);
 
 export const PRODUCT_KINDS: ProductKind[] = [
-  { id: "salon3d", label: "3Д салон", leather: true, mat: true, pockets: true, workshop: true, match: has(/^3д/) },
-  { id: "salon5d", label: "5Д салон", leather: true, mat: true, pockets: true, workshop: true, match: has(/^5д/) },
-  { id: "salon360", label: "360 салон", leather: true, mat: true, pockets: true, workshop: true, match: has(/^360[ -]/) },
-  { id: "trunk", label: "Багажник", leather: true, mat: true, pockets: false, workshop: true, match: has(/^багаж/) },
+  { id: "salon3d", label: "3Д коврик", leather: true, mat: true, pockets: true, workshop: true, match: has(/^3д/) },
+  { id: "salon5d", label: "5Д коврик с порогами", leather: true, mat: true, pockets: true, workshop: true, match: has(/^5д/) },
+  { id: "salon360", label: "360 коврик", leather: true, mat: true, pockets: true, workshop: true, match: has(/^360[ -]/) },
+  { id: "trunk", label: "Багаж полный", leather: true, mat: true, pockets: false, workshop: true, match: has(/^багаж/) },
   { id: "cover", label: "Чехол", leather: false, mat: false, pockets: false, workshop: false, match: has(/- чехол|^чехол/) },
   { id: "wheel", label: "Руль", leather: false, mat: false, pockets: false, workshop: false, match: has(/- руль|^руль/) },
   { id: "heel", label: "Подпятник", leather: false, mat: false, pockets: false, workshop: false, match: has(/подпятник/) },
