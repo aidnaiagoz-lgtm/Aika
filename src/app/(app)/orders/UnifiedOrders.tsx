@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DragScroll } from "./DragScroll";
 import { Card, AccessDenied } from "@/lib/ui";
 import { ForbiddenError } from "@/lib/rbac";
 import { isLeader } from "@/lib/access";
@@ -144,7 +145,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
             ))}
           </div>
           {/* Кестенің өз айналдыруы: бағандар атауы (thead) үстінде қатып тұрады, кесте кең болса — жанына да айналады (CEO, 2026-11-16) */}
-          <div className="hidden overflow-auto md:block md:max-h-[calc(100dvh-240px)] md:min-h-[320px]">
+          <DragScroll className="hidden overflow-auto md:block md:max-h-[calc(100dvh-240px)] md:min-h-[320px]">
             {/* Google кесте сияқты: әр тауар — өз жолы, өз №-імен; заказдың ортақ ұяшықтары біріктірілген; барлық ұяшық сызықпен (CEO, 2026-11-16). */}
             <table className="w-full border-collapse text-left text-sm">
               <thead>
@@ -178,7 +179,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </DragScroll>
           </>
         )}
         {pages > 1 && <Pager page={page} pages={pages} href={(n) => href({ page: n })} t={t} />}
