@@ -729,6 +729,8 @@ model Payment {
   receiptUrl    String?
   comment       String?
   paidAt        DateTime      @default(now())
+  /// Төлем түрі (2026-11-16): PREPAY — Предоплата, EXTRA — Доплата, FULL — Полная оплата
+  kind          String?
 
   @@index([orderId])
   @@map("payments")
