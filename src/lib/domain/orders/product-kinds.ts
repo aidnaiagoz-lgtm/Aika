@@ -6,13 +6,14 @@
 export type KindId =
   | "salon3d"
   | "salon5d"
+  | "salon5dp"
   | "salon360"
   | "trunk"
   | "mat"
+  | "eva"
   | "cover"
   | "wheel"
   | "heel"
-  | "cape"
   | "organizer"
   | "pillow"
   | "armrest"
@@ -31,21 +32,28 @@ export interface ProductKind {
 
 const has = (re: RegExp) => (p: string) => re.test(p);
 
+// Батырмалардың реті (CEO, 2026-11-16): 3Д → 5Д → 5Д с порогами → 360 → багаж → съёмный → EVA → чехол, руль, подпятник.
+// «Накидка» түрі алынды (CEO: «накидка деген жоқ») — ондай тауарлар «Басқа»-да.
+// «С порогами» — кестеде «+ бугарок» деп жазылады.
+const BUGAROK = /бугар|порог/;
 export const PRODUCT_KINDS: ProductKind[] = [
   { id: "salon3d", label: "3Д коврик", leather: true, mat: true, pockets: true, workshop: true, match: has(/^3д/) },
-  { id: "salon5d", label: "5Д коврик с порогами", leather: true, mat: true, pockets: true, workshop: true, match: has(/^5д/) },
+  { id: "salon5d", label: "5Д коврик", leather: true, mat: true, pockets: true, workshop: true, match: (p) => /^5д/.test(p) && !BUGAROK.test(p) },
+  { id: "salon5dp", label: "5Д коврик с порогами", leather: true, mat: true, pockets: true, workshop: true, match: (p) => /^5д/.test(p) && BUGAROK.test(p) },
   { id: "salon360", label: "360 коврик", leather: true, mat: true, pockets: true, workshop: true, match: has(/^360[ -]/) },
   { id: "trunk", label: "Багаж полный", leather: true, mat: true, pockets: false, workshop: true, match: has(/^багаж/) },
+  { id: "mat", label: "Съёмный коврик", leather: false, mat: true, pockets: false, workshop: false, match: has(/^съ[её]мн|^тпе|^tpe/) },
+  { id: "eva", label: "EVA коврик", leather: false, mat: true, pockets: false, workshop: false, match: has(/^-? ?ева|^eva|eva кил|ева полик|^3d eva/) },
   { id: "cover", label: "Чехол", leather: false, mat: false, pockets: false, workshop: false, match: has(/- чехол|^чехол/) },
   { id: "wheel", label: "Руль", leather: false, mat: false, pockets: false, workshop: false, match: has(/- руль|^руль/) },
   { id: "heel", label: "Подпятник", leather: false, mat: false, pockets: false, workshop: false, match: has(/подпятник/) },
-  { id: "cape", label: "Накидка", leather: false, mat: false, pockets: false, workshop: false, match: has(/накидк/) },
   { id: "organizer", rare: true, label: "Органайзер", leather: false, mat: false, pockets: false, workshop: false, match: has(/органайзер/) },
   { id: "pillow", rare: true, label: "Подушка", leather: false, mat: false, pockets: false, workshop: false, match: has(/подушк/) },
   { id: "armrest", rare: true, label: "Подлокотник", leather: false, mat: false, pockets: false, workshop: false, match: has(/подлокотник/) },
-  { id: "mat", label: "Съёмный / EVA", leather: false, mat: true, pockets: false, workshop: false, match: has(/^съ[её]мн|^-? ?ева|^eva|eva кил|^тпе|^tpe|полик/) },
   { id: "other", rare: true, label: "Басқа", leather: false, mat: false, pockets: false, workshop: false, match: () => true },
 ];
+// Тану реті: нақтырақ түрлер бірінші (мыс. «Чехол ... ева» — чехол; съёмный/EVA — ең соңында).
+const MATCH_ORDER: KindId[] = ["salon3d", "salon5dp", "salon5d", "salon360", "trunk", "cover", "wheel", "heel", "organizer", "pillow", "armrest", "mat", "eva"];
 
 const BY_ID = new Map(PRODUCT_KINDS.map((k) => [k.id, k]));
 export const kindById = (id: KindId) => BY_ID.get(id) ?? BY_ID.get("other")!;
@@ -54,7 +62,7 @@ export const kindById = (id: KindId) => BY_ID.get(id) ?? BY_ID.get("other")!;
 export function productKind(product: string): KindId {
   const p = product.trim().toLocaleLowerCase("ru");
   if (!p) return "other";
-  return PRODUCT_KINDS.find((k) => k.id !== "other" && k.match(p))?.id ?? "other";
+  return MATCH_ORDER.find((id) => BY_ID.get(id)!.match(p)) ?? "other";
 }
 
 /** Тауар тізімін түрлерге бөледі (ретін сақтайды). */
