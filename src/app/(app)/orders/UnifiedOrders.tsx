@@ -58,7 +58,9 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
   const tm = (r: UnifiedRow) => (r.time ? timeFmt.format(r.time) : null);
 
   return (
-    <div className="flex flex-col gap-4">
+    // Компьютерде бет экранға сыяды: сүзгілер үстінде, кесте қалған орынды алады, айналдыру — тек кестенің ішінде
+    // (CEO, 2026-11-16: екі айналдыру бір-біріне кедергі болып, тақырып сүзгілердің астына кіретін).
+    <div className="flex flex-col gap-4 md:h-full md:min-h-0 [@media(max-height:760px)]:gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-text-primary">{t("Заказдар", "Заказы")}</h1>
         <div className="flex flex-wrap items-center gap-2">
@@ -77,7 +79,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
       </div>
 
       {/* Сүзгілер компьютерде экранның үстінде қатып тұрады (CEO өтініші); телефонда биік болғандықтан — жоқ. */}
-      <div className="md:sticky md:-top-8 md:z-20 md:-mt-4 md:bg-page-bg md:pb-1 md:pt-4">
+      <div className="shrink-0">
         <Card>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <Segment
@@ -124,6 +126,12 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
       </div>
 
       <Card
+        className="md:flex md:min-h-0 md:flex-1 md:flex-col"
+        action={
+          <Link href="/orders?view=erp" className="text-xs text-text-secondary hover:underline">
+            {t("Кеңейтілген сүзгілер →", "Расширенные фильтры →")}
+          </Link>
+        }
         title={
           q
             ? t(`Табылды: ${total} заказ — клиенттің тарихы`, `Найдено: ${total} — история клиента`)
@@ -145,7 +153,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
             ))}
           </div>
           {/* Кестенің өз айналдыруы: бағандар атауы (thead) үстінде қатып тұрады, кесте кең болса — жанына да айналады (CEO, 2026-11-16) */}
-          <DragScroll className="hidden overflow-auto md:block md:max-h-[calc(100dvh-240px)] md:min-h-[320px]">
+          <DragScroll className="hidden overflow-auto md:block md:min-h-[200px] md:flex-1">
             {/* Google кесте сияқты: әр тауар — өз жолы, өз №-імен; заказдың ортақ ұяшықтары біріктірілген; барлық ұяшық сызықпен (CEO, 2026-11-16). */}
             <table className="w-full border-collapse text-left text-sm">
               <thead>
@@ -185,11 +193,6 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
         {pages > 1 && <Pager page={page} pages={pages} href={(n) => href({ page: n })} t={t} />}
       </Card>
 
-      <p className="text-center text-xs text-text-secondary">
-        <Link href="/orders?view=erp" className="hover:underline">
-          {t("Кеңейтілген сүзгілер (тек сайт заказдары) →", "Расширенные фильтры (только заказы с сайта) →")}
-        </Link>
-      </p>
     </div>
   );
 }
@@ -428,7 +431,7 @@ function Pager({
         top
           ? "pb-4 lg:justify-end"
           : // Астындағысы экранның төменгі жағында қатып тұрады (sticky) — CEO өтініші; телефонда төменгі мәзірдің үстінде.
-            "sticky bottom-[52px] z-10 -mx-5 -mb-5 mt-2 rounded-b-card border-t border-border/60 bg-surface px-5 py-2.5 md:-bottom-8"
+            "sticky bottom-[52px] z-10 -mx-5 -mb-5 mt-2 shrink-0 rounded-b-card border-t border-border/60 bg-surface px-5 py-2.5 md:static"
       }`}
     >
       {page > 1 && (
