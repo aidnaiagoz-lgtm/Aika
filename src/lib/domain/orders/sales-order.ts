@@ -9,7 +9,7 @@ import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
 import { canonicalModel } from "@/lib/domain/sales-ledger/normalize/car-model";
 import type { ActingUser } from "./types";
 import { generateOrderNumber } from "./index";
-import { allocateReceipts, itemMoney, parseMoney, paymentEnum, type PaymentIn } from "./sales-order-calc";
+import { allocateReceipts, cleanTime, itemMoney, parseMoney, paymentEnum, suggestPaymentKinds, type PaymentIn, type PaymentKind } from "./sales-order-calc";
 
 /**
  * Сатылым заказы — Google «продажи» кестесінің орнына (2026-11).
@@ -107,7 +107,13 @@ export function validateSalesOrder(raw: SalesOrderIn): SalesOrderIn & { phone10:
   if (items.length === 0) throw new SalesOrderError("Кемінде бір тауар таңдаңыз");
   if (items.some((i) => i.soldFor == null && i.price == null)) throw new SalesOrderError("Әр тауардың бағасын немесе сатылған сомасын жазыңыз");
   const payments = (raw.payments ?? [])
-    .map((p) => ({ amount: money(p.amount) ?? 0, method: clean(p.method, 60) ?? "", date: /^\d{4}-\d{2}-\d{2}$/.test(p.date ?? "") ? p.date : almatyToday() }))
+    .map((p) => ({
+      amount: money(p.amount) ?? 0,
+      method: clean(p.method, 60) ?? "",
+      date: /^\d{4}-\d{2}-\d{2}$/.test(p.date ?? "") ? p.date : almatyToday(),
+      time: cleanTime(p.time),
+      kind: (["PREPAY", "EXTRA", "FULL"].includes(p.kind ?? "") ? p.kind : "") as PaymentKind | "",
+    }))
     .filter((p) => p.amount > 0);
   if (payments.some((p) => !p.method)) throw new SalesOrderError("Әр төлемнің тәсілін таңдаңыз (Kaspi, қолма-қол...)");
   const normCar = (c: SalesOrderCarIn | undefined) => {
@@ -182,6 +188,11 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
   const totalAmount = moneyRows.reduce((s, m) => s + m.base, 0);
   const discountAmount = moneyRows.reduce((s, m) => s + m.discount, 0);
   const paid = input.payments.reduce((s, p) => s + p.amount, 0);
+  // Төлем түрі: менеджер таңдамаса — ұсынылады (бір чек бүкіл соманы жапса — Полная, әйтпесе Предоплата → Доплата)
+  const kinds = suggestPaymentKinds(
+    moneyRows.reduce((s, m) => s + m.sold, 0),
+    input.payments.map((p) => p.amount)
+  );
   const products = await Promise.all(input.items.map((i, k) => ensureProduct(i.product, input.items[k].price ?? moneyRows[k].base)));
 
   const order = await prisma.order.create({
@@ -231,7 +242,7 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
         })),
       },
       payments: {
-        create: input.payments.map((p) => {
+        create: input.payments.map((p, pi) => {
           const parsed = parsePayment(p.method);
           return {
             amount: p.amount,
@@ -239,7 +250,8 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
             cashbox: parsed && parsed.method ? parsed.account : null,
             comment: p.method,
             employeeId: user.employee!.id,
-            paidAt: new Date(p.date + "T12:00:00+05:00"),
+            paidAt: new Date(`${p.date}T${p.time ?? "12:00"}:00+05:00`),
+            kind: p.kind || kinds[pi],
           };
         }),
       },
@@ -281,13 +293,13 @@ export async function createSalesOrder(user: ActingUser, raw: SalesOrderIn) {
       pickupMethod: input.pickupMethod ?? null,
       receipt1Amount: rec[0]?.amount ?? null,
       receipt1Method: rec[0]?.method ?? null,
-      receipt1At: rec[0] ? `${rec[0].date}T12:00:00+05:00` : null,
+      receipt1At: rec[0] ? `${rec[0].date}T${rec[0].time ?? "12:00"}:00+05:00` : null,
       receipt2Amount: rec[1]?.amount ?? null,
       receipt2Method: rec[1]?.method ?? null,
-      receipt2At: rec[1] ? `${rec[1].date}T12:00:00+05:00` : null,
+      receipt2At: rec[1] ? `${rec[1].date}T${rec[1].time ?? "12:00"}:00+05:00` : null,
       receipt3Amount: rec[2]?.amount ?? null,
       receipt3Method: rec[2]?.method ?? null,
-      receipt3At: rec[2] ? `${rec[2].date}T12:00:00+05:00` : null,
+      receipt3At: rec[2] ? `${rec[2].date}T${rec[2].time ?? "12:00"}:00+05:00` : null,
     } as never);
     const updated = await recomputeLedgerRow(row.id);
     await prisma.orderItem.update({ where: { id: order.items[k].id }, data: { ledgerRowId: row.id } });

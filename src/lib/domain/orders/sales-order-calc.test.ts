@@ -54,3 +54,15 @@ test("parseMoney: бос → null (0 емес), сан → бүтін", () => {
   // бос «Продали за» → баға алынады
   assert.deepEqual(itemMoney(90000, parseMoney(null)), { base: 90000, sold: 90000, discount: 0 });
 });
+
+test("suggestPaymentKinds және cleanTime", async () => {
+  const { suggestPaymentKinds, cleanTime } = await import("./sales-order-calc");
+  assert.deepEqual(suggestPaymentKinds(90000, [90000]), ["FULL"]);
+  assert.deepEqual(suggestPaymentKinds(90000, [50000, 40000]), ["PREPAY", "EXTRA"]);
+  assert.deepEqual(suggestPaymentKinds(90000, [20000]), ["PREPAY"]);
+  assert.deepEqual(suggestPaymentKinds(0, [5000]), ["PREPAY"]);
+  assert.equal(cleanTime("15:34"), "15:34");
+  assert.equal(cleanTime("9:05"), "09:05");
+  assert.equal(cleanTime("25:00"), "12:00");
+  assert.equal(cleanTime(""), "12:00");
+});

@@ -4,6 +4,32 @@ export interface PaymentIn {
   amount: number;
   method: string; // кестедегі мәтін: «каспий пэй», «каспий пэй зере», «наличными»...
   date: string; // YYYY-MM-DD
+  /** Төлем түскен уақыт «HH:MM» (Алматы). Жоқ болса — 12:00. */
+  time?: string;
+  /** PREPAY / EXTRA / FULL. Жоқ болса — suggestPaymentKinds бойынша. */
+  kind?: PaymentKind | "";
+}
+
+export type PaymentKind = "PREPAY" | "EXTRA" | "FULL";
+export const PAYMENT_KIND_LABEL: Record<PaymentKind, string> = { PREPAY: "Предоплата", EXTRA: "Доплата", FULL: "Полная оплата" };
+
+/**
+ * Төлем түрін ұсыну: бір чек бүкіл соманы жапса — Полная оплата; бірінші чек жаппаса — Предоплата; келесілері — Доплата.
+ */
+export function suggestPaymentKinds(total: number, amounts: number[]): PaymentKind[] {
+  return amounts.map((a, i) => {
+    if (i > 0) return "EXTRA";
+    return total > 0 && a >= total ? "FULL" : "PREPAY";
+  });
+}
+
+/** «15:34» → «15:34»; жарамсыз/бос → «12:00». */
+export function cleanTime(t: string | null | undefined): string {
+  const m = (t ?? "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return "12:00";
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  return h < 24 && mi < 60 ? `${String(h).padStart(2, "0")}:${m[2]}` : "12:00";
 }
 
 /**

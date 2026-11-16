@@ -6,6 +6,7 @@ import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
 import { autoGeneration, COUNTRY_OPTIONS, generationOptions, originCountryFor } from "./car-data";
 import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
+import { PAYMENT_KIND_LABEL, suggestPaymentKinds, type PaymentKind } from "@/lib/domain/orders/sales-order-calc";
 import { groupProducts, kindById, PRODUCT_KINDS, productKind, type KindId } from "@/lib/domain/orders/product-kinds";
 
 type Options = Record<string, string[]>;
@@ -42,9 +43,13 @@ interface PayState {
   amount: string;
   method: string;
   date: string;
+  time: string; // «HH:MM» — төлем түскен уақыт
+  kind: PaymentKind | ""; // бос — өзі ұсынылады
 }
 
 const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+const nowTime = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(11, 16);
+const emptyPay = (): PayState => ({ amount: "", method: "", date: today(), time: nowTime(), kind: "" });
 const emptyItem = (): ItemState => ({
   kind: "",
   open: true,
@@ -107,7 +112,7 @@ export function SalesOrderForm({
   const [cars, setCars] = useState<CarState[]>([emptyCar()]);
   const setCar = (c: number, patch: Partial<CarState>) => setCars((xs) => xs.map((x, i) => (i === c ? { ...x, ...patch } : x)));
   const [items, setItems] = useState<ItemState[]>([emptyItem()]);
-  const [pays, setPays] = useState<PayState[]>([{ amount: "", method: "", date: today() }]);
+  const [pays, setPays] = useState<PayState[]>([emptyPay()]);
   const [pickup, setPickup] = useState("");
   const [comment, setComment] = useState("");
   const [pending, start] = useTransition();
@@ -152,6 +157,8 @@ export function SalesOrderForm({
     const paid = pays.reduce((s, p) => s + (num(p.amount) ?? 0), 0);
     return { price, sold, paid, rest: Math.max(0, sold - paid) };
   }, [items, pays]);
+  // Төлем түрі: менеджер таңдамаса — өзі ұсынылады (бір чек бәрін жапса — Полная оплата, әйтпесе Предоплата → Доплата)
+  const suggestedKinds = suggestPaymentKinds(totals.sold, pays.map((p) => num(p.amount) ?? 0));
 
   function submit() {
     setResult(null);
@@ -186,7 +193,7 @@ export function SalesOrderForm({
           carIndex: cars.length > 1 ? i.carIndex : 0,
           };
         }),
-        payments: pays.map((p) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date })),
+        payments: pays.map((p, k) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date, time: p.time, kind: p.kind || suggestedKinds[k] })),
         pickupMethod: pickup,
         comment,
       });
@@ -197,7 +204,7 @@ export function SalesOrderForm({
 
   function reset() {
     setPhone(""); setName(""); setChannel(""); setCars([emptyCar()]);
-    setItems([emptyItem()]); setPays([{ amount: "", method: "", date: today() }]);
+    setItems([emptyItem()]); setPays([emptyPay()]);
     setPickup(""); setComment(""); setResult(null);
   }
 
@@ -498,27 +505,64 @@ export function SalesOrderForm({
         </Section>
 
         <Section n={4} title="Төлем">
-          {pays.map((p, k) => (
-            <div key={k} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.4fr_1fr_auto]">
-              <Field label={`Чек ${k + 1} сумма`}>
-                <ListInput value={p.amount} onChange={(v) => setPay(k, { amount: v })} inputMode="numeric" placeholder="50000" />
-              </Field>
-              <Field label="Способ оплаты">
-                <ListInput value={p.method} onChange={(v) => setPay(k, { method: v })} list="o-pay" placeholder="каспий пэй" />
-              </Field>
-              <Field label="Күні">
-                <input type="date" className={inputCls} value={p.date} onChange={(e) => setPay(k, { date: e.target.value })} />
-              </Field>
-              <div className="flex items-end">
-                {pays.length > 1 && (
-                  <button type="button" aria-label="Чекті алып тастау" onClick={() => setPays((xs) => xs.filter((_, i) => i !== k))} className="grid h-11 w-11 place-items-center rounded-icon text-text-secondary hover:bg-page-bg">
-                    <Trash2 size={16} />
-                  </button>
-                )}
+          {pays.map((p, k) => {
+            const kind = p.kind || suggestedKinds[k];
+            // Осы чекке дейінгі қалдық — «Қалдығын толтыру» үшін
+            const before = pays.slice(0, k).reduce((sum, x) => sum + (num(x.amount) ?? 0), 0);
+            const restHere = Math.max(0, totals.sold - before);
+            return (
+              <div key={k} className="flex flex-col gap-2 rounded-icon border border-border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-text-primary">Чек {k + 1}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(Object.keys(PAYMENT_KIND_LABEL) as PaymentKind[]).map((pk) => (
+                      <button
+                        key={pk}
+                        type="button"
+                        onClick={() => setPay(k, { kind: pk })}
+                        className={`min-h-8 rounded-pill border-[1.5px] px-3 text-xs font-bold ${
+                          kind === pk
+                            ? pk === "FULL"
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                              : pk === "PREPAY"
+                                ? "border-amber-500 bg-amber-50 text-amber-700"
+                                : "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface text-text-secondary hover:border-accent/50"
+                        }`}
+                      >
+                        {PAYMENT_KIND_LABEL[pk]}
+                      </button>
+                    ))}
+                    {pays.length > 1 && (
+                      <button type="button" aria-label="Чекті алып тастау" onClick={() => setPays((xs) => xs.filter((_, i) => i !== k))} className="grid h-8 w-8 place-items-center rounded-icon text-text-secondary hover:bg-page-bg">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.4fr_1fr_0.7fr]">
+                  <Field label="Сумма">
+                    <ListInput value={p.amount} onChange={(v) => setPay(k, { amount: v })} inputMode="numeric" placeholder="50000" />
+                    {restHere > 0 && num(p.amount) !== restHere && (
+                      <button type="button" onClick={() => setPay(k, { amount: String(restHere) })} className="self-start text-xs font-bold text-accent hover:underline">
+                        Қалдығын толтыру: {money(restHere)}
+                      </button>
+                    )}
+                  </Field>
+                  <Field label="Способ оплаты">
+                    <ListInput value={p.method} onChange={(v) => setPay(k, { method: v })} list="o-pay" placeholder="каспий пэй" />
+                  </Field>
+                  <Field label="Күні">
+                    <input type="date" className={inputCls} value={p.date} onChange={(e) => setPay(k, { date: e.target.value })} />
+                  </Field>
+                  <Field label="Уақыты">
+                    <input type="time" className={inputCls} value={p.time} onChange={(e) => setPay(k, { time: e.target.value })} />
+                  </Field>
+                </div>
               </div>
-            </div>
-          ))}
-          <button type="button" onClick={() => setPays((xs) => [...xs, { amount: "", method: "", date: today() }])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
+            );
+          })}
+          <button type="button" onClick={() => setPays((xs) => [...xs, emptyPay()])} className="flex items-center gap-1.5 self-start text-sm font-bold text-accent">
             <Plus size={16} /> Тағы чек
           </button>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
