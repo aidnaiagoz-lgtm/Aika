@@ -22,6 +22,7 @@ interface ItemState {
   leatherType: string;
   leatherThread: string;
   leatherPiping: string;
+  leatherPipingThread: string; // Окантовка нитка
   matType: string;
   matThread: string;
   matPiping: string;
@@ -65,7 +66,7 @@ const emptyItem = (): ItemState => ({
   open: true,
   more: false,
   carIndex: 0,
-  product: "", price: "", soldFor: "", leatherType: "", leatherThread: "", leatherPiping: "",
+  product: "", price: "", soldFor: "", leatherType: "", leatherThread: "", leatherPiping: "", leatherPipingThread: "",
   matType: "", matThread: "", matPiping: "", pocketsPairs: "", pocketsLogo: false, workshop: false,
 });
 const num = (s: string) => {
@@ -88,6 +89,16 @@ function Field({ label, children, wide }: { label: string; children: React.React
 
 function ListInput({ value, onChange, list, placeholder, inputMode }: { value: string; onChange: (v: string) => void; list?: string; placeholder?: string; inputMode?: "numeric" | "tel" | "text" }) {
   return <input className={inputCls} value={value} list={list} placeholder={placeholder} inputMode={inputMode} onChange={(e) => onChange(e.target.value)} autoComplete="off" />;
+}
+
+/** Материал тобы (Кожа / Съёмный полик): тақырыбы бар бөлек жол, ішінде бағандар — Google кестедегі ретпен. */
+function MaterialGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-icon border border-border bg-page-bg/60 p-3 sm:col-span-2 lg:col-span-4">
+      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-text-secondary">{title}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.7fr_1fr_1fr_1fr]">{children}</div>
+    </div>
+  );
 }
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -158,7 +169,7 @@ export function SalesOrderForm({
       kind,
       workshop: kd.workshop,
       ...(keepProduct ? {} : { product: "", price: "" }),
-      ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "" }),
+      ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "", leatherPipingThread: "" }),
       ...(kd.mat ? {} : { matType: "", matThread: "", matPiping: "" }),
       ...(kd.pockets ? {} : { pocketsPairs: "", pocketsLogo: false }),
     });
@@ -191,7 +202,7 @@ export function SalesOrderForm({
           const kd = kindById(it.kind || productKind(it.product));
           const i = {
             ...it,
-            ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "" }),
+            ...(kd.leather ? {} : { leatherType: "", leatherThread: "", leatherPiping: "", leatherPipingThread: "" }),
             ...(kd.mat ? {} : { matType: "", matThread: "", matPiping: "" }),
             ...(kd.pockets ? {} : { pocketsPairs: "", pocketsLogo: false }),
           };
@@ -202,6 +213,7 @@ export function SalesOrderForm({
           leatherType: i.leatherType,
           leatherThread: i.leatherThread,
           leatherPiping: i.leatherPiping,
+          leatherPipingThread: i.leatherPipingThread,
           matType: i.matType,
           matThread: i.matThread,
           matPiping: i.matPiping,
@@ -472,30 +484,40 @@ export function SalesOrderForm({
                           </div>
                         </Field>
                         {kd.leather && (
-                          <>
-                            <Field label="Кожа вид" wide>
+                          <MaterialGroup title={ru ? "Кожа" : "Кожа (былғары)"}>
+                            <Field label={ru ? "Вид кожи" : "Кожа түрі"}>
                               <ListInput value={it.leatherType} onChange={(v) => setItem(k, { leatherType: v })} list="o-leather" />
                             </Field>
-                            <Field label="Кожа нитка">
-                              <ListInput value={it.leatherThread} onChange={(v) => setItem(k, { leatherThread: v })} list="o-thread" />
+                            <Field label="Стыковка нитка">
+                              <ListInput
+                                value={it.leatherThread}
+                                onChange={(v) =>
+                                  // Окантовка нитка бос болса — көбіне сол жіп, өзі толады (өзгертуге болады)
+                                  setItem(k, { leatherThread: v, ...(!it.leatherPipingThread || it.leatherPipingThread === it.leatherThread ? { leatherPipingThread: v } : {}) })
+                                }
+                                list="o-thread"
+                              />
                             </Field>
-                            <Field label="Кожа окантовка">
+                            <Field label={ru ? "Окантовка (лента)" : "Окантовка (лента)"}>
                               <ListInput value={it.leatherPiping} onChange={(v) => setItem(k, { leatherPiping: v })} list="o-piping" />
                             </Field>
-                          </>
+                            <Field label="Окантовка нитка">
+                              <ListInput value={it.leatherPipingThread} onChange={(v) => setItem(k, { leatherPipingThread: v })} list="o-thread" />
+                            </Field>
+                          </MaterialGroup>
                         )}
                         {kd.mat && (
-                          <>
-                            <Field label="Съёмный полик вид" wide>
+                          <MaterialGroup title={ru ? "Съёмный полик" : "Съёмный полик"}>
+                            <Field label={ru ? "Вид" : "Түрі"}>
                               <ListInput value={it.matType} onChange={(v) => setItem(k, { matType: v })} list="o-mat" />
                             </Field>
-                            <Field label="Съёмный нитка">
+                            <Field label="Нитка">
                               <ListInput value={it.matThread} onChange={(v) => setItem(k, { matThread: v })} list="o-matthread" />
                             </Field>
-                            <Field label="Съёмный окантовка">
+                            <Field label="Окантовка">
                               <ListInput value={it.matPiping} onChange={(v) => setItem(k, { matPiping: v })} list="o-matpiping" />
                             </Field>
-                          </>
+                          </MaterialGroup>
                         )}
                         {kd.pockets && (
                           <>

@@ -16,6 +16,7 @@ export interface ClientJob {
   leatherType: string | null;
   leatherThread: string | null;
   leatherPiping: string | null;
+  leatherPipingThread?: string | null;
   matType: string | null;
   pocketsPairs: number | null;
   lekalaNote: string | null;
@@ -76,8 +77,9 @@ export function JobCard({ job, workers, highlight }: { job: ClientJob; workers: 
             <dt className="text-text-secondary">Кожа</dt>
             <dd className="m-0 font-medium">
               {clean(job.leatherType)}
-              {job.leatherThread ? ` · жіп: ${clean(job.leatherThread)}` : ""}
+              {job.leatherThread ? ` · стыковка жібі: ${clean(job.leatherThread)}` : ""}
               {job.leatherPiping ? ` · лента: ${clean(job.leatherPiping)}` : ""}
+              {job.leatherPipingThread ? ` · окантовка жібі: ${clean(job.leatherPipingThread)}` : ""}
             </dd>
           </>
         )}

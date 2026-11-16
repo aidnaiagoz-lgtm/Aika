@@ -54,6 +54,7 @@ type LedgerLike = {
   leatherType: string | null;
   leatherThread: string | null;
   leatherPiping: string | null;
+  leatherPipingThread?: string | null;
   matType: string | null;
   matThread: string | null;
   matPiping: string | null;
@@ -71,6 +72,7 @@ function fieldsFromRow(r: LedgerLike) {
     leatherType: r.leatherType,
     leatherThread: r.leatherThread,
     leatherPiping: r.leatherPiping,
+    leatherPipingThread: r.leatherPipingThread ?? null,
     matType: r.matType,
     matThread: r.matThread,
     matPiping: r.matPiping,
@@ -80,7 +82,7 @@ function fieldsFromRow(r: LedgerLike) {
 
 const LEDGER_SELECT = {
   id: true, no: true, date: true, createdAt: true, manager: true, car: true, brand: true, carYear: true, workshop: true,
-  product: true, leatherType: true, leatherThread: true, leatherPiping: true, matType: true, matThread: true, matPiping: true,
+  product: true, leatherType: true, leatherThread: true, leatherPiping: true, leatherPipingThread: true, matType: true, matThread: true, matPiping: true,
   pocketsPairs: true, workshopJob: true,
 } as const;
 
