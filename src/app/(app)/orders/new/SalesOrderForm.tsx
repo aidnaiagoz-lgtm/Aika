@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { createSalesOrderAction, type SalesOrderResult } from "./sales-actions";
@@ -47,9 +47,19 @@ interface PayState {
   kind: PaymentKind | ""; // бос — өзі ұсынылады
 }
 
-const today = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
-const nowTime = () => new Date(Date.now() + 5 * 3600_000).toISOString().slice(11, 16);
+// Күн мен уақыт — менеджердің компьютеріндегі сағат бойынша (сервердің уақыты емес — 2026-11-16 «17:19» қатесі)
+const pad = (n: number) => String(n).padStart(2, "0");
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const nowTime = () => {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 const emptyPay = (): PayState => ({ amount: "", method: "", date: today(), time: nowTime(), kind: "" });
+// Бет серверде құрылғанда уақыт бос — браузерде ашылған соң өзі толады
+const serverPay = (): PayState => ({ amount: "", method: "", date: "", time: "", kind: "" });
 const emptyItem = (): ItemState => ({
   kind: "",
   open: true,
@@ -112,7 +122,11 @@ export function SalesOrderForm({
   const [cars, setCars] = useState<CarState[]>([emptyCar()]);
   const setCar = (c: number, patch: Partial<CarState>) => setCars((xs) => xs.map((x, i) => (i === c ? { ...x, ...patch } : x)));
   const [items, setItems] = useState<ItemState[]>([emptyItem()]);
-  const [pays, setPays] = useState<PayState[]>([emptyPay()]);
+  const [pays, setPays] = useState<PayState[]>([serverPay()]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- бір рет: бет ашылғанда браузердің күні/уақыты қойылады
+    setPays((xs) => xs.map((p) => ({ ...p, date: p.date || today(), time: p.time || nowTime() })));
+  }, []);
   const [pickup, setPickup] = useState("");
   const [comment, setComment] = useState("");
   const [pending, start] = useTransition();
@@ -193,7 +207,7 @@ export function SalesOrderForm({
           carIndex: cars.length > 1 ? i.carIndex : 0,
           };
         }),
-        payments: pays.map((p, k) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date, time: p.time, kind: p.kind || suggestedKinds[k] })),
+        payments: pays.map((p, k) => ({ amount: num(p.amount) ?? 0, method: p.method, date: p.date || today(), time: p.time || nowTime(), kind: p.kind || suggestedKinds[k] })),
         pickupMethod: pickup,
         comment,
       });
@@ -490,7 +504,7 @@ export function SalesOrderForm({
                           </>
                         )}
                         <label className="flex min-h-11 items-center gap-2 self-end rounded-icon bg-[#f1eeff] px-3 text-sm font-bold text-[#6a4ff5] sm:col-span-2">
-                          <input type="checkbox" className="h-5 w-5" checked={it.workshop} onChange={(e) => setItem(k, { workshop: e.target.checked })} /> Цех — цехта тігіледі
+                          <input type="checkbox" className="h-5 w-5" checked={it.workshop} onChange={(e) => setItem(k, { workshop: e.target.checked })} /> Цехқа жіберілді
                         </label>
                       </div>
                     )}
