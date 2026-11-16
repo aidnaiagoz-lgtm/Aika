@@ -40,6 +40,8 @@ export interface UnifiedItem {
   detail: string | null; // кожа / жіп
   amount: number;
   workshop: WorkshopMark;
+  /** Осы тауардың Google кестедегі / Продажи жолының № (сайт заказында — өзі берілген №); жоқ болса — null. */
+  no: number | null;
 }
 
 export interface UnifiedRow {
@@ -262,6 +264,7 @@ export async function listUnifiedOrders(
           detail: [i.configuration?.leatherType, i.configuration?.threadColor].filter(Boolean).join(" / ") || null,
           amount: Number(i.unitPrice) * (i.qty || 1),
           workshop: (i.ledgerRowId && orderWs.get(i.ledgerRowId)) || (i.workshop ? "marked" : "none"),
+          no: i.ledgerRow?.no ?? null,
         };
       }),
       total,
@@ -333,6 +336,7 @@ export async function listUnifiedOrders(
         detail: [r.leatherType, r.leatherThread].filter(Boolean).join(" / ") || null,
         amount,
         workshop: ledgerWs.get(r.id) ?? (isTrue(r.workshop) ? "marked" : "none"),
+        no: r.no,
       };
     });
     const firstCar = rows.find((r) => r.car || r.brand) ?? r0;
