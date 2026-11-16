@@ -144,9 +144,10 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
             ))}
           </div>
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-left text-sm">
+            {/* Google кесте сияқты: әр тауар — өз жолы, өз №-імен; заказдың ортақ ұяшықтары біріктірілген; барлық ұяшық сызықпен (CEO, 2026-11-16). */}
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="text-xs text-text-secondary">
+                <tr className="bg-page-bg text-xs text-text-secondary">
                   {[
                     "№",
                     t("Күні", "Дата"),
@@ -161,7 +162,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
                     t("Менеджер", "Менеджер"),
                     "",
                   ].map((h, i) => (
-                    <th key={i} className="whitespace-nowrap pb-3 pr-4 font-semibold">
+                    <th key={i} className="whitespace-nowrap border border-border px-3 py-2 font-semibold">
                       {h}
                     </th>
                   ))}
@@ -169,7 +170,7 @@ export async function UnifiedOrders({ user, locale, filters }: Props) {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <Row key={r.key} r={r} t={t} date={dateFmt.format(r.date)} time={tm(r)} />
+                  <OrderRows key={r.key} r={r} t={t} date={dateFmt.format(r.date)} time={tm(r)} />
                 ))}
               </tbody>
             </table>
@@ -200,12 +201,13 @@ const WS: Record<WorkshopMark, { kk: string; ru: string; dot: string } | null> =
 type T = (kk: string, ru: string) => string;
 const SHOW = 3; // алғашқы 3 тауар көрінеді, қалғаны «+N тауар ▾»
 
-function ItemLine({ it, t }: { it: UnifiedItem; t: T }) {
+function ItemLine({ it, t, showNo = false }: { it: UnifiedItem; t: T; showNo?: boolean }) {
   const ws = WS[it.workshop];
   return (
     <div className="flex items-start justify-between gap-3 py-0.5">
       <div className="min-w-0">
         <div className="text-text-primary">
+          {showNo && it.no != null && <span className="mr-1.5 font-bold tabular-nums text-text-secondary">№{it.no}</span>}
           {it.kind && <span className="font-semibold">{it.kind} · </span>}
           {it.name}
           {ws && (
@@ -234,7 +236,7 @@ function Items({ r, t }: { r: UnifiedRow; t: T }) {
         </span>
       )}
       {head.map((it, i) => (
-        <ItemLine key={i} it={it} t={t} />
+        <ItemLine key={i} it={it} t={t} showNo />
       ))}
       {rest.length > 0 && (
         <details className="group">
@@ -243,7 +245,7 @@ function Items({ r, t }: { r: UnifiedRow; t: T }) {
             <span className="hidden group-open:inline">{t("Жию ▴", "Свернуть ▴")}</span>
           </summary>
           {rest.map((it, i) => (
-            <ItemLine key={i} it={it} t={t} />
+            <ItemLine key={i} it={it} t={t} showNo />
           ))}
         </details>
       )}
@@ -273,41 +275,68 @@ function Remainder({ r }: { r: UnifiedRow }) {
   return <span className={`font-semibold tabular-nums ${r.remainder > 0 ? "text-danger" : "text-emerald-600"}`}>{r.remainder > 0 ? money(r.remainder) : "0 ✓"}</span>;
 }
 
-function Row({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; time: string | null }) {
+const cell = "border border-border px-3 py-2";
+
+/**
+ * Бір заказ = бірнеше жол (әр тауар — бөлек жол, өз №-імен, Google кестедегідей).
+ * Күні, клиент, көлік, сомалар, менеджер — заказға ортақ, сондықтан біріктірілген (rowSpan).
+ */
+function OrderRows({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; time: string | null }) {
+  const items: (UnifiedItem | null)[] = r.items.length ? r.items : [null];
+  const span = items.length;
+  const bg = r.mine ? "bg-accent/5" : "";
+  // Заказдардың арасы — қалың сызық, қай № қай заказдікі екені бірден көрінсін.
+  const top = "border-t-2 border-t-text-secondary/40";
   return (
-    <tr className={`border-t border-border align-top ${r.mine ? "bg-accent/5" : ""}`}>
-      <td className="whitespace-nowrap py-3 pr-4 font-bold tabular-nums text-text-primary">{r.no || "—"}</td>
-      <td className="whitespace-nowrap py-3 pr-4 text-text-secondary">{date}</td>
-      <td className="whitespace-nowrap py-3 pr-4 font-semibold tabular-nums text-text-primary">{time ?? <span className="font-normal text-text-secondary">—</span>}</td>
-      <td className="py-3 pr-4">
-        <SourceBadge r={r} t={t} />
-      </td>
-      <td className="whitespace-nowrap py-3 pr-4">
-        <div className="font-semibold text-text-primary">{r.customerName || "—"}</div>
-        <div className="text-xs text-text-secondary">{r.phone}</div>
-      </td>
-      <td className="whitespace-nowrap py-3 pr-4">
-        <div className="text-text-primary">{r.car || "—"}</div>
-        {r.carYear && <div className="text-xs text-text-secondary">{r.carYear}</div>}
-      </td>
-      <td className="min-w-[300px] max-w-[440px] py-3 pr-6">
-        <Items r={r} t={t} />
-      </td>
-      <td className="whitespace-nowrap py-3 pr-4 font-bold tabular-nums">{money(r.total)}</td>
-      <td className="whitespace-nowrap py-3 pr-4 tabular-nums text-text-secondary">{money(r.paid)}</td>
-      <td className="whitespace-nowrap py-3 pr-4">
-        <Remainder r={r} />
-      </td>
-      <td className="whitespace-nowrap py-3 pr-4">
-        <span className={r.mine ? "font-semibold text-text-primary" : "text-text-secondary"}>
-          {r.manager || "—"}
-          {r.mine && ` (${t("мен", "я")})`}
-        </span>
-      </td>
-      <td className="whitespace-nowrap py-3 pr-2 text-xs">
-        <Action r={r} t={t} />
-      </td>
-    </tr>
+    <>
+      {items.map((it, k) => {
+        const first = k === 0;
+        const t0 = first ? top : "";
+        return (
+          <tr key={k} className={`align-top ${bg}`}>
+            <td className={`${cell} ${t0} whitespace-nowrap font-bold tabular-nums text-text-primary`}>{it?.no ?? (first && r.no ? r.no : "—")}</td>
+            {first && (
+              <>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap text-text-secondary`}>{date}</td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap font-semibold tabular-nums text-text-primary`}>
+                  {time ?? <span className="font-normal text-text-secondary">—</span>}
+                </td>
+                <td rowSpan={span} className={`${cell} ${t0}`}>
+                  <SourceBadge r={r} t={t} />
+                </td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap`}>
+                  <div className="font-semibold text-text-primary">{r.customerName || "—"}</div>
+                  <div className="text-xs text-text-secondary">{r.phone}</div>
+                </td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap`}>
+                  <div className="text-text-primary">{r.car || "—"}</div>
+                  {r.carYear && <div className="text-xs text-text-secondary">{r.carYear}</div>}
+                </td>
+              </>
+            )}
+            <td className={`${cell} ${t0} min-w-[300px] max-w-[440px]`}>{it ? <ItemLine it={it} t={t} /> : <span className="text-text-secondary">—</span>}</td>
+            {first && (
+              <>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap font-bold tabular-nums`}>{money(r.total)}</td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap tabular-nums text-text-secondary`}>{money(r.paid)}</td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap`}>
+                  <Remainder r={r} />
+                </td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap`}>
+                  <span className={r.mine ? "font-semibold text-text-primary" : "text-text-secondary"}>
+                    {r.manager || "—"}
+                    {r.mine && ` (${t("мен", "я")})`}
+                  </span>
+                </td>
+                <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap text-xs`}>
+                  <Action r={r} t={t} />
+                </td>
+              </>
+            )}
+          </tr>
+        );
+      })}
+    </>
   );
 }
 
