@@ -243,7 +243,7 @@ export function SalesOrderForm({
         <span className="grid h-14 w-14 place-items-center rounded-full bg-[#e7f7ec] text-[#15803d]">
           <Check size={28} />
         </span>
-        <h2 className="m-0 text-xl font-bold">Заказ сақталды · {result.orderNumber}</h2>
+        <h2 className="m-0 text-xl font-bold">{ru ? "Заказ отправлен" : "Заказ жіберілді"} · {result.orderNumber}</h2>
         <p className="m-0 text-sm text-text-secondary">
           Продажи кестесіне түсті: №{result.nos.join(", №")}. Рейтинг, касса{items.some((i) => i.workshop) ? ", цех (Бекзатқа хабар)" : ""} өзі жаңарды.
         </p>
@@ -630,7 +630,7 @@ export function SalesOrderForm({
         </div>
         {result && !result.ok && <p className="m-0 rounded-icon bg-danger/10 px-3 py-2 text-sm text-danger">{result.error}</p>}
         <button type="button" disabled={pending} onClick={submit} className="min-h-12 rounded-icon bg-[#1f4fe0] text-base font-bold text-white disabled:opacity-60">
-          {pending ? "Сақталуда..." : "Заказды сақтау"}
+          {pending ? (ru ? "Отправляется..." : "Жіберілуде...") : ru ? "Отправить заказ" : "Заказды жіберу"}
         </button>
         <p className="m-0 text-xs text-text-secondary">
           Сақтағанда әр тауар Продажи кестесіне жол болып түседі: рейтинг, касса, цех өзі жаңарады.
