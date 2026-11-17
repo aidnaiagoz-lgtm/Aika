@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
 import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen } from "@/lib/access";
+import { flowCounts } from "@/lib/domain/orders/workflow";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -29,6 +30,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const roleLabel = role ? (t.roles[role.name] ?? role.name) : t.roles.employeeFallback;
   const displayName = user.employee?.fullName ?? user.email;
 
+  // «Заказдар ▾» сандары (цехта / дайын) — цех жауаптысына керек емес
+  const orderCounts = workshopMode ? undefined : await flowCounts(user).catch(() => undefined);
+
   const unreadCount = await prisma.notification.count({
     where: {
       readAt: null,
@@ -45,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-page-bg">
-      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
+      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} orderCounts={orderCounts} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           userName={displayName}
