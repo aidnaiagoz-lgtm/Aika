@@ -13,7 +13,9 @@ export const CHANNELS = [
   { code: "OLX_2", label: "ОЛХ-2", aliases: ["олх-2", "олх 2", "olx-2", "olx 2", "олх2", "olx2", "olx новый", "олх новый"] },
   { code: "RETURNING", label: "ескі клиент", aliases: ["ескі клиент", "старый клиент", "ески клиент"] },
   { code: "INSTAGRAM", label: "инстаграм", aliases: ["инстаграм", "instagram", "инста"] },
-  { code: "TIKTOK", label: "ТикТок", aliases: ["тикток", "tiktok", "тик ток"] },
+  { code: "TIKTOK", label: "TikTok", aliases: ["тикток", "tiktok", "тик ток"] },
+  // 2026-11-17 (CEO): таргет жарнама — бөлек канал
+  { code: "TARGET", label: "Target", aliases: ["target", "таргет", "таргетинг"] },
   { code: "SITE", label: "сайт", aliases: ["сайт", "site"] },
   { code: "KASPI", label: "каспий", aliases: ["каспий", "kaspi"] },
   { code: "CERTIFICATE", label: "сертификат", aliases: ["сертификат"] },
