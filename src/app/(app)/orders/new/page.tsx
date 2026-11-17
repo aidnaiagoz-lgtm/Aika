@@ -23,6 +23,9 @@ export default async function NewOrderPage() {
   // Модель де ағылшынша — «туксон» → «Tucson», «прадо150» → «Prado 150».
   const en = (xs: string[], f: (x: string) => string) => [...new Set(xs.map(f).filter(Boolean))];
   options.car = en(options.car ?? [], canonicalMake);
+  // Канал тізімі (CEO, 2026-11-17): «Сипуни» мен «сертификат» алынды; «Target» және «TikTok» — ағылшынша
+  const DROP = /^(сипуни|sipuni|сертификат|таргет|target|тикток|тик ток|tiktok)$/i;
+  options.contactChannel = [...(options.contactChannel ?? []).filter((c) => !DROP.test(c.trim())), "Target", "TikTok"];
   options.brand = en(options.brand ?? [], canonicalModel);
   const modelsByMake: Record<string, string[]> = {};
   for (const [make, list] of Object.entries(rawModels)) {
