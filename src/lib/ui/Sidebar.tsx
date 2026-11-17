@@ -12,11 +12,14 @@ export function Sidebar({
   userRole,
   locale,
   mode = "staff",
+  orderCounts,
 }: {
   userName: string;
   userRole: string;
   locale: Locale;
   mode?: "manager" | "workshop" | "leader" | "staff";
+  /** «Заказдар ▾» ішіндегі сандар: цехта / дайын (берілмеген). */
+  orderCounts?: { sewing: number; ready: number };
 }) {
   const pathname = usePathname();
   const [departmentsOpen, setDepartmentsOpen] = useState<boolean>(pathname.startsWith("/departments"));
@@ -47,7 +50,7 @@ export function Sidebar({
             icon={Table2}
             active={pathname.startsWith("/departments/sales/almaty")}
           />
-          <NavLink href="/orders" label={t.sidebar.nav.orders} icon={Package} active={pathname.startsWith("/orders")} />
+          <OrdersGroup label={t.sidebar.nav.orders} pathname={pathname} counts={orderCounts} />
           <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
         </nav>
         <UserCard userName={userName} userRole={userRole} online={t.common.online} />
@@ -138,13 +141,72 @@ export function Sidebar({
           </>
         )}
 
-        {NAV_ITEMS.slice(1).map((item) => (
-          <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} />
-        ))}
+        {NAV_ITEMS.slice(1).map((item) =>
+          item.href === "/orders" ? (
+            <OrdersGroup key={item.href} label={item.label} pathname={pathname} counts={orderCounts} />
+          ) : (
+            <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} />
+          )
+        )}
       </nav>
 
       <UserCard userName={userName} userRole={userRole} online={t.common.online} />
     </aside>
+  );
+}
+
+/** «Заказдар ▾» — ішінде: Жаңа заказ · Тігілуде · Дайын · Барлық заказдар (CEO, 2026-11-17). */
+export const ORDER_SUBNAV = [
+  { href: "/orders/new", label: "Жаңа заказ", key: null },
+  { href: "/orders/sewing", label: "Тігілуде", key: "sewing" },
+  { href: "/orders/ready", label: "Дайын", key: "ready" },
+  { href: "/orders", label: "Барлық заказдар", key: null },
+] as const;
+
+export function orderSubActive(pathname: string, href: string) {
+  if (href === "/orders") return pathname === "/orders" || /^\/orders\/(?!new|sewing|ready)/.test(pathname);
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+function OrdersGroup({ label, pathname, counts }: { label: string; pathname: string; counts?: { sewing: number; ready: number } }) {
+  const inOrders = pathname.startsWith("/orders");
+  const [open, setOpen] = useState<boolean>(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center justify-between rounded-icon px-3 py-2.5 text-sm font-medium transition-colors ${
+          inOrders ? "bg-accent-tint text-accent" : "text-text-primary hover:bg-page-bg"
+        }`}
+      >
+        <span className="flex items-center gap-3">
+          <Package size={18} />
+          {label}
+        </span>
+        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+      </button>
+      {open && (
+        <div className="ml-4 flex flex-col gap-0.5 border-l border-border pl-3">
+          {ORDER_SUBNAV.map((s) => {
+            const active = orderSubActive(pathname, s.href);
+            const n = s.key && counts ? counts[s.key] : 0;
+            return (
+              <Link
+                key={s.href}
+                href={s.href}
+                className={`flex items-center justify-between rounded-icon px-3 py-2 text-sm transition-colors ${
+                  active ? "bg-accent-tint/60 font-semibold text-accent" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {s.label}
+                {n > 0 && <span className={`text-xs font-semibold tabular-nums ${active ? "text-accent" : "text-text-secondary"}`}>{n}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
 

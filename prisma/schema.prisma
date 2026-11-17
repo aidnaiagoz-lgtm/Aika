@@ -1229,6 +1229,9 @@ model WorkshopJob {
   startedAt  DateTime?
   doneAt     DateTime?
   notifiedAt DateTime?
+  /// Клиентке берілді (менеджер «Берілді» басты, 2026-11-17) — «Дайын» тізімінен шығады
+  handedAt   DateTime?
+  handedBy   String?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
