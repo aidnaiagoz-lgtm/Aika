@@ -62,6 +62,12 @@ test("splitMaterial, swatchColor, normDiffPct", async () => {
   assert.equal(swatchColor("Красный"), "#c81e1e");
   assert.equal(swatchColor("Бриллиант серый"), "#8b9099");
   assert.equal(swatchColor("Майбах"), null);
+  assert.equal(swatchColor("Вектор кара"), "#1d1d1d");
+  assert.equal(swatchColor("кара"), "#1d1d1d");
+  assert.equal(swatchColor("Каракум"), null);
+  assert.equal(swatchColor("серый мини"), "#8b9099");
+  assert.equal(swatchColor("Ақ"), "#f3f4f6");
+  assert.equal(swatchColor("Миниромб оранжевый"), "#eab308");
   assert.equal(normDiffPct(2.15, 1.75), 23);
   assert.equal(normDiffPct(1.75, 1.75), 0);
   assert.equal(normDiffPct(null, 1.75), null);
