@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   activateWorkshop,
   addWorker,
+  almatyTodayStart,
+  closeStaleJobs,
   finishJob,
   reopenJob,
   setRate,
@@ -23,7 +25,7 @@ async function run(fn: (user: NonNullable<Awaited<ReturnType<typeof getCurrentUs
   if (!user) return { ok: false, error: "Сессия аяқталған — қайта кіріңіз" };
   try {
     await fn(user);
-    for (const p of paths) revalidatePath(p);
+    for (const p of paths) revalidatePath(p, "layout");
     return { ok: true };
   } catch (e) {
     if (e instanceof WorkshopError) return { ok: false, error: e.message };
@@ -37,15 +39,20 @@ export async function updateJobAction(id: string, patch: JobPatch) {
 }
 
 export async function startJobAction(id: string) {
-  return run((u) => startJob(u, id));
+  return run((u) => startJob(u, id), ["/workshop", "/orders"]);
+}
+
+/** CEO: бүгінге дейін түсіп, «Жаңа»/«Тігіліп жатыр» күйінде қалған ескі тапсырмаларды жабу. */
+export async function closeStaleJobsAction() {
+  return run((u) => closeStaleJobs(u, almatyTodayStart()), ["/workshop", "/orders"]);
 }
 
 export async function finishJobAction(id: string) {
-  return run((u) => finishJob(u, id), ["/workshop", "/workshop/pay", "/departments/sales/almaty"]);
+  return run((u) => finishJob(u, id), ["/workshop", "/orders", "/departments/sales/almaty"]);
 }
 
 export async function reopenJobAction(id: string) {
-  return run((u) => reopenJob(u, id), ["/workshop", "/workshop/pay"]);
+  return run((u) => reopenJob(u, id), ["/workshop", "/orders"]);
 }
 
 export async function activateWorkshopAction() {

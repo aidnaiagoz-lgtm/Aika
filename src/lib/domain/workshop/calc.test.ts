@@ -50,3 +50,20 @@ test("jobHeadline: клиент деректерінсіз, қысқа", () => {
   );
   assert.equal(jobHeadline({ car: "киа", brand: "спортейдж" }), "киа спортейдж");
 });
+
+test("splitMaterial, swatchColor, normDiffPct", async () => {
+  const { splitMaterial, swatchColor, normDiffPct } = await import("./calc");
+  assert.deepEqual(splitMaterial("4050 - Кожа - Жанек ромб қара"), { code: "4050", name: "Жанек ромб қара" });
+  assert.deepEqual(splitMaterial("1162 - Жіп - қара"), { code: "1162", name: "қара" });
+  assert.deepEqual(splitMaterial("Имитация черный"), { code: null, name: "Имитация черный" });
+  assert.equal(splitMaterial("  "), null);
+  assert.equal(swatchColor("Жанек ромб қара"), "#1d1d1d");
+  assert.equal(swatchColor("Шахмат теракот"), "#b5523b");
+  assert.equal(swatchColor("Красный"), "#c81e1e");
+  assert.equal(swatchColor("Бриллиант серый"), "#8b9099");
+  assert.equal(swatchColor("Майбах"), null);
+  assert.equal(normDiffPct(2.15, 1.75), 23);
+  assert.equal(normDiffPct(1.75, 1.75), 0);
+  assert.equal(normDiffPct(null, 1.75), null);
+  assert.equal(normDiffPct(2, null), null);
+});

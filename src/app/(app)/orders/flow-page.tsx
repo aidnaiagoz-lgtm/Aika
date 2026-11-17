@@ -2,6 +2,7 @@ import Link from "next/link";
 import { isLeader } from "@/lib/access";
 import type { FlowRow } from "@/lib/domain/orders/workflow";
 import { Elapsed, HandedButton } from "./flow-ui";
+import { PushSetup } from "../workshop/PushSetup";
 
 const dt = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty" });
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
@@ -51,6 +52,8 @@ export function FlowPage({
           </div>
         )}
       </div>
+
+      <PushSetup />
 
       {rows.length === 0 ? (
         <p className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary shadow-card">

@@ -106,3 +106,39 @@ export const LEATHER_OWNERS = [
 
 /** Іске қосқанда қосылатын қызметкерлер — «цех реестр»-де соңғы айларда жұмыс істегендер. */
 export const DEFAULT_WORKERS = ["Бекзат", "Мухаммад", "Бакдаулет", "Кайрат"];
+
+/** «4050 - Кожа - Жанек ромб қара» → { code: "4050", name: "Жанек ромб қара" } (қоймадағы атау форматы). */
+export function splitMaterial(raw: string | null | undefined): { code: string | null; name: string } | null {
+  const s = (raw ?? "").trim();
+  if (!s) return null;
+  const m = s.match(/^(\d+)\s*-\s*(?:Кожа|Жіп|Нитка|Лента|Ева|Eva|Леска|Поролон)?\s*-?\s*(.*)$/i);
+  if (m && m[2].trim()) return { code: m[1], name: m[2].trim() };
+  return { code: null, name: s };
+}
+
+const SWATCHES: Array<[RegExp, string]> = [
+  [/теракот/i, "#b5523b"],
+  [/қызыл|красн|бордо|вишн/i, "#c81e1e"],
+  [/қоңыр|коричн|шоколад|кофе/i, "#6f4e37"],
+  [/беж|крем|капучино|молоч/i, "#d6c3a5"],
+  [/сұр|сер[ыо]й|сер\b|графит/i, "#8b9099"],
+  [/ақ\b|бел[ыо]й|бел\b/i, "#f3f4f6"],
+  [/көк|син|голуб/i, "#1e3a8a"],
+  [/жасыл|зелен|олив/i, "#166534"],
+  [/сары|желт|оранж/i, "#eab308"],
+  [/қара|черн|кара\b/i, "#1d1d1d"],
+];
+
+/** Материал атауынан түсті табу (карточкадағы кішкене түс белгісі). Табылмаса — null. */
+export function swatchColor(name: string | null | undefined): string | null {
+  const s = (name ?? "").toLowerCase();
+  if (!s) return null;
+  for (const [re, c] of SWATCHES) if (re.test(s)) return c;
+  return null;
+}
+
+/** Нормадан қанша пайыз артық/кем (норма жоқ болса — null). */
+export function normDiffPct(meters: number | null | undefined, norm: number | null | undefined): number | null {
+  if (meters == null || norm == null || !(norm > 0) || Number.isNaN(meters)) return null;
+  return Math.round(((meters - norm) / norm) * 100);
+}
