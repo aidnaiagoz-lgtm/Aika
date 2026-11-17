@@ -13,6 +13,7 @@ export function Sidebar({
   locale,
   mode = "staff",
   orderCounts,
+  workshopCounts,
 }: {
   userName: string;
   userRole: string;
@@ -20,6 +21,8 @@ export function Sidebar({
   mode?: "manager" | "workshop" | "leader" | "staff";
   /** «Заказдар ▾» ішіндегі сандар: цехта / дайын (берілмеген). */
   orderCounts?: { sewing: number; ready: number };
+  /** «Цех ▾» ішіндегі сандар: түскен / тігіліп жатыр / дайын (14 күн). */
+  workshopCounts?: { new: number; work: number; done: number };
 }) {
   const pathname = usePathname();
   const [departmentsOpen, setDepartmentsOpen] = useState<boolean>(pathname.startsWith("/departments"));
@@ -66,7 +69,7 @@ export function Sidebar({
           <Logo />
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          <NavLink href="/workshop" label="Тапсырмалар" icon={Scissors} active={pathname === "/workshop"} />
+          <WorkshopGroup pathname={pathname} counts={workshopCounts} />
           <NavLink href="/workshop/pay" label="Айлық есебі" icon={Wallet} active={pathname.startsWith("/workshop/pay")} />
           <NavLink href="/workshop/workers" label="Қызметкерлер" icon={Users} active={pathname.startsWith("/workshop/workers")} />
           <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
@@ -136,7 +139,7 @@ export function Sidebar({
           <>
             <NavLink href="/goals" label="Мақсаттар" icon={Target} active={pathname.startsWith("/goals")} />
             <NavLink href="/managers" label="Менеджерлер" icon={Users} active={pathname.startsWith("/managers")} />
-            <NavLink href="/workshop" label="Цех" icon={Scissors} active={pathname.startsWith("/workshop")} />
+            <WorkshopGroup pathname={pathname} counts={workshopCounts} />
             <NavLink href="/import" label="Excel импорт" icon={FileUp} active={pathname.startsWith("/import")} />
           </>
         )}
@@ -191,6 +194,55 @@ function OrdersGroup({ label, pathname, counts }: { label: string; pathname: str
           {ORDER_SUBNAV.map((s) => {
             const active = orderSubActive(pathname, s.href);
             const n = s.key && counts ? counts[s.key] : 0;
+            return (
+              <Link
+                key={s.href}
+                href={s.href}
+                className={`flex items-center justify-between rounded-icon px-3 py-2 text-sm transition-colors ${
+                  active ? "bg-accent-tint/60 font-semibold text-accent" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {s.label}
+                {n > 0 && <span className={`text-xs font-semibold tabular-nums ${active ? "text-accent" : "text-text-secondary"}`}>{n}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** «Цех ▾» — Түскен заказдар · Тігіліп жатыр · Дайын (CEO, 2026-11-17). */
+export const WORKSHOP_SUBNAV = [
+  { href: "/workshop/incoming", label: "Түскен заказдар", key: "new" },
+  { href: "/workshop/sewing", label: "Тігіліп жатыр", key: "work" },
+  { href: "/workshop/ready", label: "Дайын", key: "done" },
+] as const;
+
+function WorkshopGroup({ pathname, counts }: { pathname: string; counts?: { new: number; work: number; done: number } }) {
+  const inWorkshop = /^\/workshop(\/(incoming|sewing|ready|job)|$|\?)/.test(pathname);
+  const [open, setOpen] = useState<boolean>(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center justify-between rounded-icon px-3 py-2.5 text-sm font-medium transition-colors ${
+          inWorkshop ? "bg-accent-tint text-accent" : "text-text-primary hover:bg-page-bg"
+        }`}
+      >
+        <span className="flex items-center gap-3">
+          <Scissors size={18} />
+          Цех
+        </span>
+        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+      </button>
+      {open && (
+        <div className="ml-4 flex flex-col gap-0.5 border-l border-border pl-3">
+          {WORKSHOP_SUBNAV.map((s) => {
+            const active = pathname === s.href || pathname.startsWith(s.href + "/");
+            const n = counts ? counts[s.key] : 0;
             return (
               <Link
                 key={s.href}

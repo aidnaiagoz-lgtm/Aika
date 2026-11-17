@@ -8,6 +8,7 @@ import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
 import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen } from "@/lib/access";
 import { flowCounts } from "@/lib/domain/orders/workflow";
+import { jobCounts } from "@/lib/domain/workshop";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -32,6 +33,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // «Заказдар ▾» сандары (цехта / дайын) — цех жауаптысына керек емес
   const orderCounts = workshopMode ? undefined : await flowCounts(user).catch(() => undefined);
+  // «Цех ▾» сандары — цех жауаптысы мен басшыға
+  const workshopCounts = workshopMode || isLeader(user) ? await jobCounts(user).catch(() => undefined) : undefined;
 
   const unreadCount = await prisma.notification.count({
     where: {
@@ -49,7 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-page-bg">
-      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} orderCounts={orderCounts} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
+      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} orderCounts={orderCounts} workshopCounts={workshopCounts} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           userName={displayName}
