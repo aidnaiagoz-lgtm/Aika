@@ -35,3 +35,27 @@ test("parseQty", () => {
   assert.equal(parseQty(""), null);
   assert.equal(parseQty("abc"), null);
 });
+
+test("parseMoySkladMatrix: тақырып, топтар, тек цех", async () => {
+  const { parseMoySkladMatrix, moySkladCategory } = await import("./stock-calc");
+  const m: unknown[][] = [
+    ["", "Остатки"],
+    [],
+    ["", "Код", "Артикул", "Наименование", "Ед.изм.", "Доступно", "Резерв", "Ожидание", "Остаток", "Себестоимость"],
+    ["", "Авточехлы"],
+    ["", "3097", "3097", "Чехол чер", "шт", 1, 0, 0, 1, 17500],
+    ["", "Цех/Материалы / Кожы"],
+    ["", 4050, "4050", "Жанек ромб кара", "м", 80, 0, 0, 86.4, 2900],
+    ["", "Цех/Ева листы"],
+    ["", "5058", "5058", "Ева серый мини", "шт", -295.5, 0, 0, -295.5, 0],
+  ];
+  const rows = parseMoySkladMatrix(m);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0], { group: "Цех/Материалы / Кожы", code: "4050", name: "Жанек ромб кара", unit: "м", stock: 86.4, cost: 2900 });
+  assert.equal(rows[1].stock, -295.5);
+  assert.equal(moySkladCategory("Цех/Жіптер /нитки"), "THREAD");
+  assert.equal(moySkladCategory("Авточехлы"), null);
+  assert.equal(moySkladCategory("Цех/Материалы / Кожы", "м"), "LEATHER");
+  assert.equal(moySkladCategory("Цех/Материалы / Кожы", "шт"), "ACCESSORIES");
+  assert.throws(() => parseMoySkladMatrix([["a", "b"]]));
+});
