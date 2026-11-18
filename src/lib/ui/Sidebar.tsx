@@ -7,6 +7,10 @@ import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot,
 import { Logo } from "./Logo";
 import { getDictionary, DEPARTMENT_SLUGS, type Locale } from "@/lib/i18n";
 
+/** Мәзір атауы екі тілде (ҚАЗ/РУС ауыстырғанда бәрі аударылсын). */
+export type NavLabel = { kk: string; ru: string };
+const L = (kk: string, ru: string): NavLabel => ({ kk, ru });
+
 export function Sidebar({
   userName,
   userRole,
@@ -27,6 +31,7 @@ export function Sidebar({
   const pathname = usePathname();
   const [departmentsOpen, setDepartmentsOpen] = useState<boolean>(pathname.startsWith("/departments"));
   const t = getDictionary(locale);
+  const l = (x: NavLabel) => x[locale];
 
   const NAV_ITEMS = [
     { href: "/dashboard", label: t.sidebar.nav.home, icon: Home },
@@ -53,8 +58,8 @@ export function Sidebar({
             icon={Table2}
             active={pathname.startsWith("/departments/sales/almaty")}
           />
-          <OrdersGroup label={t.sidebar.nav.orders} pathname={pathname} counts={orderCounts} />
-          <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
+          <OrdersGroup label={t.sidebar.nav.orders} pathname={pathname} counts={orderCounts} locale={locale} />
+          <NavLink href="/change-password" label={l(L("Парольді өзгерту", "Сменить пароль"))} icon={KeyRound} active={pathname === "/change-password"} />
         </nav>
         <UserCard userName={userName} userRole={userRole} online={t.common.online} />
       </aside>
@@ -69,10 +74,10 @@ export function Sidebar({
           <Logo />
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          <WorkshopGroup pathname={pathname} counts={workshopCounts} />
-          <NavLink href="/workshop/pay" label="Айлық есебі" icon={Wallet} active={pathname.startsWith("/workshop/pay")} />
-          <NavLink href="/workshop/workers" label="Қызметкерлер" icon={Users} active={pathname.startsWith("/workshop/workers")} />
-          <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
+          <WorkshopGroup pathname={pathname} counts={workshopCounts} locale={locale} />
+          <NavLink href="/workshop/pay" label={l(L("Айлық есебі", "Расчёт зарплаты"))} icon={Wallet} active={pathname.startsWith("/workshop/pay")} />
+          <NavLink href="/workshop/workers" label={l(L("Қызметкерлер", "Сотрудники"))} icon={Users} active={pathname.startsWith("/workshop/workers")} />
+          <NavLink href="/change-password" label={l(L("Парольді өзгерту", "Сменить пароль"))} icon={KeyRound} active={pathname === "/change-password"} />
         </nav>
         <UserCard userName={userName} userRole={userRole} online={t.common.online} />
       </aside>
@@ -137,17 +142,17 @@ export function Sidebar({
         <NavLink href="/rating" label="Рейтинг" icon={Trophy} active={pathname.startsWith("/rating")} />
         {mode === "leader" && (
           <>
-            <NavLink href="/goals" label="Мақсаттар" icon={Target} active={pathname.startsWith("/goals")} />
-            <NavLink href="/managers" label="Менеджерлер" icon={Users} active={pathname.startsWith("/managers")} />
-            <WorkshopGroup pathname={pathname} counts={workshopCounts} />
-            <WarehouseGroup pathname={pathname} />
-            <NavLink href="/import" label="Excel импорт" icon={FileUp} active={pathname.startsWith("/import")} />
+            <NavLink href="/goals" label={l(L("Мақсаттар", "Цели"))} icon={Target} active={pathname.startsWith("/goals")} />
+            <NavLink href="/managers" label={l(L("Менеджерлер", "Менеджеры"))} icon={Users} active={pathname.startsWith("/managers")} />
+            <WorkshopGroup pathname={pathname} counts={workshopCounts} locale={locale} />
+            <WarehouseGroup pathname={pathname} locale={locale} />
+            <NavLink href="/import" label={l(L("Excel импорт", "Импорт Excel"))} icon={FileUp} active={pathname.startsWith("/import")} />
           </>
         )}
 
         {NAV_ITEMS.slice(1).map((item) =>
           item.href === "/orders" ? (
-            <OrdersGroup key={item.href} label={item.label} pathname={pathname} counts={orderCounts} />
+            <OrdersGroup key={item.href} label={item.label} pathname={pathname} counts={orderCounts} locale={locale} />
           ) : (
             <NavLink key={item.href} {...item} active={pathname.startsWith(item.href)} />
           )
@@ -161,10 +166,10 @@ export function Sidebar({
 
 /** «Заказдар ▾» — ішінде: Жаңа заказ · Тігілуде · Дайын · Барлық заказдар (CEO, 2026-11-17). */
 export const ORDER_SUBNAV = [
-  { href: "/orders/new", label: "Жаңа заказ", key: null },
-  { href: "/orders/sewing", label: "Тігілуде", key: "sewing" },
-  { href: "/orders/ready", label: "Дайын", key: "ready" },
-  { href: "/orders", label: "Барлық заказдар", key: null },
+  { href: "/orders/new", label: L("Жаңа заказ", "Новый заказ"), key: null },
+  { href: "/orders/sewing", label: L("Тігілуде", "В пошиве"), key: "sewing" },
+  { href: "/orders/ready", label: L("Дайын", "Готово"), key: "ready" },
+  { href: "/orders", label: L("Барлық заказдар", "Все заказы"), key: null },
 ] as const;
 
 export function orderSubActive(pathname: string, href: string) {
@@ -172,7 +177,7 @@ export function orderSubActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-function OrdersGroup({ label, pathname, counts }: { label: string; pathname: string; counts?: { sewing: number; ready: number } }) {
+function OrdersGroup({ label, pathname, counts, locale }: { label: string; pathname: string; counts?: { sewing: number; ready: number }; locale: Locale }) {
   const inOrders = pathname.startsWith("/orders");
   const [open, setOpen] = useState<boolean>(true);
   return (
@@ -203,7 +208,7 @@ function OrdersGroup({ label, pathname, counts }: { label: string; pathname: str
                   active ? "bg-accent-tint/60 font-semibold text-accent" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {s.label}
+                {s.label[locale]}
                 {n > 0 && <span className={`text-xs font-semibold tabular-nums ${active ? "text-accent" : "text-text-secondary"}`}>{n}</span>}
               </Link>
             );
@@ -216,12 +221,12 @@ function OrdersGroup({ label, pathname, counts }: { label: string; pathname: str
 
 /** «Цех ▾» — Түскен заказдар · Тігіліп жатыр · Дайын (CEO, 2026-11-17). */
 export const WORKSHOP_SUBNAV = [
-  { href: "/workshop/incoming", label: "Түскен заказдар", key: "new" },
-  { href: "/workshop/sewing", label: "Тігіліп жатыр", key: "work" },
-  { href: "/workshop/ready", label: "Дайын", key: "done" },
+  { href: "/workshop/incoming", label: L("Түскен заказдар", "Входящие заказы"), key: "new" },
+  { href: "/workshop/sewing", label: L("Тігіліп жатыр", "В пошиве"), key: "work" },
+  { href: "/workshop/ready", label: L("Дайын", "Готово"), key: "done" },
 ] as const;
 
-function WorkshopGroup({ pathname, counts }: { pathname: string; counts?: { new: number; work: number; done: number } }) {
+function WorkshopGroup({ pathname, counts, locale }: { pathname: string; counts?: { new: number; work: number; done: number }; locale: Locale }) {
   const inWorkshop = /^\/workshop(\/(incoming|sewing|ready|job)|$|\?)/.test(pathname);
   const [open, setOpen] = useState<boolean>(true);
   return (
@@ -252,7 +257,7 @@ function WorkshopGroup({ pathname, counts }: { pathname: string; counts?: { new:
                   active ? "bg-accent-tint/60 font-semibold text-accent" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {s.label}
+                {s.label[locale]}
                 {n > 0 && <span className={`text-xs font-semibold tabular-nums ${active ? "text-accent" : "text-text-secondary"}`}>{n}</span>}
               </Link>
             );
@@ -265,11 +270,11 @@ function WorkshopGroup({ pathname, counts }: { pathname: string; counts?: { new:
 
 /** «Қойма ▾» — Қалдық · Кіріс (CEO, 2026-11-18). Санау, сатып алу, есеп — 3-кезеңде. */
 export const WAREHOUSE_SUBNAV = [
-  { href: "/warehouse/stock", label: "Қалдық" },
-  { href: "/warehouse/receipts", label: "Кіріс" },
+  { href: "/warehouse/stock", label: L("Қалдық", "Остатки") },
+  { href: "/warehouse/receipts", label: L("Кіріс", "Приход") },
 ] as const;
 
-function WarehouseGroup({ pathname }: { pathname: string }) {
+function WarehouseGroup({ pathname, locale }: { pathname: string; locale: Locale }) {
   const inWarehouse = pathname.startsWith("/warehouse");
   const [open, setOpen] = useState<boolean>(inWarehouse);
   return (
@@ -283,7 +288,7 @@ function WarehouseGroup({ pathname }: { pathname: string }) {
       >
         <span className="flex items-center gap-3">
           <Boxes size={18} />
-          Қойма
+          {locale === "ru" ? "Склад" : "Қойма"}
         </span>
         {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
@@ -299,7 +304,7 @@ function WarehouseGroup({ pathname }: { pathname: string }) {
                   active ? "bg-accent-tint/60 font-semibold text-accent" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {s.label}
+                {s.label[locale]}
               </Link>
             );
           })}
