@@ -235,6 +235,54 @@ function OrgTreeNode({
   ckpOpen: boolean;
   onToggleCkp: () => void;
 }) {
+  return (
+    <li>
+      {node.assistant ? (
+        // Көмекші — басшының оң жағында, үзік сызықпен; басшы карточкасы тармақтардың үстінде ортада қалады.
+        <div className="relative inline-block">
+          <NodeCard node={node} depth={depth} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} ckpOpen={ckpOpen} onToggleCkp={onToggleCkp} />
+          <div className="absolute left-full top-1/2 flex -translate-y-1/2 items-center">
+            <span className="w-12 border-t-[3px] border-dashed border-[#6b7280]" />
+            <NodeCard node={node.assistant} depth={depth + 1} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} ckpOpen={ckpOpen} onToggleCkp={onToggleCkp} />
+          </div>
+        </div>
+      ) : (
+        <NodeCard node={node} depth={depth} ckpLabel={ckpLabel} ckpEmpty={ckpEmpty} ckpOpen={ckpOpen} onToggleCkp={onToggleCkp} />
+      )}
+      {node.children && node.children.length > 0 && (
+        <ul className="org-branches">
+          {node.children.map((child, i) => (
+            <OrgTreeNode
+              key={`${child.name}-${i}`}
+              node={child}
+              depth={depth + 1}
+              ckpLabel={ckpLabel}
+              ckpEmpty={ckpEmpty}
+              ckpOpen={ckpOpen}
+              onToggleCkp={onToggleCkp}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function NodeCard({
+  node,
+  depth,
+  ckpLabel,
+  ckpEmpty,
+  ckpOpen,
+  onToggleCkp,
+}: {
+  node: OrgNode;
+  depth: number;
+  ckpLabel: string;
+  ckpEmpty: string;
+  ckpOpen: boolean;
+  onToggleCkp: () => void;
+}) {
   const isVacant = node.name === "ФИО";
   const isCeo = depth === 0 && !isVacant;
   const cardClass = isVacant
@@ -246,7 +294,6 @@ function OrgTreeNode({
         : "border border-border bg-surface text-text-primary";
 
   return (
-    <li>
       <div
         className={`inline-block whitespace-nowrap rounded-icon text-left shadow-card ${isCeo ? "rounded-3xl px-10 py-7 shadow-lg" : "px-2.5 py-2"} ${cardClass}`}
       >
@@ -283,21 +330,5 @@ function OrgTreeNode({
           )}
         </div>
       </div>
-      {node.children && node.children.length > 0 && (
-        <ul className="org-branches">
-          {node.children.map((child, i) => (
-            <OrgTreeNode
-              key={`${child.name}-${i}`}
-              node={child}
-              depth={depth + 1}
-              ckpLabel={ckpLabel}
-              ckpEmpty={ckpEmpty}
-              ckpOpen={ckpOpen}
-              onToggleCkp={onToggleCkp}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
   );
 }
