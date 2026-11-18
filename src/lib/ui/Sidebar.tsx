@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot, BarChart3, Settings, ChevronDown, ChevronRight, Trophy, Table2, KeyRound, Target, Users, FileUp, Scissors, Wallet } from "lucide-react";
+import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot, BarChart3, Settings, ChevronDown, ChevronRight, Trophy, Table2, KeyRound, Target, Users, FileUp, Scissors, Wallet, Boxes } from "lucide-react";
 import { Logo } from "./Logo";
 import { getDictionary, DEPARTMENT_SLUGS, type Locale } from "@/lib/i18n";
 
@@ -140,6 +140,7 @@ export function Sidebar({
             <NavLink href="/goals" label="Мақсаттар" icon={Target} active={pathname.startsWith("/goals")} />
             <NavLink href="/managers" label="Менеджерлер" icon={Users} active={pathname.startsWith("/managers")} />
             <WorkshopGroup pathname={pathname} counts={workshopCounts} />
+            <WarehouseGroup pathname={pathname} />
             <NavLink href="/import" label="Excel импорт" icon={FileUp} active={pathname.startsWith("/import")} />
           </>
         )}
@@ -253,6 +254,52 @@ function WorkshopGroup({ pathname, counts }: { pathname: string; counts?: { new:
               >
                 {s.label}
                 {n > 0 && <span className={`text-xs font-semibold tabular-nums ${active ? "text-accent" : "text-text-secondary"}`}>{n}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** «Қойма ▾» — Қалдық · Кіріс (CEO, 2026-11-18). Санау, сатып алу, есеп — 3-кезеңде. */
+export const WAREHOUSE_SUBNAV = [
+  { href: "/warehouse/stock", label: "Қалдық" },
+  { href: "/warehouse/receipts", label: "Кіріс" },
+] as const;
+
+function WarehouseGroup({ pathname }: { pathname: string }) {
+  const inWarehouse = pathname.startsWith("/warehouse");
+  const [open, setOpen] = useState<boolean>(inWarehouse);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center justify-between rounded-icon px-3 py-2.5 text-sm font-medium transition-colors ${
+          inWarehouse ? "bg-accent-tint text-accent" : "text-text-primary hover:bg-page-bg"
+        }`}
+      >
+        <span className="flex items-center gap-3">
+          <Boxes size={18} />
+          Қойма
+        </span>
+        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+      </button>
+      {open && (
+        <div className="ml-4 flex flex-col gap-0.5 border-l border-border pl-3">
+          {WAREHOUSE_SUBNAV.map((s) => {
+            const active = pathname === s.href || pathname.startsWith(s.href + "/") || (s.href === "/warehouse/stock" && pathname.startsWith("/warehouse/material"));
+            return (
+              <Link
+                key={s.href}
+                href={s.href}
+                className={`rounded-icon px-3 py-2 text-sm transition-colors ${
+                  active ? "bg-accent-tint/60 font-semibold text-accent" : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {s.label}
               </Link>
             );
           })}
