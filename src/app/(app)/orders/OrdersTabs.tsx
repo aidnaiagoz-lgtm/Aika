@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ORDER_SUBNAV, orderSubActive } from "@/lib/ui/Sidebar";
+import type { Locale } from "@/lib/i18n";
 
 /** Телефонда сол жақ мәзір жоқ — «Заказдар» ішкі бөлімдері беттің үстінде (компьютерде жасырын). */
-export function OrdersTabs() {
+export function OrdersTabs({ locale }: { locale: Locale }) {
   const pathname = usePathname();
   return (
-    <nav className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden" aria-label="Заказдар">
+    <nav className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden" aria-label={locale === "ru" ? "Заказы" : "Заказдар"}>
       {ORDER_SUBNAV.map((s) => (
         <Link
           key={s.href}
@@ -17,7 +18,7 @@ export function OrdersTabs() {
             orderSubActive(pathname, s.href) ? "bg-accent text-white" : "border border-border bg-surface text-text-secondary"
           }`}
         >
-          {s.label}
+          {s.label[locale]}
         </Link>
       ))}
     </nav>

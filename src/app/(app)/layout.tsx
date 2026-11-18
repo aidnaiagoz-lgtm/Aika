@@ -64,7 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           onSetLocale={setLocaleAction}
         />
         <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">{children}</main>
-        <MobileNav mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
+        <MobileNav locale={locale} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
       </div>
     </div>
   );

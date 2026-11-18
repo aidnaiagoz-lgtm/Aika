@@ -382,7 +382,7 @@ const kk = {
       training: "Оқыту",
       tasks: "Тапсырмалар",
       notifications: "Хабарламалар",
-      ai: "AI Assistant",
+      ai: "AI көмекші",
       analytics: "Жалпы аналитика",
       settings: "Баптаулар",
     },
