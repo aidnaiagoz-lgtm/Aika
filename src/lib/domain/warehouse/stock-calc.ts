@@ -74,3 +74,59 @@ export function parseQty(v: string | number | null | undefined): number | null {
 }
 
 export const fmtQty = (n: number) => new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(n);
+
+// ---------- МойСклад «Остатки по товарам» импорты (2026-11-18) ----------
+
+export interface MoySkladRow {
+  group: string;
+  code: string;
+  name: string;
+  unit: string;
+  stock: number;
+  cost: number;
+}
+
+/** МойСкладтағы цех топтары → сайттағы санат. Цехқа қатысы жоқ топтар (чехол, накидка…) алынбайды. */
+export function moySkladCategory(group: string, unit?: string): MaterialCategory | null {
+  const g = group.toLowerCase();
+  if (!g.startsWith("цех/")) return null;
+  // «Кожы» тобында дана-мен саналатын заттар да бар (аптечка, жилет…) — олар кожа емес
+  if (g.includes("кож")) return unit == null || /^(м|рулон|)$/i.test(unit.trim()) ? "LEATHER" : "ACCESSORIES";
+  if (g.includes("жіп") || g.includes("нитк")) return "THREAD";
+  if (g.includes("лента")) return "EDGING";
+  if (g.includes("ева") || g.includes("eva")) return "EVA";
+  if (g.includes("леска") || g.includes("ворс")) return "FISHING_LINE";
+  return "ACCESSORIES";
+}
+
+const num = (v: unknown) => {
+  if (typeof v === "number") return v;
+  const n = parseQty(typeof v === "string" ? v : null);
+  return n ?? 0;
+};
+
+/**
+ * Excel кестесінен (жолдар массиві) МойСклад жолдарын алады: «Код / Наименование / Ед.изм. / Остаток / Себестоимость»
+ * тақырыбын өзі табады; тек атауы бар жол — топ («Цех/Материалы / Кожы»). Тек цех топтары қайтарылады.
+ */
+export function parseMoySkladMatrix(matrix: unknown[][]): MoySkladRow[] {
+  const s = (v: unknown) => (v == null ? "" : String(v)).replace(/\s+/g, " ").trim();
+  const hi = matrix.findIndex((r) => r.some((c) => s(c) === "Код") && r.some((c) => s(c) === "Наименование") && r.some((c) => s(c) === "Остаток"));
+  if (hi < 0) throw new Error("Бұл МойСкладтың «Остатки по товарам» есебі емес сияқты — «Код», «Наименование», «Остаток» бағандары табылмады");
+  const h = matrix[hi].map(s);
+  const col = (name: string) => h.findIndex((x) => x.toLowerCase().startsWith(name.toLowerCase()));
+  const [cCode, cName, cUnit, cStock, cCost] = [col("Код"), col("Наименование"), col("Ед"), col("Остаток"), col("Себестоимость")];
+  const out: MoySkladRow[] = [];
+  let group = "";
+  for (const r of matrix.slice(hi + 1)) {
+    const code = typeof r[cCode] === "number" ? String(Math.round(r[cCode] as number)) : s(r[cCode]);
+    const name = s(r[cName]);
+    if (code && !name && !s(r[cUnit])) {
+      group = code;
+      continue;
+    }
+    if (!name || !code || !moySkladCategory(group)) continue;
+    out.push({ group, code, name, unit: s(r[cUnit]) || "дана", stock: num(r[cStock]), cost: cCost >= 0 ? num(r[cCost]) : 0 });
+  }
+  return out;
+}

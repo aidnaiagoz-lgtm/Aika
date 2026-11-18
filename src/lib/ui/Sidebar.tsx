@@ -267,6 +267,7 @@ function WorkshopGroup({ pathname, counts }: { pathname: string; counts?: { new:
 export const WAREHOUSE_SUBNAV = [
   { href: "/warehouse/stock", label: "Қалдық" },
   { href: "/warehouse/receipts", label: "Кіріс" },
+  { href: "/warehouse/import", label: "МойСкладтан жүктеу" },
 ] as const;
 
 function WarehouseGroup({ pathname }: { pathname: string }) {

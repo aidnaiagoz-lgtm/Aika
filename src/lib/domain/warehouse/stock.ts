@@ -3,7 +3,7 @@ import { Prisma, type MaterialCategory } from "@prisma/client";
 import { prisma, PermissionAction } from "@/lib/db";
 import { assertPermission, can } from "@/lib/rbac";
 import type { ActingUser } from "@/lib/domain/orders";
-import { daysLeft, parseLedgerMaterial, stockStatus, type StockStatus } from "./stock-calc";
+import { daysLeft, moySkladCategory, parseLedgerMaterial, stockStatus, type MoySkladRow, type StockStatus } from "./stock-calc";
 
 /**
  * Қойма, 1-кезең (CEO, 2026-11-18): каталог (Google/тапсырыс формасындағы кодтар), қалдық, кіріс (накладная), қозғалыс тарихы.
@@ -247,4 +247,141 @@ export async function updateMaterialStockSettings(user: ActingUser, id: string, 
     data.costPrice = new Prisma.Decimal(patch.price ?? 0);
   }
   return prisma.material.update({ where: { id }, data });
+}
+
+// ---------- МойСкладтан қалдық жүктеу (2026-11-18) ----------
+
+
+/** Атаулар бір затты білдіре ме (қазақ/орыс әріптері, «жіп/ева» сөздері, жақшадағысы ескерілмейді). */
+function sameThing(a: string, b: string) {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\(.*?\)/g, " ")
+      .replace(/[қ]/g, "к").replace(/[ә]/g, "а").replace(/[іи]/g, "и").replace(/[ң]/g, "н").replace(/[ұү]/g, "у").replace(/[ө]/g, "о").replace(/[ғ]/g, "г")
+      .replace(/(?<!\p{L})(жип|нитка|ева|лента|леска|кожа)(?!\p{L})/gu, " ")
+      .split(/[^a-zа-яё0-9]+/i)
+      .filter(Boolean);
+  const A = new Set(norm(a)), B = new Set(norm(b));
+  if (!A.size || !B.size) return true;
+  const inter = [...A].filter((x) => B.has(x)).length;
+  return inter / Math.min(A.size, B.size) >= 0.5;
+}
+
+/** Бағасы сенімді санаттар: жіп пен ұсақ-түйектің МойСкладтағы өзіндік құны шатасқан (бобина/метр) — алынбайды. */
+const PRICED: MaterialCategory[] = ["LEATHER", "EDGING", "EVA", "FISHING_LINE"];
+
+export interface MoySkladPreviewItem {
+  code: string;
+  msName: string;
+  siteName: string | null;
+  category: MaterialCategory;
+  unit: string;
+  siteUnit: string | null;
+  oldStock: number;
+  newStock: number;
+  msStock: number;
+  price: number | null;
+  nameDiffers: boolean;
+}
+
+function cleanRows(rows: MoySkladRow[]): MoySkladRow[] {
+  if (!Array.isArray(rows) || rows.length > 3000) throw new StockError("Файл тым үлкен немесе бос");
+  const seen = new Set<string>();
+  const out: MoySkladRow[] = [];
+  for (const r of rows) {
+    const code = String(r?.code ?? "").trim().slice(0, 20);
+    const name = String(r?.name ?? "").trim().slice(0, 120);
+    if (!code || !name || !moySkladCategory(String(r.group ?? "")) || seen.has(code)) continue;
+    if (!Number.isFinite(r.stock) || !Number.isFinite(r.cost)) continue;
+    seen.add(code);
+    out.push({ group: String(r.group).slice(0, 80), code, name, unit: String(r.unit || "дана").slice(0, 20), stock: r.stock, cost: r.cost });
+  }
+  return out;
+}
+
+export async function previewMoySklad(user: ActingUser, rawRows: MoySkladRow[]) {
+  assertEdit(user);
+  const rows = cleanRows(rawRows);
+  const existing = await prisma.material.findMany({ where: { sku: { in: rows.map((r) => r.code) } } });
+  const by = new Map(existing.map((m) => [m.sku, m]));
+  const items: MoySkladPreviewItem[] = rows.map((r) => {
+    const m = by.get(r.code);
+    const category = moySkladCategory(r.group, r.unit)!;
+    return {
+      code: r.code,
+      msName: r.name,
+      siteName: m?.name ?? null,
+      category,
+      unit: r.unit,
+      siteUnit: m?.unit ?? null,
+      oldStock: m ? Number(m.currentStock) : 0,
+      newStock: Math.max(0, Math.round(r.stock * 100) / 100),
+      msStock: r.stock,
+      price: PRICED.includes(category) && r.cost > 0 ? Math.round(r.cost * 100) / 100 : null,
+      nameDiffers: !!m && !sameThing(m.name, r.name),
+    };
+  });
+  const leather = items.filter((i) => i.category === "LEATHER" && i.unit === "м").reduce((s, i) => s + i.newStock, 0);
+  const value = items.reduce((s, i) => s + i.newStock * (i.price ?? 0), 0);
+  return {
+    items,
+    summary: {
+      total: items.length,
+      matched: items.filter((i) => i.siteName).length,
+      created: items.filter((i) => !i.siteName).length,
+      negative: items.filter((i) => i.msStock < 0).length,
+      nameDiffers: items.filter((i) => i.nameDiffers).length,
+      unitChanged: items.filter((i) => i.siteUnit && i.siteUnit !== i.unit).length,
+      leather: Math.round(leather * 10) / 10,
+      value: Math.round(value),
+    },
+  };
+}
+
+/** Қалдықты МойСкладтағыға теңестіреді: әр айырма «Санау» қозғалысы болып жазылады; жоқ материалдар қосылады. Ештеңе өшірілмейді. */
+export async function applyMoySklad(user: U, rawRows: MoySkladRow[]) {
+  const { items } = await previewMoySklad(user, rawRows);
+  if (items.length === 0) throw new StockError("Жүктейтін цех материалы табылмады");
+  const who = user.employee?.id
+    ? (await prisma.employee.findUnique({ where: { id: user.employee.id }, select: { fullName: true } }))?.fullName ?? null
+    : null;
+  const note = "МойСклад: қалдық теңестірілді";
+  let changed = 0;
+  await prisma.$transaction(
+    async (tx) => {
+      for (const i of items) {
+        const m = await tx.material.findUnique({ where: { sku: i.code } });
+        const price = i.price != null ? new Prisma.Decimal(i.price) : undefined;
+        const target = new Prisma.Decimal(i.newStock);
+        const mat = m
+          ? await tx.material.update({
+              where: { id: m.id },
+              data: {
+                unit: i.unit,
+                currentStock: target,
+                isActive: true,
+                ...(price ? { costPrice: price } : {}),
+                // МойСкладтан қосылғанның санаты МойСклад бойынша жаңарады; Продажиден келгенге тимейді
+                ...(m.sourceLabel?.startsWith("МойСклад:") ? { category: i.category, name: i.msName } : {}),
+              },
+            })
+          : await tx.material.create({
+              data: { sku: i.code, name: i.msName, category: i.category, unit: i.unit, currentStock: target, costPrice: price ?? 0, sourceLabel: `МойСклад: ${i.msName}` },
+            });
+        const diff = i.newStock - (m ? Number(m.currentStock) : 0);
+        if (Math.abs(diff) >= 0.005) {
+          changed++;
+          await tx.stockMovement.create({
+            data: { materialId: mat.id, kind: "COUNT", qty: new Prisma.Decimal(Math.round(diff * 100) / 100), stockAfter: target, unitPrice: price ?? null, note, createdById: user.id, createdByName: who },
+          });
+        }
+      }
+    },
+    { timeout: 120_000, maxWait: 20_000 },
+  );
+  await prisma.auditLog.create({
+    data: { actorId: user.id, action: "STOCK_IMPORT", entityType: "Material", entityId: "moysklad", newValue: { items: items.length, changed } },
+  });
+  return { items: items.length, changed };
 }
