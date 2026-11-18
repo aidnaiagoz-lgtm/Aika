@@ -700,10 +700,57 @@ model Material {
   costPrice     Decimal          @default(0) @db.Decimal(14, 2)
   supplier      String?
   isActive      Boolean          @default(true)
+  /// Қойма (2026-11-18): минимум қалдық — одан төмен түссе «Аз қалды»
+  minStock      Decimal?         @db.Decimal(14, 2)
+  /// Google/тапсырыс формасындағы толық атауы («4050 - Кожа - Жанек ромб қара») — цехпен байланыстыру үшін
+  sourceLabel   String?
 
   configurations ProductConfiguration[] @relation("ConfigMaterial")
+  movements      StockMovement[]
 
   @@map("materials")
+}
+
+/// Қойма қозғалысы (2026-11-18): кіріс (+), цехқа шығыс (−), түзету, санау. Қалдық = Material.currentStock.
+model StockMovement {
+  id            String        @id @default(cuid())
+  materialId    String
+  material      Material      @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  kind          String // IN | OUT | ADJUST | COUNT
+  qty           Decimal       @db.Decimal(14, 2) // таңбасымен: + кірді, − шықты
+  stockAfter    Decimal?      @db.Decimal(14, 2)
+  unitPrice     Decimal?      @db.Decimal(14, 2)
+  receiptId     String?
+  receipt       StockReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  workshopJobId String?
+  orderNo       String?
+  note          String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime      @default(now())
+
+  @@index([materialId, createdAt])
+  @@index([receiptId])
+  @@index([workshopJobId])
+  @@map("stock_movements")
+}
+
+/// Жеткізушіден кіріс (накладная).
+model StockReceipt {
+  id            String          @id @default(cuid())
+  supplier      String
+  docNo         String?
+  date          DateTime
+  total         Decimal         @default(0) @db.Decimal(14, 2)
+  paymentMethod String?
+  note          String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime        @default(now())
+  movements     StockMovement[]
+
+  @@index([date])
+  @@map("stock_receipts")
 }
 
 enum MaterialCategory {
