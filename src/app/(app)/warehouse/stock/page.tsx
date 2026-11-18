@@ -45,8 +45,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const cards = [
     { key: null, label: "Қойма құны", value: money(kpi.value), icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
     { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: "low", label: "Аз қалды", value: String(kpi.low), icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "ring-2 ring-[#f59e0b]" },
-    { key: "out", label: "Бітті", value: String(kpi.out), icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "ring-2 ring-danger" },
+    { key: "low", label: "Аз қалды", value: String(kpi.low), icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
+    { key: "out", label: "Бітті", value: String(kpi.out), icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
   ] as const;
 
   return (
@@ -73,7 +73,11 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 <span className="block text-[13px] text-text-secondary">{c.label}</span>
                 <span className={`block whitespace-nowrap text-[19px] font-bold leading-tight sm:text-[22px] ${c.key === "out" && kpi.out > 0 ? "text-danger" : "text-text-primary"}`}>{c.value}</span>
               </span>
-              {active && <span className="ml-auto hidden text-xs font-semibold text-text-secondary xl:block">✓ таңдалды</span>}
+              {active && (
+                <span title="Қайта басса — сүзгі алынады" className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-page-bg text-text-secondary">
+                  <X size={14} />
+                </span>
+              )}
             </>
           );
           const cls = `flex items-center gap-3.5 rounded-card bg-surface px-4 py-4 shadow-card sm:px-5 ${active ? c.ring : ""} ${filter !== "all" && !active ? "opacity-60" : ""}`;
@@ -90,17 +94,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        {filter !== "all" ? (
-          <div className="flex items-center gap-2">
-            <span className={`rounded-pill px-3.5 py-2 text-sm font-semibold ${filter === "low" ? "bg-[#fff4e0] text-[#b45309]" : "bg-danger/10 text-danger"}`}>
-              {filter === "low" ? "⚠ Аз қалды" : "Бітті"} · {rows.length} материал
-            </span>
-            <Link href={href({ f: null })} className="flex items-center gap-1 rounded-pill border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-text-primary">
-              <X size={14} /> Сүзгіні алу
-            </Link>
-          </div>
-        ) : (
-          <nav className="flex gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card">
+        <nav className="flex gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card">
             <Link href={href({ cat: null })} className={`whitespace-nowrap rounded-pill px-3.5 py-1.5 text-sm font-semibold ${!cat ? "bg-accent/10 text-accent" : "text-text-secondary"}`}>
               Барлығы · {total}
             </Link>
@@ -110,7 +104,6 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               </Link>
             ))}
           </nav>
-        )}
         <form method="GET" action="/warehouse/stock" className="flex items-center gap-2 rounded-pill bg-surface px-4 shadow-card lg:w-[300px]">
           {filter !== "all" && <input type="hidden" name="f" value={filter} />}
           {cat && <input type="hidden" name="cat" value={cat} />}
