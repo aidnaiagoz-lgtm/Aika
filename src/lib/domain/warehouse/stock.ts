@@ -64,8 +64,8 @@ export interface StockRow {
   last: { at: string; qty: number; kind: string; orderNo: string | null } | null;
 }
 
-/** Каталогтағы «нағыз» материалдар: кодпен келгендер немесе қалдығы барлар (демо-жазбалар шықпасын). */
-const visibleWhere: Prisma.MaterialWhereInput = { isActive: true, OR: [{ sourceLabel: { not: null } }, { currentStock: { gt: 0 } }] };
+/** Каталогтағы «нағыз» материалдар: кодпен келгендер немесе қойма арқылы қозғалғандар (бастапқы демо-жазбалар шықпасын). */
+const visibleWhere: Prisma.MaterialWhereInput = { isActive: true, OR: [{ sourceLabel: { not: null } }, { movements: { some: {} } }] };
 
 export async function stockOverview(user: ActingUser, opts: { filter?: StockFilter; category?: string; q?: string } = {}) {
   assertView(user);
