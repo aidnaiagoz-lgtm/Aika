@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckCircle2, Home, Inbox, KeyRound, Package, Scissors, Table2, Trophy, Users, Wallet, type LucideIcon } from "lucide-react";
+import { CheckCircle2, Home, Inbox, KeyRound, Layers, Package, Scissors, Table2, Trophy, Users, Wallet, type LucideIcon } from "lucide-react";
 
 type Mode = "manager" | "workshop" | "leader" | "staff";
 type Item = { href: string; label: string; icon: LucideIcon; exact?: boolean };
@@ -13,7 +13,7 @@ const ITEMS: Record<Mode, Item[]> = {
     { href: "/workshop/sewing", label: "Тігілуде", icon: Scissors },
     { href: "/workshop/ready", label: "Дайын", icon: CheckCircle2 },
     { href: "/workshop/pay", label: "Айлық", icon: Wallet },
-    { href: "/workshop/workers", label: "Қызметкер", icon: Users },
+    { href: "/lekala", label: "Лекала", icon: Layers },
   ],
   manager: [
     { href: "/rating", label: "Рейтинг", icon: Trophy },

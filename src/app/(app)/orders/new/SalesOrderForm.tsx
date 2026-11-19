@@ -1,6 +1,7 @@
 "use client";
 
 import { PhotoZoom } from "../../warehouse/PhotoZoom";
+import { LekalaBadge } from "./LekalaBadge";
 import { splitMaterial } from "@/lib/domain/workshop/calc";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
@@ -380,6 +381,7 @@ export function SalesOrderForm({
                   <ListInput value={c.originCountry} onChange={(v) => setCar(ci, { originCountry: v })} list="o-country" />
                 </Field>
               </div>
+              <LekalaBadge make={c.make} model={c.model} year={c.year} />
             </div>
           ))}
           {cars.length < 5 && (
