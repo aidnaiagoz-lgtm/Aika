@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { ImagePlus } from "lucide-react";
 import { uploadPhotosAction } from "../actions";
 
-/** Кожа фотолары: бірнеше суретті бірден таңдайды, атауы — коды («4050.jpg»). 8-ден бөліп жібереді. */
+/** Материал фотолары (кожа, леска, Ева…): бірнеше суретті бірден таңдайды, атауы — коды («4050.jpg»). 8-ден бөліп жібереді. */
 export function PhotoUpload() {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -38,9 +38,9 @@ export function PhotoUpload() {
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface p-5 shadow-card">
       <div>
-        <h2 className="m-0 text-base font-bold text-text-primary">Кожа фотолары</h2>
+        <h2 className="m-0 text-base font-bold text-text-primary">Материал фотолары</h2>
         <p className="m-0 mt-1 text-sm text-text-secondary">
-          Бірнеше суретті бірден таңдаңыз. Әр файлдың атауы — кожаның <b>коды</b>: <code>4050.jpg</code>, <code>4007.png</code>. Бұрынғы фото ауысады.
+          Бірнеше суретті бірден таңдаңыз. Кожа, леска, Ева, лента, жіп — кез келгені. Әр файлдың атауы — материалдың <b>коды</b>: <code>4050.jpg</code> (кожа), <code>1041.jpg</code> (леска), <code>5049.jpg</code> (Ева). Бұрынғы фото ауысады.
         </p>
       </div>
       <label className={`flex w-fit cursor-pointer items-center gap-2 rounded-pill border border-border px-4 py-2.5 text-sm font-semibold hover:bg-page-bg ${pending ? "opacity-60" : ""}`}>
