@@ -1,4 +1,6 @@
 import "server-only";
+import { withLedgerLock } from "./lock";
+import { mergeDuplicateGroups, notifyAutoMerged } from "./duplicates";
 import { prisma } from "@/lib/db";
 import { isLeader } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
@@ -116,33 +118,6 @@ export async function upsertLedgerRows(rows: ExcelRow[]) {
   return withLedgerLock(() => upsertLedgerRowsUnlocked(rows));
 }
 
-const LOCK_KEY = "sales.ledgerSyncLock";
-const LOCK_LEASE_MS = 90_000;
-const stamp = (ms: number) => String(ms).padStart(15, "0");
-
-/**
- * Продажи жолдарын жазу құлпы (AppSetting арқылы, ұзақ транзакциясыз): мерзімі өткен немесе бос болса ғана алынады.
- * 25 секунд ішінде алынбаса — қате (келесі синхрондау қайта байқайды). Құлып 90 сек өзі босайды (процесс құласа да).
- */
-export async function withLedgerLock<T>(fn: () => Promise<T>): Promise<T> {
-  await prisma.appSetting.createMany({ data: [{ key: LOCK_KEY, value: stamp(0) }], skipDuplicates: true });
-  const deadline = Date.now() + 25_000;
-  let token: string | null = null;
-  while (!token) {
-    const now = Date.now();
-    const mine = stamp(now + LOCK_LEASE_MS);
-    const got = await prisma.appSetting.updateMany({ where: { key: LOCK_KEY, value: { lt: stamp(now) } }, data: { value: mine } });
-    if (got.count === 1) token = mine;
-    else if (Date.now() > deadline) throw new Error("Продажи синхрондауы бос емес — сәлден соң қайталанады");
-    else await new Promise((r) => setTimeout(r, 400));
-  }
-  try {
-    return await fn();
-  } finally {
-    await prisma.appSetting.updateMany({ where: { key: LOCK_KEY, value: token }, data: { value: stamp(0) } }).catch(() => undefined);
-  }
-}
-
 async function upsertLedgerRowsUnlocked(rows: ExcelRow[]) {
 
   const branch = await prisma.branch.findFirst({ where: { name: { contains: "Алматы" } } });
@@ -199,6 +174,18 @@ async function upsertLedgerRowsUnlocked(rows: ExcelRow[]) {
   }
 
   if (toCreate.length) await prisma.salesLedgerRow.createMany({ data: toCreate as never });
+  // Өзін-өзі түзету (2026-11-19): жаңа жолдардың кілті базада бірден көп болып қалса (кез келген себеппен) — бірден біріктіріледі
+  if (toCreate.length) {
+    const keysNow = toCreate.map((d) => d.importKey as string);
+    const healed = await mergeDuplicateGroups(keysNow).catch((e) => {
+      console.error("[ledger] self-heal", e instanceof Error ? e.message : e);
+      return { groups: 0, removed: 0 };
+    });
+    if (healed.removed > 0) {
+      const nos = toCreate.map((d) => d.no as number).filter(Boolean);
+      await notifyAutoMerged(healed.removed, nos).catch(() => undefined);
+    }
+  }
   for (let i = 0; i < updates.length; i += 100) {
     await prisma.$transaction(updates.slice(i, i + 100).map((u) => prisma.salesLedgerRow.update({ where: { id: u.id }, data: u.data as never })));
   }
