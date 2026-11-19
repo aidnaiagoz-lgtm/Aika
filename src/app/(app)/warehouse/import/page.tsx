@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canUseWarehouse } from "@/lib/domain/warehouse/stock";
 import { MoySkladImport } from "./MoySkladImport";
+import { PhotoUpload } from "./PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function ImportPage() {
         </p>
       </div>
       <MoySkladImport />
+      <PhotoUpload />
     </div>
   );
 }

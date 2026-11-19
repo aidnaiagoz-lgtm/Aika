@@ -8,6 +8,7 @@ import { materialDetail } from "@/lib/domain/warehouse/stock";
 import { CATEGORY_LABEL, fmtQty, stockStatus } from "@/lib/domain/warehouse/stock-calc";
 import { Dot, StatusPill } from "../../ui";
 import { MaterialSettings } from "./MaterialSettings";
+import { MaterialPhoto } from "./MaterialPhoto";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
     throw e;
   }
   if (!d) notFound();
-  const { material: m, moves } = d;
+  const { material: m, moves, photo } = d;
   const stock = Number(m.currentStock);
   const min = m.minStock == null ? null : Number(m.minStock);
 
@@ -39,15 +40,18 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         › {m.sku}
       </nav>
       <header className="flex flex-col gap-4 rounded-card bg-surface p-5 shadow-card md:flex-row md:items-center md:justify-between md:px-6">
-        <div>
+        <div className="flex items-center gap-4">
+          <MaterialPhoto id={m.id} name={m.name} photo={photo} />
+          <div>
           <h1 className="m-0 flex items-center text-2xl font-bold text-text-primary">
-            <Dot name={m.name} />
+            {!photo && <Dot name={m.name} />}
             {m.name}
           </h1>
           <p className="m-0 mt-1 text-sm text-text-secondary">
             Код {m.sku} · {CATEGORY_LABEL[m.category]}
             {m.supplier ? ` · соңғы жеткізуші: ${m.supplier}` : ""}
           </p>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           <StatusPill s={stockStatus(stock, min, moves.length > 0)} />

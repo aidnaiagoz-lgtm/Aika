@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
 import { CATEGORY_LABEL, fmtQty } from "@/lib/domain/warehouse/stock-calc";
-import { CATEGORY_ORDER, Dot, relDay, StatusPill } from "../ui";
+import { CATEGORY_ORDER, relDay, StatusPill, Thumb } from "../ui";
 
 export const dynamic = "force-dynamic";
 
@@ -133,13 +133,13 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-border last:border-0 hover:bg-page-bg/50">
                     <td className="px-5 py-3">
-                      <Link href={`/warehouse/material/${r.id}`} className="block">
-                        <span className="flex items-center font-semibold text-text-primary">
-                          <Dot name={r.name} />
-                          {r.name}
-                        </span>
-                        <span className="ml-[18px] text-xs text-text-secondary">
-                          {r.sku} · {CATEGORY_LABEL[r.category]}
+                      <Link href={`/warehouse/material/${r.id}`} className="flex items-center">
+                        <Thumb name={r.name} photo={r.photo} />
+                        <span>
+                          <span className="block font-semibold text-text-primary">{r.name}</span>
+                          <span className="text-xs text-text-secondary">
+                            {r.sku} · {CATEGORY_LABEL[r.category]}
+                          </span>
                         </span>
                       </Link>
                     </td>
@@ -165,12 +165,10 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           <div className="flex flex-col gap-2 md:hidden">
             {rows.map((r) => (
               <Link key={r.id} href={`/warehouse/material/${r.id}`} className="flex items-center gap-3 rounded-card bg-surface p-4 shadow-card">
+                <Thumb name={r.name} photo={r.photo} size={44} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center font-semibold text-text-primary">
-                    <Dot name={r.name} />
-                    <span className="truncate">{r.name}</span>
-                  </div>
-                  <div className="ml-[18px] text-xs text-text-secondary">
+                  <div className="truncate font-semibold text-text-primary">{r.name}</div>
+                  <div className="text-xs text-text-secondary">
                     {r.sku} · {CATEGORY_LABEL[r.category]}
                   </div>
                 </div>
