@@ -7,15 +7,16 @@ import { getLocale } from "@/lib/locale";
 import { listReceipts } from "@/lib/domain/warehouse/stock";
 import { fmtQty } from "@/lib/domain/warehouse/stock-calc";
 import { Dot } from "../ui";
+import { PhotoZoom } from "../PhotoZoom";
 
 export const dynamic = "force-dynamic";
 
 const day = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Almaty" });
 
-export default async function ReceiptsPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
+export default async function ReceiptsPage({ searchParams }: { searchParams: Promise<{ saved?: string; photoErr?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const { saved } = await searchParams;
+  const { saved, photoErr } = await searchParams;
   let receipts;
   try {
     receipts = await listReceipts(user);
@@ -35,6 +36,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Pro
         </Link>
       </div>
       {saved && <p className="m-0 rounded-icon bg-[#e7f7ec] px-4 py-3 text-sm font-semibold text-[#15803d]">✓ Кіріс сақталды — қалдыққа қосылды.</p>}
+      {photoErr && <p className="m-0 rounded-icon bg-[#fff4e0] px-4 py-3 text-sm font-semibold text-[#b45309]">Кейбір фото жүктелмеді — қайта қосып көріңіз.</p>}
       {receipts.length === 0 ? (
         <p className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary shadow-card">
           Әлі кіріс жоқ. Алғашқы рет қоймадағы бар материалды «Жаңа кіріс» арқылы енгізіңіз — бұл бастапқы қалдық болады.
@@ -56,6 +58,16 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Pro
                 </div>
                 <div className="text-lg font-bold tabular-nums">{fmtQty(Number(r.total))} ₸</div>
               </div>
+              {r.photos.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-text-secondary">Накладная:</span>
+                  {r.photos.map((ph, i) => (
+                    <a key={ph.id} href={`/api/receipt-photo/${ph.id}`} target="_blank" rel="noreferrer">
+                      <PhotoZoom src={`/api/receipt-photo/${ph.id}`} alt={`Накладная ${i + 1}`} size={48} />
+                    </a>
+                  ))}
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {r.movements.map((m) => (
                   <Link key={m.id} href={`/warehouse/material/${m.materialId}`} className="flex items-center rounded-pill bg-page-bg px-3 py-1.5 text-[13px]">

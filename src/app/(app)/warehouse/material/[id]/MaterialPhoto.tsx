@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { ImagePlus } from "lucide-react";
 import { setMaterialPhotoAction } from "../../actions";
+import { resizeImage } from "../../resize";
 
 /** Материалдың фотосы: басса — жаңа фото таңдау (ауыстыру). */
 export function MaterialPhoto({ id, name, photo }: { id: string; name: string; photo: string | null }) {
@@ -27,9 +28,9 @@ export function MaterialPhoto({ id, name, photo }: { id: string; name: string; p
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          const form = new FormData();
-          form.append("files", f);
           start(async () => {
+            const form = new FormData();
+            form.append("files", await resizeImage(f, 1000, 0.85));
             const r = await setMaterialPhotoAction(id, form);
             setError(r.ok ? null : r.error);
           });

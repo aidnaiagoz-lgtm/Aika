@@ -142,11 +142,20 @@ export async function receiptFormData(user: ActingUser) {
   assertEdit(user);
   await syncCatalogFromLedger().catch(() => 0);
   const [materials, suppliers] = await Promise.all([
-    prisma.material.findMany({ where: visibleWhere, orderBy: [{ category: "asc" }, { sku: "asc" }], select: { id: true, sku: true, name: true, unit: true, category: true, currentStock: true, costPrice: true } }),
+    prisma.material.findMany({ where: visibleWhere, orderBy: [{ category: "asc" }, { sku: "asc" }], select: { id: true, sku: true, name: true, unit: true, category: true, currentStock: true, costPrice: true, photo: { select: { updatedAt: true } } } }),
     prisma.stockReceipt.findMany({ distinct: ["supplier"], select: { supplier: true }, orderBy: { createdAt: "desc" }, take: 50 }),
   ]);
   return {
-    materials: materials.map((m) => ({ id: m.id, sku: m.sku, name: m.name, unit: m.unit, category: m.category, stock: Number(m.currentStock), price: Number(m.costPrice) })),
+    materials: materials.map((m) => ({
+      id: m.id,
+      sku: m.sku,
+      name: m.name,
+      unit: m.unit,
+      category: m.category,
+      stock: Number(m.currentStock),
+      price: Number(m.costPrice),
+      photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null,
+    })),
     suppliers: suppliers.map((s) => s.supplier),
   };
 }
@@ -228,7 +237,10 @@ export async function listReceipts(user: ActingUser) {
   return prisma.stockReceipt.findMany({
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: 100,
-    include: { movements: { include: { material: { select: { sku: true, name: true, unit: true } } } } },
+    include: {
+      movements: { include: { material: { select: { sku: true, name: true, unit: true } } } },
+      photos: { select: { id: true }, orderBy: { createdAt: "asc" } },
+    },
   });
 }
 
@@ -445,4 +457,19 @@ export async function photoUrlsByCode(codes: string[]) {
   if (!list.length) return new Map<string, string>();
   const rows = await prisma.material.findMany({ where: { sku: { in: list }, photo: { isNot: null } }, select: { sku: true, id: true, photo: { select: { updatedAt: true } } } });
   return new Map(rows.map((r) => [r.sku, photoUrl(r.id, r.photo!.updatedAt)]));
+}
+
+// ---------- Накладнаның фотосы (2026-11-19) ----------
+
+const RECEIPT_PHOTO_MAX = 900 * 1024;
+
+/** Кіріске накладнаның фотосын тіркеу (браузер алдын ала кішірейтеді). Бір кіріске — 10 фотоға дейін. */
+export async function addReceiptPhoto(user: ActingUser, receiptId: string, f: PhotoFile) {
+  assertEdit(user);
+  if (!PHOTO_MIME.includes(f.mime)) throw new StockError(`«${f.name}» — тек JPG, PNG немесе WEBP сурет`);
+  if (f.data.length > RECEIPT_PHOTO_MAX) throw new StockError(`«${f.name}» тым үлкен`);
+  const receipt = await prisma.stockReceipt.findUnique({ where: { id: receiptId }, select: { id: true, _count: { select: { photos: true } } } });
+  if (!receipt) throw new StockError("Кіріс табылмады");
+  if (receipt._count.photos >= 10) throw new StockError("Бір кіріске 10 фотодан көп емес");
+  await prisma.stockReceiptPhoto.create({ data: { receiptId, mime: f.mime, data: new Uint8Array(f.data) } });
 }
