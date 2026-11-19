@@ -7,6 +7,7 @@ import { getJobDetail, listWorkers, missingForDone } from "@/lib/domain/workshop
 import { jobHeadline, leatherNorm, splitMaterial, swatchColor } from "@/lib/domain/workshop/calc";
 import { Elapsed } from "../../../orders/flow-ui";
 import { DoneActions, LekalaBox, RegistryForm, StartAction } from "./JobActions";
+import { PhotoZoom } from "../../../warehouse/PhotoZoom";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +50,7 @@ function Material({ label, raw, photos }: { label: string; raw: string | null; p
   return (
     <div className="flex items-center gap-3 rounded-[14px] border border-border px-3.5 py-3">
       {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- қоймадағы кожаның кішкене фотосы
-        <img src={photo} alt={m.name} className="h-12 w-12 shrink-0 rounded-[10px] object-cover shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]" />
+        <PhotoZoom src={photo} alt={m.name} size={48} />
       ) : (
       <span
         className="h-10 w-10 shrink-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]"
@@ -233,8 +233,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
                 />
                 <span className="absolute inset-3.5 rounded-[10px] border-2 border-dashed opacity-90" style={{ borderColor: threadColor }} />
                 {leather?.code && detail.photos[leather.code] && (
-                  // eslint-disable-next-line @next/next/no-img-element -- кожаның өз фотосы (қоймадан)
-                  <img src={detail.photos[leather.code]} alt={leather.name} className="absolute inset-0 h-full w-full object-cover" />
+                  <span className="absolute inset-0">
+                    <PhotoZoom src={detail.photos[leather.code]} alt={leather.name} size={96} rounded={14} />
+                  </span>
                 )}
               </div>
               <div className="min-w-0 flex-1">
