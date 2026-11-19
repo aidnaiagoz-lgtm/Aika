@@ -1,5 +1,7 @@
 "use client";
 
+import { PhotoZoom } from "../../warehouse/PhotoZoom";
+import { splitMaterial } from "@/lib/domain/workshop/calc";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Plus, Trash2 } from "lucide-react";
@@ -91,6 +93,18 @@ function ListInput({ value, onChange, list, placeholder, inputMode }: { value: s
   return <input className={inputCls} value={value} list={list} placeholder={placeholder} inputMode={inputMode} onChange={(e) => onChange(e.target.value)} autoComplete="off" />;
 }
 
+/** Таңдалған материалдың фотосы өрістің оң жағында (тышқанмен үлкейеді). Фото жоқ болса — тек өріс. */
+function WithPhoto({ value, photos, children }: { value: string; photos: Record<string, string>; children: React.ReactNode }) {
+  const m = splitMaterial(value);
+  const src = m?.code ? photos[m.code] : undefined;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">{children}</div>
+      {src && <PhotoZoom src={src} alt={m!.name} size={42} />}
+    </div>
+  );
+}
+
 /** Материал тобы (Кожа / Съёмный полик): тақырыбы бар бөлек жол, ішінде бағандар — Google кестедегі ретпен. */
 function MaterialGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -117,6 +131,7 @@ export function SalesOrderForm({
   options,
   priceByProduct,
   modelsByMake,
+  photos = {},
   managerName,
   locale = "kk",
 }: {
@@ -124,6 +139,8 @@ export function SalesOrderForm({
   priceByProduct: Record<string, number>;
   /** Марка (кіші әріппен) → сол маркадағы модельдер — «Марка (модель)» тізімі тек сол маркаға қарай сүзіледі */
   modelsByMake: Record<string, string[]>;
+  /** Материал коды → фото сілтемесі (кожа, Ева) — таңдағанда қасынан көрінеді */
+  photos?: Record<string, string>;
   managerName: string;
   /** Интерфейс тілі (ҚАЗ / РУС) — төлем бөлімінің жазулары соған қарай. */
   locale?: string;
@@ -485,7 +502,9 @@ export function SalesOrderForm({
                         {kd.leather && (
                           <MaterialGroup title={ru ? "Кожа" : "Кожа (былғары)"}>
                             <Field label={ru ? "Вид кожи" : "Кожа түрі"}>
-                              <ListInput value={it.leatherType} onChange={(v) => setItem(k, { leatherType: v })} list="o-leather" />
+                              <WithPhoto value={it.leatherType} photos={photos}>
+                                <ListInput value={it.leatherType} onChange={(v) => setItem(k, { leatherType: v })} list="o-leather" />
+                              </WithPhoto>
                             </Field>
                             <Field label="Стыковка нитка">
                               <ListInput
@@ -508,7 +527,9 @@ export function SalesOrderForm({
                         {kd.mat && (
                           <MaterialGroup title={ru ? "Съёмный полик" : "Съёмный полик"}>
                             <Field label={ru ? "Вид" : "Түрі"}>
-                              <ListInput value={it.matType} onChange={(v) => setItem(k, { matType: v })} list="o-mat" />
+                              <WithPhoto value={it.matType} photos={photos}>
+                                <ListInput value={it.matType} onChange={(v) => setItem(k, { matType: v })} list="o-mat" />
+                              </WithPhoto>
                             </Field>
                             <Field label="Нитка">
                               <ListInput value={it.matThread} onChange={(v) => setItem(k, { matThread: v })} list="o-matthread" />

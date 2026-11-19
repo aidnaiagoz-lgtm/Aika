@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma, type MaterialCategory } from "@prisma/client";
 import { prisma, PermissionAction } from "@/lib/db";
 import { assertPermission, can } from "@/lib/rbac";
+import { canUseWorkshop } from "@/lib/access";
 import type { ActingUser } from "@/lib/domain/orders";
 import { daysLeft, moySkladCategory, parseLedgerMaterial, stockStatus, type MoySkladRow, type StockStatus } from "./stock-calc";
 
@@ -246,10 +247,15 @@ export async function listReceipts(user: ActingUser) {
 
 export async function materialDetail(user: ActingUser, id: string) {
   assertView(user);
-  const m = await prisma.material.findUnique({ where: { id }, include: { photo: { select: { updatedAt: true } } } });
+  const m = await prisma.material.findUnique({ where: { id }, include: { photo: { select: { updatedAt: true, uploadedByName: true } } } });
   if (!m) return null;
   const moves = await prisma.stockMovement.findMany({ where: { materialId: id }, orderBy: { createdAt: "desc" }, take: 100 });
-  return { material: m, moves, photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null };
+  return {
+    material: m,
+    moves,
+    photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null,
+    photoBy: m.photo ? { name: m.photo.uploadedByName, at: m.photo.updatedAt } : null,
+  };
 }
 
 /** Минимум қалдық (одан төмен түссе — «Аз қалды») және 1 бірліктің бағасы. */
@@ -417,6 +423,12 @@ export interface PhotoFile {
   data: Buffer;
 }
 
+/** Фотоны кім қосқаны (материал бетінде көрсетіледі). */
+async function uploader(user: ActingUser) {
+  const name = user.employee?.id ? (await prisma.employee.findUnique({ where: { id: user.employee.id }, select: { fullName: true } }))?.fullName ?? null : null;
+  return { uploadedById: user.id, uploadedByName: name };
+}
+
 function checkPhoto(f: PhotoFile) {
   if (!PHOTO_MIME.includes(f.mime)) throw new StockError(`«${f.name}» — тек JPG, PNG немесе WEBP сурет`);
   if (f.data.length > PHOTO_MAX) throw new StockError(`«${f.name}» тым үлкен (600 КБ-тан аз болсын)`);
@@ -428,6 +440,7 @@ export async function saveMaterialPhotos(user: ActingUser, files: PhotoFile[]) {
   if (files.length > 20) throw new StockError("Бір ретте 20 фотодан көп емес");
   const saved: string[] = [];
   const unknown: string[] = [];
+  const by = await uploader(user);
   for (const f of files) {
     checkPhoto(f);
     const code = f.name.replace(/\.[a-z0-9]+$/i, "").replace(/-\d+$/, "").trim();
@@ -437,7 +450,7 @@ export async function saveMaterialPhotos(user: ActingUser, files: PhotoFile[]) {
       continue;
     }
     const data = new Uint8Array(f.data);
-    await prisma.materialPhoto.upsert({ where: { materialId: m.id }, update: { mime: f.mime, data }, create: { materialId: m.id, mime: f.mime, data } });
+    await prisma.materialPhoto.upsert({ where: { materialId: m.id }, update: { mime: f.mime, data, ...by }, create: { materialId: m.id, mime: f.mime, data, ...by } });
     saved.push(code);
   }
   return { saved, unknown };
@@ -448,7 +461,32 @@ export async function setMaterialPhoto(user: ActingUser, materialId: string, f: 
   assertEdit(user);
   checkPhoto(f);
   const data = new Uint8Array(f.data);
-  await prisma.materialPhoto.upsert({ where: { materialId }, update: { mime: f.mime, data }, create: { materialId, mime: f.mime, data } });
+  const by = await uploader(user);
+  await prisma.materialPhoto.upsert({ where: { materialId }, update: { mime: f.mime, data, ...by }, create: { materialId, mime: f.mime, data, ...by } });
+}
+
+/**
+ * Цех (Бекзат) заказ бетінен: тек фотосы ЖОҚ материалға фото қосады. Бар фотоны ауыстыру — қойма/CEO (CEO шешімі, 2026-11-19).
+ */
+export async function addMissingMaterialPhoto(user: ActingUser, materialId: string, f: PhotoFile) {
+  const full = can(user, "materials", PermissionAction.EDIT);
+  if (!full && !canUseWorkshop(user)) throw new StockError("Фото қосуға рұқсат жоқ");
+  checkPhoto(f);
+  const exists = await prisma.materialPhoto.findUnique({ where: { materialId }, select: { id: true } });
+  if (exists && !full) throw new StockError("Бұл материалдың фотосы бар — ауыстыруды CEO жасайды");
+  const m = await prisma.material.findUnique({ where: { id: materialId }, select: { id: true } });
+  if (!m) throw new StockError("Материал табылмады");
+  const data = new Uint8Array(f.data);
+  const by = await uploader(user);
+  await prisma.materialPhoto.upsert({ where: { materialId }, update: { mime: f.mime, data, ...by }, create: { materialId, mime: f.mime, data, ...by } });
+}
+
+/** Код → материал id (фотосы барлар мен жоқтарды қоса). */
+export async function materialIdsByCode(codes: string[]) {
+  const list = [...new Set(codes.filter(Boolean))];
+  if (!list.length) return new Map<string, string>();
+  const rows = await prisma.material.findMany({ where: { sku: { in: list } }, select: { sku: true, id: true } });
+  return new Map(rows.map((r) => [r.sku, r.id]));
 }
 
 /** Код → фото сілтемесі (цех беті, тізімдер үшін). */

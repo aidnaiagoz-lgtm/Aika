@@ -7,6 +7,8 @@ import { canonicalMake } from "@/lib/domain/sales-ledger/normalize/car-make";
 import { canonicalModel } from "@/lib/domain/sales-ledger/normalize/car-model";
 import { getLocale } from "@/lib/locale";
 import { SalesOrderForm } from "./SalesOrderForm";
+import { photoUrlsByCode } from "@/lib/domain/warehouse/stock";
+import { splitMaterial } from "@/lib/domain/workshop/calc";
 
 // Жаңа заказ — Google «продажи» кестесінің орнына (2026-11). Тізімдер (тауар, кожа, жіп, канал...) кестедегідей.
 export const dynamic = "force-dynamic";
@@ -33,6 +35,10 @@ export default async function NewOrderPage() {
     modelsByMake[key] = en([...(modelsByMake[key] ?? []), ...list], canonicalModel);
   }
 
+  // Кожа/Ева фотолары (CEO, 2026-11-19): менеджер таңдаған кожаның фотосын көреді, клиентке көрсете алады
+  const matCodes = [...(options.leatherType ?? []), ...(options.matType ?? [])].map((v) => splitMaterial(v)?.code ?? "");
+  const photos = Object.fromEntries(await photoUrlsByCode(matCodes).catch(() => new Map<string, string>()));
+
   return (
     <div className="mx-auto flex max-w-[1240px] flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -44,7 +50,7 @@ export default async function NewOrderPage() {
           ← Заказдарға оралу
         </Link>
       </div>
-      <SalesOrderForm options={options} priceByProduct={priceByProduct} modelsByMake={modelsByMake} managerName={emp?.fullName ?? "—"} locale={await getLocale()} />
+      <SalesOrderForm options={options} priceByProduct={priceByProduct} modelsByMake={modelsByMake} photos={photos} managerName={emp?.fullName ?? "—"} locale={await getLocale()} />
     </div>
   );
 }

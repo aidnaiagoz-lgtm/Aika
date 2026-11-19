@@ -27,7 +27,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
     throw e;
   }
   if (!d) notFound();
-  const { material: m, moves, photo } = d;
+  const { material: m, moves, photo, photoBy } = d;
   const stock = Number(m.currentStock);
   const min = m.minStock == null ? null : Number(m.minStock);
 
@@ -51,6 +51,11 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
             Код {m.sku} · {CATEGORY_LABEL[m.category]}
             {m.supplier ? ` · соңғы жеткізуші: ${m.supplier}` : ""}
           </p>
+          {photoBy && (
+            <p className="m-0 mt-0.5 text-xs text-text-secondary">
+              Фотоны қосқан: {photoBy.name ?? "белгісіз (импорт)"} · {dt.format(photoBy.at)}
+            </p>
+          )}
           </div>
         </div>
         <div className="flex items-center gap-4">

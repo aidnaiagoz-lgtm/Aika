@@ -720,6 +720,9 @@ model MaterialPhoto {
   mime       String
   data       Bytes
   updatedAt  DateTime @updatedAt
+  /// Кім қосты (2026-11-19): цех тек фотосы жоқ материалға қоса алады, ауыстыру — қойма/CEO
+  uploadedById   String?
+  uploadedByName String?
 
   @@map("material_photos")
 }
