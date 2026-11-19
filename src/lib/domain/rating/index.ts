@@ -6,8 +6,8 @@ import { MANAGER_ROLES } from "@/lib/access";
 // 1 жол = 1 тауар (Excel-дегідей). "Возврат" статусындағы жолдар есепке кірмейді.
 // Уақыт белдеуі — Алматы (UTC+5); күн "YYYY-MM-DD" жолымен салыстырылады.
 
-export type Period = "day" | "week" | "month" | "lastMonth" | "year";
-export const PERIODS: Period[] = ["day", "week", "month", "lastMonth", "year"];
+export type Period = "day" | "yesterday" | "week" | "month" | "lastMonth" | "year";
+export const PERIODS: Period[] = ["day", "yesterday", "week", "month", "lastMonth", "year"];
 
 const TZ_OFFSET_MS = 5 * 60 * 60 * 1000;
 
@@ -42,6 +42,11 @@ export function periodRange(period: Period, today: string): [string, string] {
   switch (period) {
     case "day":
       return [today, today];
+    case "yesterday": {
+      // CEO (2026-11-19): «Кеше» — толық кешегі күн
+      const y = addDays(today, -1);
+      return [y, y];
+    }
     case "week":
       return [weekStart(today), today];
     case "month":
@@ -60,6 +65,10 @@ function previousRange(period: Period, today: string): [string, string] {
     case "day": {
       const y = addDays(today, -1);
       return [y, y];
+    }
+    case "yesterday": {
+      const y2 = addDays(today, -2);
+      return [y2, y2];
     }
     case "week": {
       const ws = weekStart(today);

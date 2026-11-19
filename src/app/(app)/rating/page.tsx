@@ -38,8 +38,8 @@ const MEDAL: Record<number, { ring: string; fill: string; text: string; label: s
 
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n)) + " ₸";
 const num = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
-const PERIOD_KK: Record<Period, string> = { day: "Бүгін", week: "Апта", month: "Ай", lastMonth: "Өткен ай", year: "Жыл" };
-const PERIOD_RU: Record<Period, string> = { day: "Сегодня", week: "Неделя", month: "Месяц", lastMonth: "Прошлый месяц", year: "Год" };
+const PERIOD_KK: Record<Period, string> = { day: "Бүгін", yesterday: "Кеше", week: "Апта", month: "Ай", lastMonth: "Өткен ай", year: "Жыл" };
+const PERIOD_RU: Record<Period, string> = { day: "Сегодня", yesterday: "Вчера", week: "Неделя", month: "Месяц", lastMonth: "Прошлый месяц", year: "Год" };
 const periodLabel = (t: T, p: Period) => t(PERIOD_KK[p], PERIOD_RU[p]);
 const MONTHS_KK = ["Қаңтар", "Ақпан", "Наурыз", "Сәуір", "Мамыр", "Маусым", "Шілде", "Тамыз", "Қыркүйек", "Қазан", "Қараша", "Желтоқсан"];
 const MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -268,13 +268,13 @@ function HeroStat({ label, value, tone, icon: Icon, extra }: { label: string; va
 /** Кезең таңдау. scroll={false} — басқанда бет орнынан қозғалмайды. */
 function PeriodTabs({ period, t }: { period: Period; t: T }) {
   return (
-    <div className="flex gap-1 rounded-xl border border-border bg-surface p-1">
+    <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-1">
       {PERIODS.map((p) => (
         <Link
           key={p}
           href={`/rating?p=${p}`}
           scroll={false}
-          className={`rounded-lg px-3.5 py-1.5 text-sm font-medium ${p === period ? "text-white" : "text-text-secondary hover:text-text-primary"}`}
+          className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium ${p === period ? "text-white" : "text-text-secondary hover:text-text-primary"}`}
           style={p === period ? { background: NAVY } : undefined}
         >
           {periodLabel(t, p)}
@@ -290,11 +290,12 @@ function LeaderKpis({ data, t }: { data: RatingData; t: T }) {
       <Lock size={9} /> CEO
     </span>
   );
-  // Төмендегі «Толық рейтинг» қойындысы (Бүгін / Апта / Ай / Өткен ай / Жыл) осы көрсеткіштерді де ауыстырады
+  // Төмендегі «Толық рейтинг» қойындысы (Бүгін / Кеше / Апта / Ай / Өткен ай / Жыл) осы көрсеткіштерді де ауыстырады
   const p = data.periodTeam;
   const label = periodLabel(t, data.period).toLowerCase();
   const compareTo: Record<Period, string> = {
     day: t("кешегіден", "ко вчера"),
+    yesterday: t("алдыңғы күннен", "к позавчера"),
     week: t("өткен аптаның осы кезеңінен", "к тому же периоду прошлой недели"),
     month: t("өткен айдың осы кезеңінен", "к тому же периоду прошлого месяца"),
     lastMonth: t("алдыңғы айдан", "к позапрошлому месяцу"),
