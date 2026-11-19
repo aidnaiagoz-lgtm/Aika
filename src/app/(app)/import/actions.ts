@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { ensureManagers, blockDemoManager, ManagerError } from "@/lib/domain/managers";
 import { importLedgerChunk, logImport, type ExcelRow } from "@/lib/domain/sales-ledger/import";
 import { syncFromGoogleSheet } from "@/lib/domain/sales-ledger/sheet-sync";
+import { removeLedgerDuplicates } from "@/lib/domain/sales-ledger/duplicates";
 import { setSalesSource } from "@/lib/domain/settings";
 import { isLeader } from "@/lib/access";
 import { redirect } from "next/navigation";
@@ -108,5 +109,19 @@ export async function disableSheetPushAction() {
     return { ok: true as const };
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Қате" };
+  }
+}
+
+/** CEO: Google-дан екі рет көшкен Продажи жолдарын тазалау (әр топтан біреуі қалады). */
+export async function removeDuplicatesAction(): Promise<{ ok: true; removed: number } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Сессия аяқталған — қайта кіріңіз" };
+  try {
+    const r = await removeLedgerDuplicates(user);
+    revalidatePath("/", "layout");
+    return { ok: true, removed: r.removed };
+  } catch (e) {
+    console.error("[ledger] dedupe", e instanceof Error ? e.message : e);
+    return { ok: false, error: e instanceof Error ? e.message : "Тазаланбады" };
   }
 }

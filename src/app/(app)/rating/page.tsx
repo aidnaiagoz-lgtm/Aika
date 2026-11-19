@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { isLeader } from "@/lib/access";
+import { ledgerDuplicateSummary } from "@/lib/domain/sales-ledger/duplicates";
 import { getRatingData, PERIODS, type Period, type BoardRow, type RatingData } from "@/lib/domain/rating";
 import { getLocale } from "@/lib/locale";
 
@@ -99,7 +100,11 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
   const leader = isLeader(user);
   const locale = await getLocale();
   const t: T = (kk, ru) => (locale === "ru" ? ru : kk);
-  const [data, lastSync] = await Promise.all([getRatingData({ period, employeeId: user.employee?.id ?? null, locale }), lastSheetSyncAt()]);
+  const [data, lastSync, dupes] = await Promise.all([
+    getRatingData({ period, employeeId: user.employee?.id ?? null, locale }),
+    lastSheetSyncAt(),
+    leader ? ledgerDuplicateSummary().catch(() => null) : null,
+  ]);
   // Google таблицадан жаңарту — жауап жіберілгеннен кейін, 10 минутта ең көбі бір рет
   after(maybeSyncFromGoogleSheet);
   const myId = user.employee?.id ?? null;
@@ -113,6 +118,15 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
+      {dupes && dupes.extraRows > 0 && (
+        <Link href="/import#dupes" className="rounded-[14px] border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+          ⚠{" "}
+          {t(
+            `Google-дан ${dupes.extraRows} жол екі рет көшіп қалған — айналым ${new Intl.NumberFormat("ru-RU").format(Math.round(dupes.extraSum))} ₸ артық саналып тұр. Тазалау →`,
+            `${dupes.extraRows} строк скопировались из Google дважды — выручка завышена на ${new Intl.NumberFormat("ru-RU").format(Math.round(dupes.extraSum))} ₸. Очистить →`,
+          )}
+        </Link>
+      )}
       <Hero data={data} firstName={firstName} leader={leader} t={t} />
       {lastSync && (
         <div className="-mt-2 text-right text-xs text-text-secondary">
