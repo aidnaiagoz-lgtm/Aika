@@ -111,6 +111,39 @@ const same = (a: unknown, b: unknown): boolean => {
  */
 export async function upsertLedgerRows(rows: ExcelRow[]) {
   if (rows.length > 1000) throw new Error("Бір бөлікте 1000 жолдан аспауы керек");
+  // Google скрипті (push) мен сайттың өз синхрондауы (pull) бір уақытта жүрсе — бір жол екі рет жазылатын (2026-11-19).
+  // Енді бір уақытта тек біреуі жазады, екіншісі күтеді.
+  return withLedgerLock(() => upsertLedgerRowsUnlocked(rows));
+}
+
+const LOCK_KEY = "sales.ledgerSyncLock";
+const LOCK_LEASE_MS = 90_000;
+const stamp = (ms: number) => String(ms).padStart(15, "0");
+
+/**
+ * Продажи жолдарын жазу құлпы (AppSetting арқылы, ұзақ транзакциясыз): мерзімі өткен немесе бос болса ғана алынады.
+ * 25 секунд ішінде алынбаса — қате (келесі синхрондау қайта байқайды). Құлып 90 сек өзі босайды (процесс құласа да).
+ */
+export async function withLedgerLock<T>(fn: () => Promise<T>): Promise<T> {
+  await prisma.appSetting.createMany({ data: [{ key: LOCK_KEY, value: stamp(0) }], skipDuplicates: true });
+  const deadline = Date.now() + 25_000;
+  let token: string | null = null;
+  while (!token) {
+    const now = Date.now();
+    const mine = stamp(now + LOCK_LEASE_MS);
+    const got = await prisma.appSetting.updateMany({ where: { key: LOCK_KEY, value: { lt: stamp(now) } }, data: { value: mine } });
+    if (got.count === 1) token = mine;
+    else if (Date.now() > deadline) throw new Error("Продажи синхрондауы бос емес — сәлден соң қайталанады");
+    else await new Promise((r) => setTimeout(r, 400));
+  }
+  try {
+    return await fn();
+  } finally {
+    await prisma.appSetting.updateMany({ where: { key: LOCK_KEY, value: token }, data: { value: stamp(0) } }).catch(() => undefined);
+  }
+}
+
+async function upsertLedgerRowsUnlocked(rows: ExcelRow[]) {
 
   const branch = await prisma.branch.findFirst({ where: { name: { contains: "Алматы" } } });
   if (!branch) throw new Error("Алматы филиалы табылмады");
@@ -192,6 +225,10 @@ export async function importLedgerChunk(actor: SessionUser, rows: ExcelRow[]) {
  * Тек импортталған (importKey бар) жолдарға тиеді — сайтта қолмен енгізілгендер қалады.
  */
 export async function reconcileSyncedWindow(fromDay: string, nos: number[]) {
+  return withLedgerLock(() => reconcileUnlocked(fromDay, nos));
+}
+
+async function reconcileUnlocked(fromDay: string, nos: number[]) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDay)) throw new Error("from форматы қате");
   const keep = new Set(nos.map((n) => `excel:${n}`));
   const existing = await prisma.salesLedgerRow.findMany({
