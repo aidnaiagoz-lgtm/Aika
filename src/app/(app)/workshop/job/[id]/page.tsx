@@ -8,6 +8,7 @@ import { jobHeadline, leatherNorm, splitMaterial, swatchColor } from "@/lib/doma
 import { Elapsed } from "../../../orders/flow-ui";
 import { DoneActions, LekalaBox, RegistryForm, StartAction } from "./JobActions";
 import { PhotoZoom } from "../../../warehouse/PhotoZoom";
+import { AddPhotoButton } from "./AddPhotoButton";
 
 export const dynamic = "force-dynamic";
 
@@ -42,15 +43,18 @@ function logoChip(v: string | null) {
   return /^(true|да|иә|бар|1)$/i.test(s) ? "Лого" : `Лого: ${s}`;
 }
 
-function Material({ label, raw, photos }: { label: string; raw: string | null; photos: Record<string, string> }) {
+function Material({ label, raw, photos, ids }: { label: string; raw: string | null; photos: Record<string, string>; ids?: Record<string, string> }) {
   const m = splitMaterial(raw);
   if (!m) return null;
   const color = swatchColor(m.name);
   const photo = m.code ? photos[m.code] : undefined;
+  const addId = !photo && m.code && ids ? ids[m.code] : undefined;
   return (
     <div className="flex items-center gap-3 rounded-[14px] border border-border px-3.5 py-3">
       {photo ? (
         <PhotoZoom src={photo} alt={m.name} size={48} />
+      ) : addId ? (
+        <AddPhotoButton materialId={addId} />
       ) : (
       <span
         className="h-10 w-10 shrink-0 rounded-[10px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]"
@@ -254,13 +258,13 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             </div>
             <h3 className="mb-2.5 mt-4 text-sm font-extrabold text-text-primary">Материалдар</h3>
             <div className="grid gap-2.5 sm:grid-cols-2">
-              <Material photos={detail.photos} label="Кожа" raw={job.leatherType} />
-              <Material photos={detail.photos} label="Стыковка жібі" raw={job.leatherThread} />
-              <Material photos={detail.photos} label="Лента (окантовка)" raw={job.leatherPiping} />
-              <Material photos={detail.photos} label="Окантовка жібі" raw={job.leatherPipingThread} />
-              <Material photos={detail.photos} label="Съёмный полик" raw={job.matType} />
-              <Material photos={detail.photos} label="Съёмный · жіп" raw={job.matThread} />
-              <Material photos={detail.photos} label="Съёмный · окантовка" raw={job.matPiping} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Кожа" raw={job.leatherType} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Стыковка жібі" raw={job.leatherThread} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Лента (окантовка)" raw={job.leatherPiping} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Окантовка жібі" raw={job.leatherPipingThread} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Съёмный полик" raw={job.matType} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Съёмный · жіп" raw={job.matThread} />
+              <Material photos={detail.photos} ids={detail.materialIds} label="Съёмный · окантовка" raw={job.matPiping} />
             </div>
             {!job.leatherType && !job.matType && <p className="m-0 text-sm text-text-secondary">Материал жазылмаған — менеджерден сұраңыз.</p>}
           </Section>
