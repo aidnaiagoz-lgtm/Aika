@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { ImagePlus } from "lucide-react";
 import { uploadPhotosAction } from "../actions";
+import { resizeImage } from "../resize";
 
 /** Материал фотолары (кожа, леска, Ева…): бірнеше суретті бірден таңдайды, атауы — коды («4050.jpg»). 8-ден бөліп жібереді. */
 export function PhotoUpload() {
@@ -19,7 +20,7 @@ export function PhotoUpload() {
       for (let i = 0; i < files.length; i += 8) {
         setProgress(`${Math.min(i + 8, files.length)} / ${files.length}`);
         const form = new FormData();
-        for (const f of files.slice(i, i + 8)) form.append("files", f);
+        for (const f of files.slice(i, i + 8)) form.append("files", await resizeImage(f, 1000, 0.85), f.name.replace(/\.[a-z0-9]+$/i, "") + ".jpg");
         const r = await uploadPhotosAction(form);
         if (!r.ok) {
           setProgress(null);

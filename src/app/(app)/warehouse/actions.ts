@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { ForbiddenError } from "@/lib/rbac";
-import { applyMoySklad, createReceipt, previewMoySklad, saveMaterialPhotos, setMaterialPhoto, StockError, updateMaterialStockSettings, type PhotoFile, type ReceiptInput } from "@/lib/domain/warehouse/stock";
+import { addReceiptPhoto, applyMoySklad, createReceipt, previewMoySklad, saveMaterialPhotos, setMaterialPhoto, StockError, updateMaterialStockSettings, type PhotoFile, type ReceiptInput } from "@/lib/domain/warehouse/stock";
 import type { MoySkladRow } from "@/lib/domain/warehouse/stock-calc";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
@@ -81,5 +81,14 @@ export async function setMaterialPhotoAction(materialId: string, form: FormData)
     const [f] = await filesOf(form);
     if (!f) throw new StockError("Фотоны таңдаңыз");
     await setMaterialPhoto(u, materialId, f);
+  });
+}
+
+/** Накладнаның фотосы (бір-бірден жіберіледі — әрқайсысы браузерде кішірейтілген). */
+export async function addReceiptPhotoAction(receiptId: string, form: FormData) {
+  return run(async (u) => {
+    const [f] = await filesOf(form);
+    if (!f) throw new StockError("Фотоны таңдаңыз");
+    await addReceiptPhoto(u, receiptId, f);
   });
 }

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
-import { createReceiptAction } from "../../actions";
+import { Camera, ImagePlus, Plus, X } from "lucide-react";
+import { addReceiptPhotoAction, createReceiptAction, setMaterialPhotoAction } from "../../actions";
+import { resizeImage } from "../../resize";
 import { fmtQty, parseQty } from "@/lib/domain/warehouse/stock-calc";
 
 interface Mat {
@@ -14,9 +15,34 @@ interface Mat {
   category: string;
   stock: number;
   price: number;
+  photo: string | null;
 }
 
-type Line = { key: number; materialId: string; text: string; qty: string; price: string };
+type Line = { key: number; materialId: string; text: string; qty: string; price: string; photo?: File };
+
+/** Таңдалған файлдың алдын ала көрінісі (object URL). */
+function Preview({ file, size, onRemove }: { file: File; size: number; onRemove?: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  // URL эффект ішінде жасалады: StrictMode-та қайта орнатылғанда да жарамды болсын
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- object URL тек браузерде
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  if (!url) return <span className="inline-block shrink-0 rounded-[10px] bg-page-bg" style={{ width: size, height: size }} />;
+  return (
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- жергілікті алдын ала көрініс */}
+      <img src={url} alt="" className="h-full w-full rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.08)]" />
+      {onRemove && (
+        <button type="button" aria-label="Алып тастау" onClick={onRemove} className="absolute -right-1.5 -top-1.5 rounded-full bg-text-primary p-0.5 text-white">
+          <X size={12} />
+        </button>
+      )}
+    </span>
+  );
+}
 
 const label = (m: Mat) => `${m.sku} · ${m.name}`;
 const inputCls = "min-h-11 w-full rounded-icon border border-border bg-surface px-3.5 text-[15px] text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/30";
@@ -32,6 +58,8 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
   const [docNo, setDocNo] = useState("");
   const [pay, setPay] = useState("Kaspi");
   const [lines, setLines] = useState<Line[]>([{ key: 1, materialId: "", text: "", qty: "", price: "" }]);
+  const [invoice, setInvoice] = useState<File[]>([]);
+  const [step, setStep] = useState<string | null>(null);
 
   // Күн — қолданушының өз сағатынан (сервер уақыты емес)
   useEffect(() => {
@@ -47,7 +75,7 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
   const pick = (key: number, text: string) => {
     const t = text.trim().toLowerCase();
     const m = byLabel.get(t) ?? materials.find((x) => x.sku === t.split(/\s/)[0]);
-    set(key, { text, materialId: m?.id ?? "", ...(m && m.price > 0 ? { price: String(m.price) } : {}) });
+    set(key, { text, materialId: m?.id ?? "", ...(m && m.price > 0 ? { price: String(m.price).replace(".", ",") } : {}) });
   };
 
   const rows = lines.map((l) => {
@@ -62,6 +90,7 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
   const submit = () =>
     start(async () => {
       if (rows.some((r) => r.l.text && !r.m)) return setError("Тізімнен материалды таңдаңыз (код немесе атауын жазып, ұсынылғанын басыңыз)");
+      setStep("Кіріс сақталуда…");
       const r = await createReceiptAction({
         supplier,
         date,
@@ -69,8 +98,27 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
         paymentMethod: pay,
         lines: filled.map((x) => ({ materialId: x.m!.id, qty: x.qty!, price: x.price })),
       });
-      if (!r.ok) return setError(r.error);
-      router.push("/warehouse/receipts?saved=1");
+      if (!r.ok) {
+        setStep(null);
+        return setError(r.error);
+      }
+      // Фотолар — кіріс сақталғаннан кейін, бір-бірден (әрқайсысы браузерде кішірейтіледі)
+      const warn: string[] = [];
+      for (const [i, f] of invoice.entries()) {
+        setStep(`Накладнаның фотосы ${i + 1}/${invoice.length}…`);
+        const form = new FormData();
+        form.append("files", await resizeImage(f, 1600, 0.82));
+        const p = r.id ? await addReceiptPhotoAction(r.id, form) : { ok: false as const, error: "" };
+        if (!p.ok) warn.push(f.name);
+      }
+      for (const x of filled.filter((x) => x.l.photo)) {
+        setStep(`${x.m!.name} — фото…`);
+        const form = new FormData();
+        form.append("files", await resizeImage(x.l.photo!, 1000, 0.85));
+        const p = await setMaterialPhotoAction(x.m!.id, form);
+        if (!p.ok) warn.push(x.m!.name);
+      }
+      router.push(`/warehouse/receipts?saved=1${warn.length ? "&photoErr=1" : ""}`);
     });
 
   return (
@@ -119,8 +167,18 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
                   <td className="px-3 py-2">
                     <input list="materials" value={l.text} onChange={(e) => pick(l.key, e.target.value)} placeholder="Код немесе атауы…" className={`${inputCls} ${l.text && !m ? "border-danger/60" : ""}`} />
                     {m && (
-                      <div className="mt-1 text-xs text-text-secondary">
-                        Қазір: {fmtQty(m.stock)} {m.unit}
+                      <div className="mt-1.5 flex items-center gap-2 text-xs text-text-secondary">
+                        <span>
+                          Қазір: {fmtQty(m.stock)} {m.unit}
+                        </span>
+                        {l.photo ? (
+                          <Preview file={l.photo} size={28} onRemove={() => set(l.key, { photo: undefined })} />
+                        ) : (
+                          <label className="flex cursor-pointer items-center gap-1 rounded-pill border border-border px-2 py-0.5 font-semibold text-text-primary hover:bg-page-bg">
+                            <Camera size={12} /> {m.photo ? "Фотоны ауыстыру" : "Фото қосу"}
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && set(l.key, { photo: e.target.files[0] })} />
+                          </label>
+                        )}
                       </div>
                     )}
                   </td>
@@ -180,6 +238,32 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
             ))}
           </div>
         )}
+        <div className="mt-3 border-t border-border pt-3">
+          <span className={lbl}>Накладнаның фотосы</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {invoice.map((f, i) => (
+              <Preview key={`${f.name}-${i}`} file={f} size={56} onRemove={() => setInvoice((xs) => xs.filter((_, k) => k !== i))} />
+            ))}
+            {invoice.length < 10 && (
+              <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-[10px] border-2 border-dashed border-border text-text-secondary hover:border-accent/50">
+                <ImagePlus size={18} />
+                <span className="text-[10px] font-semibold">Қосу</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const fs = [...(e.target.files ?? [])];
+                    setInvoice((xs) => [...xs, ...fs].slice(0, 10));
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <span className="mt-1 block text-xs text-text-secondary">Телефонмен түсіруге болады — сайт өзі кішірейтеді</span>
+        </div>
         {error && <p className="m-0 mt-2 rounded-icon bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
         <button
           type="button"
@@ -187,7 +271,7 @@ export function ReceiptForm({ materials, suppliers }: { materials: Mat[]; suppli
           onClick={submit}
           className="mt-3 min-h-12 rounded-pill bg-accent text-[15px] font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
         >
-          {pending ? "Сақталуда…" : "Кірісті сақтау"}
+          {pending ? step ?? "Сақталуда…" : "Кірісті сақтау"}
         </button>
       </aside>
     </div>

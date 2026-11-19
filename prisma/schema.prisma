@@ -761,9 +761,23 @@ model StockReceipt {
   createdByName String?
   createdAt     DateTime        @default(now())
   movements     StockMovement[]
+  photos        StockReceiptPhoto[]
 
   @@index([date])
   @@map("stock_receipts")
+}
+
+/// Накладнаның фотосы (2026-11-19) — кіріске тіркеледі; браузерде кішірейтіліп (≈1600px) базада сақталады.
+model StockReceiptPhoto {
+  id        String       @id @default(cuid())
+  receiptId String
+  receipt   StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
+  createdAt DateTime     @default(now())
+
+  @@index([receiptId])
+  @@map("stock_receipt_photos")
 }
 
 enum MaterialCategory {
