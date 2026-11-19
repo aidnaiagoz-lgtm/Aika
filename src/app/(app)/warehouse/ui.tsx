@@ -13,6 +13,15 @@ export function Dot({ name }: { name: string }) {
   );
 }
 
+/** Фото бар болса — кішкене сурет, жоқ болса — түс дөңгелегі. */
+export function Thumb({ name, photo, size = 40 }: { name: string; photo: string | null; size?: number }) {
+  if (!photo) return <Dot name={name} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- базадан келетін кішкене сурет, next/image қажет емес
+    <img src={photo} alt="" width={size} height={size} loading="lazy" className="mr-3 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.06)]" style={{ width: size, height: size }} />
+  );
+}
+
 export const STATUS: Record<StockStatus, { label: string; cls: string }> = {
   ok: { label: "Жеткілікті", cls: "bg-page-bg text-text-secondary" },
   low: { label: "Аз қалды", cls: "bg-[#fff4e0] text-[#b45309]" },

@@ -707,8 +707,21 @@ model Material {
 
   configurations ProductConfiguration[] @relation("ConfigMaterial")
   movements      StockMovement[]
+  photo          MaterialPhoto?
 
   @@map("materials")
+}
+
+/// Материалдың фотосы (2026-11-19): кішкене сурет базада сақталады (МойСклад «Кожа» файлынан немесе қолмен жүктеледі).
+model MaterialPhoto {
+  id         String   @id @default(cuid())
+  materialId String   @unique
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  mime       String
+  data       Bytes
+  updatedAt  DateTime @updatedAt
+
+  @@map("material_photos")
 }
 
 /// Қойма қозғалысы (2026-11-18): кіріс (+), цехқа шығыс (−), түзету, санау. Қалдық = Material.currentStock.

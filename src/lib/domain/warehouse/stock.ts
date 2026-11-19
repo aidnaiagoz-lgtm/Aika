@@ -62,6 +62,7 @@ export interface StockRow {
   status: StockStatus;
   days: number | null;
   last: { at: string; qty: number; kind: string; orderNo: string | null } | null;
+  photo: string | null;
 }
 
 /** Каталогтағы «нағыз» материалдар: кодпен келгендер немесе қойма арқылы қозғалғандар (бастапқы демо-жазбалар шықпасын). */
@@ -71,7 +72,11 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
   assertView(user);
   await syncCatalogFromLedger().catch((e) => console.error("[stock] catalog sync", e instanceof Error ? e.message : e));
 
-  const materials = await prisma.material.findMany({ where: visibleWhere, orderBy: [{ category: "asc" }, { sku: "asc" }] });
+  const materials = await prisma.material.findMany({
+    where: visibleWhere,
+    orderBy: [{ category: "asc" }, { sku: "asc" }],
+    include: { photo: { select: { updatedAt: true } } },
+  });
   const ids = materials.map((m) => m.id);
   const since = new Date(Date.now() - 30 * 86400_000);
   const [lastMoves, out30, moved] = await Promise.all([
@@ -104,6 +109,7 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
       status: stockStatus(stock, min, movedSet.has(m.id)),
       days: daysLeft(stock, outBy.get(m.id) ?? 0),
       last: l ? { at: l.createdAt.toISOString(), qty: Number(l.qty), kind: l.kind, orderNo: l.orderNo } : null,
+      photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null,
     };
   });
 
@@ -228,10 +234,10 @@ export async function listReceipts(user: ActingUser) {
 
 export async function materialDetail(user: ActingUser, id: string) {
   assertView(user);
-  const m = await prisma.material.findUnique({ where: { id } });
+  const m = await prisma.material.findUnique({ where: { id }, include: { photo: { select: { updatedAt: true } } } });
   if (!m) return null;
   const moves = await prisma.stockMovement.findMany({ where: { materialId: id }, orderBy: { createdAt: "desc" }, take: 100 });
-  return { material: m, moves };
+  return { material: m, moves, photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null };
 }
 
 /** Минимум қалдық (одан төмен түссе — «Аз қалды») және 1 бірліктің бағасы. */
@@ -384,4 +390,59 @@ export async function applyMoySklad(user: U, rawRows: MoySkladRow[]) {
     data: { actorId: user.id, action: "STOCK_IMPORT", entityType: "Material", entityId: "moysklad", newValue: { items: items.length, changed } },
   });
   return { items: items.length, changed };
+}
+
+// ---------- Материал фотосы (2026-11-19) ----------
+
+export const photoUrl = (materialId: string, updatedAt: Date) => `/api/material-photo/${materialId}?v=${updatedAt.getTime()}`;
+
+const PHOTO_MIME = ["image/jpeg", "image/png", "image/webp"];
+const PHOTO_MAX = 600 * 1024;
+
+export interface PhotoFile {
+  name: string;
+  mime: string;
+  data: Buffer;
+}
+
+function checkPhoto(f: PhotoFile) {
+  if (!PHOTO_MIME.includes(f.mime)) throw new StockError(`«${f.name}» — тек JPG, PNG немесе WEBP сурет`);
+  if (f.data.length > PHOTO_MAX) throw new StockError(`«${f.name}» тым үлкен (600 КБ-тан аз болсын)`);
+}
+
+/** Бірнеше фото: файл атауы — материал коды («4050.jpg»). Табылмаған кодтар қайтарылады. */
+export async function saveMaterialPhotos(user: ActingUser, files: PhotoFile[]) {
+  assertEdit(user);
+  if (files.length > 20) throw new StockError("Бір ретте 20 фотодан көп емес");
+  const saved: string[] = [];
+  const unknown: string[] = [];
+  for (const f of files) {
+    checkPhoto(f);
+    const code = f.name.replace(/\.[a-z0-9]+$/i, "").replace(/-\d+$/, "").trim();
+    const m = code ? await prisma.material.findUnique({ where: { sku: code }, select: { id: true } }) : null;
+    if (!m) {
+      unknown.push(f.name);
+      continue;
+    }
+    const data = new Uint8Array(f.data);
+    await prisma.materialPhoto.upsert({ where: { materialId: m.id }, update: { mime: f.mime, data }, create: { materialId: m.id, mime: f.mime, data } });
+    saved.push(code);
+  }
+  return { saved, unknown };
+}
+
+/** Бір материалдың фотосын ауыстыру (материал бетінен). */
+export async function setMaterialPhoto(user: ActingUser, materialId: string, f: PhotoFile) {
+  assertEdit(user);
+  checkPhoto(f);
+  const data = new Uint8Array(f.data);
+  await prisma.materialPhoto.upsert({ where: { materialId }, update: { mime: f.mime, data }, create: { materialId, mime: f.mime, data } });
+}
+
+/** Код → фото сілтемесі (цех беті, тізімдер үшін). */
+export async function photoUrlsByCode(codes: string[]) {
+  const list = [...new Set(codes.filter(Boolean))];
+  if (!list.length) return new Map<string, string>();
+  const rows = await prisma.material.findMany({ where: { sku: { in: list }, photo: { isNot: null } }, select: { sku: true, id: true, photo: { select: { updatedAt: true } } } });
+  return new Map(rows.map((r) => [r.sku, photoUrl(r.id, r.photo!.updatedAt)]));
 }

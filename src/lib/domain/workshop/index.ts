@@ -5,6 +5,8 @@ import { canUseWorkshop, isLeader, WORKSHOP_ROLES } from "@/lib/access";
 import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { SessionUser } from "@/lib/session";
 import { sendPushToUsers } from "@/lib/push";
+import { photoUrlsByCode } from "@/lib/domain/warehouse/stock";
+import { splitMaterial } from "./calc";
 import { computePay, DEFAULT_RATES, DEFAULT_WORKERS, jobHeadline, OPERATION_FIELD, OPERATIONS, type Operation } from "./calc";
 
 export class WorkshopError extends Error {}
@@ -349,8 +351,13 @@ export async function getJobDetail(user: SessionUser, id: string) {
   });
   if (!job) return null;
   const item = job.ledgerRow?.orderItems[0];
+  const codes = [job.leatherType, job.leatherThread, job.leatherPiping, job.leatherPipingThread, job.matType, job.matThread, job.matPiping]
+    .map((v) => splitMaterial(v)?.code ?? "")
+    .filter(Boolean);
+  const photos = await photoUrlsByCode(codes).catch(() => new Map<string, string>());
   return {
     job,
+    photos: Object.fromEntries(photos) as Record<string, string>,
     pickup: item?.order.pickupMethod ?? job.ledgerRow?.pickupMethod ?? null,
     deadline: item?.order.deadline ?? null,
     comment: [item?.order.comment, item?.comment].map((s) => (s ?? "").trim()).filter(Boolean).join(" · ") || null,
