@@ -1353,3 +1353,44 @@ model PushSubscription {
   @@index([userId])
   @@map("push_subscriptions")
 }
+
+// ---------- Лекала (2026-11-19) ----------
+// Қай көлікке лекала бар — негізгі дерек: цех тарихы (Продажи «Цех ✓» жолдары, тікелей есептеледі, бөлек сақталмайды).
+// Мұнда — тек қолмен белгілеу (цех/CEO) және менеджердің «Цехтан сұрау»-ы.
+
+/// Цех/CEO белгісі: марка+модель бойынша «бар» / «жоқ» (тарихтан басым).
+model LekalaMark {
+  id        String   @id @default(cuid())
+  /// Қалыпқа келтірілген кілт: «hyundai|tucson» (lekalaKey)
+  key       String   @unique
+  make      String
+  model     String
+  status    String // HAVE | NONE
+  note      String?
+  byId      String?
+  byName    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lekala_marks")
+}
+
+/// Менеджер: «лекала бар ма?» сұрауы → цехқа хабар → жауап.
+model LekalaRequest {
+  id              String    @id @default(cuid())
+  key             String
+  make            String
+  model           String
+  year            Int?
+  requestedById   String?
+  requestedByName String?
+  status          String    @default("OPEN") // OPEN | SEARCHING | HAVE | NONE
+  answeredById    String?
+  answeredByName  String?
+  answeredAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([key, status])
+  @@index([status, createdAt])
+  @@map("lekala_requests")
+}

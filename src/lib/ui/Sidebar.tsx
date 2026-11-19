@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot, BarChart3, Settings, ChevronDown, ChevronRight, Trophy, Table2, KeyRound, Target, Users, FileUp, Scissors, Wallet, Boxes } from "lucide-react";
+import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot, BarChart3, Settings, ChevronDown, ChevronRight, Trophy, Table2, KeyRound, Target, Users, FileUp, Scissors, Wallet, Boxes, Layers } from "lucide-react";
 import { Logo } from "./Logo";
 import { getDictionary, DEPARTMENT_SLUGS, type Locale } from "@/lib/i18n";
 
@@ -70,6 +70,7 @@ export function Sidebar({
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
           <WorkshopGroup pathname={pathname} counts={workshopCounts} />
+          <NavLink href="/lekala" label="Лекала" icon={Layers} active={pathname.startsWith("/lekala")} />
           <NavLink href="/workshop/pay" label="Айлық есебі" icon={Wallet} active={pathname.startsWith("/workshop/pay")} />
           <NavLink href="/workshop/workers" label="Қызметкерлер" icon={Users} active={pathname.startsWith("/workshop/workers")} />
           <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
@@ -141,6 +142,7 @@ export function Sidebar({
             <NavLink href="/managers" label="Менеджерлер" icon={Users} active={pathname.startsWith("/managers")} />
             <WorkshopGroup pathname={pathname} counts={workshopCounts} />
             <WarehouseGroup pathname={pathname} />
+            <NavLink href="/lekala" label="Лекала" icon={Layers} active={pathname.startsWith("/lekala")} />
             <NavLink href="/import" label="Excel импорт" icon={FileUp} active={pathname.startsWith("/import")} />
           </>
         )}

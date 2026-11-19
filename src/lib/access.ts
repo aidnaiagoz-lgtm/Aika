@@ -37,7 +37,7 @@ export function isManagedAccount(user: RoleCarrier): boolean {
   return (hasAnyRole(user, MANAGER_ROLES) || hasAnyRole(user, WORKSHOP_ROLES)) && !isLeader(user);
 }
 
-export const WORKSHOP_ALLOWED_PREFIXES = ["/workshop", "/change-password"];
+export const WORKSHOP_ALLOWED_PREFIXES = ["/workshop", "/lekala", "/change-password"];
 
 export function workshopCanOpen(pathname: string): boolean {
   return WORKSHOP_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
