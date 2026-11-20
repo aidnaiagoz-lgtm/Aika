@@ -29,3 +29,24 @@ test("carTitle: анық атау", async () => {
   assert.equal(carTitle("", "").title, "");
   assert.equal(carTitle("хюндай", "хюндай стария").raw, "хюндай стария");
 });
+
+test("lekalaProductLabel / lekalaMatLabel / summarizeProducts", async () => {
+  const { lekalaProductLabel, lekalaMatLabel, summarizeProducts } = await import("./calc");
+  assert.equal(lekalaProductLabel("3Д - Люкс - салон полный 2 ряд"), "3Д · салон полный 2 ряд");
+  assert.equal(lekalaProductLabel("5Д - Премиум - салон полный 3 ряд"), "5Д · салон полный 3 ряд");
+  assert.equal(lekalaProductLabel("багаж -  - пол / дно"), "Багаж · пол / дно");
+  assert.equal(lekalaProductLabel("съемный - Леска - водительский 1"), "Съёмный · Леска · водительский 1");
+  assert.equal(lekalaProductLabel("1025 - Подпятник - металл"), null);
+  assert.equal(lekalaProductLabel(""), null);
+  assert.equal(lekalaMatLabel("1041 - Леска - кара"), "+ Съёмный полик · Леска");
+  assert.equal(lekalaMatLabel(null), null);
+  const m = new Map([
+    ["Багаж · полный", { count: 2, minYear: 2020, maxYear: 2020 }],
+    ["3Д · салон полный 2 ряд", { count: 5, minYear: 2018, maxYear: 2021 }],
+  ]);
+  const s = summarizeProducts(m, 2023);
+  assert.equal(s[0].label, "3Д · салон полный 2 ряд");
+  assert.equal(s[0].fitsYear, false);
+  assert.equal(s[1].years, "2020");
+  assert.equal(summarizeProducts(m, 2021)[1].fitsYear, true);
+});
