@@ -30,23 +30,47 @@ test("carTitle: анық атау", async () => {
   assert.equal(carTitle("хюндай", "хюндай стария").raw, "хюндай стария");
 });
 
-test("lekalaProductLabel / lekalaMatLabel / summarizeProducts", async () => {
-  const { lekalaProductLabel, lekalaMatLabel, summarizeProducts } = await import("./calc");
+test("lekalaProductLabel / lekalaMatLabel", async () => {
+  const { lekalaProductLabel, lekalaMatLabel } = await import("./calc");
   assert.equal(lekalaProductLabel("3Д - Люкс - салон полный 2 ряд"), "3Д · салон полный 2 ряд");
-  assert.equal(lekalaProductLabel("5Д - Премиум - салон полный 3 ряд"), "5Д · салон полный 3 ряд");
   assert.equal(lekalaProductLabel("багаж -  - пол / дно"), "Багаж · пол / дно");
   assert.equal(lekalaProductLabel("съемный - Леска - водительский 1"), "Съёмный · Леска · водительский 1");
   assert.equal(lekalaProductLabel("1025 - Подпятник - металл"), null);
   assert.equal(lekalaProductLabel(""), null);
+  assert.equal(lekalaProductLabel("-"), null);
+  assert.equal(lekalaProductLabel(" - "), null);
   assert.equal(lekalaMatLabel("1041 - Леска - кара"), "+ Съёмный полик · Леска");
   assert.equal(lekalaMatLabel(null), null);
-  const m = new Map([
-    ["Багаж · полный", { count: 2, minYear: 2020, maxYear: 2020 }],
-    ["3Д · салон полный 2 ряд", { count: 5, minYear: 2018, maxYear: 2021 }],
-  ]);
-  const s = summarizeProducts(m, 2023);
-  assert.equal(s[0].label, "3Д · салон полный 2 ряд");
-  assert.equal(s[0].fitsYear, false);
-  assert.equal(s[1].years, "2020");
-  assert.equal(summarizeProducts(m, 2021)[1].fitsYear, true);
+});
+
+test("groupLekala: буын бойынша / жыл бойынша", async () => {
+  const { groupLekala } = await import("./calc");
+  const gens = [
+    { code: "XU50", from: 2013, to: 2019 },
+    { code: "XU70", from: 2019, to: null },
+  ];
+  const e = [
+    { label: "3Д · салон полный 2 ряд", year: 2015, date: "2024-01-02" },
+    { label: "3Д · салон полный 2 ряд", year: 2016, date: "2025-03-01" },
+    { label: "5Д · салон полный 3 ряд", year: 2021, date: "2025-10-12" },
+    { label: "+ Съёмный полик · Леска", year: 2021, date: "2025-10-12" },
+    { label: "3Д · салон полный 2 ряд", year: 2019, date: "2023-05-05" },
+    { label: "Багаж · полный", year: null, date: null },
+  ];
+  const g = groupLekala(e, gens, 2022);
+  assert.equal(g[0].id, "XU70");
+  assert.equal(g[0].current, true);
+  assert.equal(g[0].count, 2); // 2021 5Д + 2019 3Д (полик саналмайды)
+  assert.equal(g[0].last, "2025-10-12");
+  assert.equal(g.find((x) => x.id === "XU50")!.products[0].last, "2025-03-01");
+  assert.equal(g.find((x) => x.id === "none")!.title, "Жылы жазылмаған");
+  // Буыны тігілмеген жыл — бос, бірақ көрінеді
+  const g2 = groupLekala(e.slice(0, 2), gens, 2024);
+  assert.equal(g2[0].id, "XU70");
+  assert.equal(g2[0].count, 0);
+  // Буын белгісіз: ±1 жыл
+  const g3 = groupLekala(e, null, 2016);
+  assert.equal(g3[0].id, "near");
+  assert.equal(g3[0].count, 2);
+  assert.equal(groupLekala(e, null, null)[0].id, "all");
 });

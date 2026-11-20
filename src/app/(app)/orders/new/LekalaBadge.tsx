@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check, CircleHelp, Loader2, TriangleAlert } from "lucide-react";
 import { lookupLekalaAction, requestLekalaAction } from "../../lekala/actions";
 import type { LekalaLookup } from "@/lib/domain/lekala";
+import type { LekalaGroup } from "@/lib/domain/lekala/calc";
 
 const tm = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty" });
 const pill = "inline-flex items-center gap-1.5 rounded-[12px] px-3 py-2 text-[13px] font-semibold";
@@ -57,6 +58,7 @@ export function LekalaBadge({ make, model, year }: { make: string; model: string
     );
   if (!data) return null;
   const v = data.verdict;
+  const cur = data.groups.find((g) => g.current);
 
   const ask = (
     <button
@@ -85,7 +87,11 @@ export function LekalaBadge({ make, model, year }: { make: string; model: string
             Лекала бар
             {v.source === "history" && v.count > 0 && (
               <span className="font-normal">
-                · бұрын {v.count} рет тіктік{v.years ? ` (${v.years})` : ""}
+                {cur && data.hasGenerations
+                  ? `· ${cur.title.split(" · ")[0]} буынына ${cur.count} рет тіктік`
+                  : cur && data.year
+                    ? `· ${data.year - 1}–${data.year + 1} жылдарға ${cur.count} рет тіктік (барлығы ${v.count})`
+                    : `· бұрын ${v.count} рет тіктік${v.years ? ` (${v.years})` : ""}`}
               </span>
             )}
             {v.source === "mark" && <span className="font-normal">· {v.by ?? "цех"} растады</span>}
@@ -94,7 +100,10 @@ export function LekalaBadge({ make, model, year }: { make: string; model: string
         {v.status === "check_year" && (
           <>
             <span className={`${pill} bg-[#fff4e0] text-[#b45309]`}>
-              <TriangleAlert size={15} /> Бұрын тек {v.years} жылдарға тіктік — жылын цехтан сұраңыз
+              <TriangleAlert size={15} />
+              {cur && data.hasGenerations
+                ? `${cur.title.split(" · ")[0]} буынына әлі тікпедік — цехтан сұраңыз`
+                : `Бұрын тек ${v.years} жылдарға тіктік — жылын цехтан сұраңыз`}
             </span>
             {ask}
           </>
@@ -116,31 +125,60 @@ export function LekalaBadge({ make, model, year }: { make: string; model: string
           </span>
         )}
       </div>
-      {data.products.length > 0 && (v.status === "have" || v.status === "check_year") && (
-        <div className="mt-1 max-w-[560px] rounded-[12px] border border-border bg-surface px-3.5 py-2.5">
+      {(v.status === "have" || v.status === "check_year") && data.groups.length > 0 && (
+        <div className="mt-1 max-w-[600px] rounded-[12px] border border-border bg-surface px-3.5 py-2.5">
           <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-text-secondary">
             {data.make} {data.model} — бұрын тіккендер
           </div>
-          <ul className="m-0 flex list-none flex-col p-0">
-            {data.products.map((p) => (
-              <li
-                key={p.label}
-                className={`flex items-baseline justify-between gap-3 border-b border-border py-1.5 text-[13px] last:border-b-0 ${p.fitsYear === false ? "text-text-secondary" : "text-text-primary"}`}
-              >
-                <span className="font-semibold">
-                  {p.fitsYear === true && <Check size={13} strokeWidth={3} className="mr-1 inline text-[#15803d]" />}
-                  {p.label}
-                </span>
-                <span className="shrink-0 text-xs text-text-secondary">
-                  {p.count} рет{p.years ? ` · ${p.years}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {data.year && <div className="mt-1 text-[11px] text-text-secondary">✓ — {data.year} жылға (±1) тігілгені</div>}
+          {!data.year && (
+            <div className="mb-1.5 flex items-center gap-1.5 rounded-[8px] bg-[#fff4e0] px-2.5 py-1.5 text-xs font-semibold text-[#b45309]">
+              <TriangleAlert size={13} /> Жылын жазыңыз — лекала буынға қарай әртүрлі
+            </div>
+          )}
+          {data.groups.map((g) => (
+            <GroupBlock key={g.id} g={g} open={g.current || data.groups.length === 1} highlight={!!data.year && g.current} />
+          ))}
         </div>
       )}
       {error && <span className="text-xs text-danger">{error}</span>}
     </div>
+  );
+}
+
+const dm = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Almaty" });
+const lastText = (d: string | null) => (d ? dm.format(new Date(d + "T12:00:00Z")) : null);
+
+/** Бір буын (немесе жыл тобы): тақырып + тауарлар. Менеджердің жылына сай топ ашық, қалғаны жабық. */
+function GroupBlock({ g, open, highlight }: { g: LekalaGroup; open: boolean; highlight: boolean }) {
+  return (
+    <details open={open} className="group border-t border-border first-of-type:border-t-0 [&:not(:first-child)]:mt-0.5">
+      <summary
+        className={`flex cursor-pointer list-none items-center justify-between gap-3 py-1.5 text-[13px] [&::-webkit-details-marker]:hidden ${highlight ? "font-bold text-text-primary" : "font-semibold text-text-secondary"}`}
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 text-[10px] text-text-secondary transition-transform group-open:rotate-90">▶</span>
+          {g.title}
+          {highlight && <span className="rounded-[6px] bg-accent/10 px-1.5 py-0.5 text-[11px] font-bold text-accent">сіздің жыл</span>}
+        </span>
+        <span className="shrink-0 text-xs font-normal text-text-secondary">
+          {g.count > 0 ? `${g.count} рет${g.last ? ` · соңғысы ${lastText(g.last)}` : ""}` : "әлі тікпедік"}
+        </span>
+      </summary>
+      {g.products.length > 0 ? (
+        <ul className="m-0 mb-1.5 flex list-none flex-col pl-[18px]">
+          {g.products.map((p) => (
+            <li key={p.label} className="flex items-baseline justify-between gap-3 border-b border-border py-1.5 text-[13px] text-text-primary last:border-b-0">
+              <span className="font-semibold">{p.label}</span>
+              <span className="shrink-0 text-xs text-text-secondary">
+                {p.count} рет{p.years ? ` · ${p.years}` : ""}
+                {p.last ? ` · соңғысы ${lastText(p.last)}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mb-1.5 pl-[18px] text-xs text-[#b45309]">Бұл буынға бұрын тікпедік — лекаласы болмауы мүмкін, цехтан сұраңыз.</div>
+      )}
+    </details>
   );
 }
