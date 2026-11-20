@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Check, Inbox, Scissors, Handshake } from "lucide-react";
+import { CarFront, Check, Inbox, Scissors, Handshake } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { canUseWorkshop } from "@/lib/access";
 import { getJobDetail, listWorkers, missingForDone } from "@/lib/domain/workshop";
 import { jobHeadline, leatherNorm, splitMaterial, swatchColor } from "@/lib/domain/workshop/calc";
+import { carTitle } from "@/lib/domain/lekala/calc";
 import { Elapsed } from "../../../orders/flow-ui";
 import { DoneActions, LekalaBox, RegistryForm, StartAction } from "./JobActions";
 import { PhotoZoom } from "../../../warehouse/PhotoZoom";
@@ -115,7 +116,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const workers = (await listWorkers(user)).map((w) => w.name);
 
   const st = STATUS[job.status];
-  const car = jobHeadline({ car: job.car, brand: job.brand, carYear: job.carYear });
+  // Көлік — беттегі ең көрнекі жазу (CEO, 2026-11-20): «Hyundai Stariya» + жылы
+  const ct = carTitle(job.car, job.brand);
+  const car = ct.title ? `${ct.title}${job.carYear ? ` · ${job.carYear}` : ""}` : jobHeadline({ car: job.car, brand: job.brand, carYear: job.carYear });
   const leather = splitMaterial(job.leatherType);
   const leatherColor = swatchColor(leather?.name) ?? "#2a2a2a";
   const threadColor = swatchColor(splitMaterial(job.leatherPipingThread ?? job.leatherThread)?.name) ?? "#b91c1c";
@@ -154,10 +157,18 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       {/* Тақырып */}
       <header className="flex flex-col gap-4 rounded-card bg-surface p-5 shadow-card md:flex-row md:items-center md:justify-between md:px-6">
         <div className="flex flex-col gap-1.5">
-          <h1 className="m-0 flex flex-wrap items-center gap-3 text-2xl font-extrabold text-text-primary">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-text-secondary">
             Заказ №{job.orderNo}
-            <span className={`rounded-pill px-3 py-1 text-[13px] font-bold ${st.cls}`}>● {st.label}</span>
+            <span className={`rounded-pill px-2.5 py-0.5 text-xs font-bold ${st.cls}`}>● {st.label}</span>
+          </div>
+          <h1 className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-[26px] font-extrabold leading-tight text-text-primary md:text-[30px]">
+            <CarFront size={30} className="shrink-0 text-accent" />
+            {ct.title || "Көлік жазылмаған"}
+            {job.carYear && <span className="rounded-[10px] bg-accent-tint px-2.5 py-0.5 text-[20px] font-bold text-accent md:text-[22px]">{job.carYear}</span>}
           </h1>
+          {ct.title && ct.raw && ct.raw.toLowerCase() !== ct.title.toLowerCase() && (
+            <span className="text-xs text-text-secondary">менеджер жазғаны: {ct.raw}</span>
+          )}
           <p className="m-0 text-[13px] text-text-secondary">
             Түсті <b className="font-semibold text-text-primary">{fmt(job.receivedAt)}</b>
             {job.manager && (
@@ -244,7 +255,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-extrabold leading-snug text-text-primary">{job.product?.trim() || "Тауар жазылмаған"}</div>
-                <div className="text-[13px] text-text-secondary">{car || "Көлік жазылмаған"}</div>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[15px] font-bold text-text-primary">
+                  <CarFront size={16} className="text-accent" />
+                  {car || "Көлік жазылмаған"}
+                </div>
                 {chips.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {chips.map((c) => (

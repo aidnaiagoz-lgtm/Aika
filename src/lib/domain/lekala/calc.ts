@@ -58,3 +58,16 @@ export function lekalaVerdict(
   if (openRequest) return { ...base, status: "asked", source: "request", by: openRequest.by };
   return { ...base, status: "none", source: null, by: null };
 }
+
+/**
+ * Көліктің көзге анық атауы (цех беттері, CEO 2026-11-20): «хюндай» + «хюндай стария» → «Hyundai Stariya».
+ * Марка/модель танылмаса — менеджер жазғаны (бас әріппен). raw — менеджердің өз жазуы (тексеру үшін).
+ */
+export function carTitle(rawMake: string | null | undefined, rawModel: string | null | undefined) {
+  const k = lekalaKey(rawMake, rawModel);
+  const raw = [rawMake, rawModel].map((s) => (s ?? "").trim()).filter(Boolean);
+  const rawText = raw.length === 2 && raw[1].toLowerCase().includes(raw[0].toLowerCase()) ? raw[1] : raw.join(" ");
+  if (k) return { make: k.make, model: k.model, title: `${k.make} ${k.model}`, raw: rawText };
+  const cap = rawText.replace(/(^|\s)(\S)/g, (_m, a: string, b: string) => a + b.toUpperCase());
+  return { make: "", model: "", title: cap, raw: rawText };
+}

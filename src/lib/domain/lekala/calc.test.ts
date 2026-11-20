@@ -21,3 +21,11 @@ test("lekalaVerdict: белгі, тарих, жыл, сұрау", () => {
   assert.equal(lekalaVerdict(h, { status: "NONE", byName: "Бекзат" }, null).status, "none");
   assert.equal(lekalaVerdict(h, null, null).years, "2018–2021");
 });
+
+test("carTitle: анық атау", async () => {
+  const { carTitle } = await import("./calc");
+  assert.equal(carTitle("хюндай", "хюндай стария").title, "Hyundai Stariya");
+  assert.equal(carTitle("тойота", "прадо 150").title, "Toyota Prado 150");
+  assert.equal(carTitle("", "").title, "");
+  assert.equal(carTitle("хюндай", "хюндай стария").raw, "хюндай стария");
+});
