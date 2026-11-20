@@ -2,7 +2,6 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import { FileUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   addTrainingFileAction,
@@ -173,18 +172,30 @@ export function AddLinkForm({
   );
 }
 
-const PDF_MAX_BYTES = 50 * 1024 * 1024;
+// Сервердегі шектермен бірдей (src/lib/domain/training): файл 20 МБ-қа дейін, 3 МБ-тық бөліктермен жіберіледі.
+const PDF_MAX_BYTES = 20 * 1024 * 1024;
+const CHUNK_BYTES = 3 * 1024 * 1024;
 
-/** «PDF жүктеу»: файл браузерден тікелей қоймаға кетеді, сосын материал ретінде базаға жазылады. */
+function newUploadId() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+class UploadError extends Error {
+  constructor(public readonly code?: string) {
+    super(code ?? "upload failed");
+  }
+}
+
+/** «PDF жүктеу»: файл бөлік-бөлігімен сайттың базасына жүктеледі, сосын материал ретінде папкаға қосылады. */
 export function UploadPdfButton({
   section,
   folderId,
-  storageReady,
   labels,
 }: {
   section: string;
   folderId: string;
-  storageReady: boolean;
   labels: { upload: string; uploading: string; errors: Record<string, string>; genericError: string };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -198,28 +209,38 @@ export function UploadPdfButton({
     if (file.size > PDF_MAX_BYTES) return setError(labels.errors.fileTooLarge);
     setProgress(0);
     try {
-      const safeName = file.name.replace(/[\\/?#%]+/g, "_");
-      const blob = await upload(`training/${folderId}/${safeName}`, file, {
-        access: "private",
-        contentType: "application/pdf",
-        handleUploadUrl: "/api/training/upload",
-        clientPayload: JSON.stringify({ folderId }),
-        multipart: file.size > 8 * 1024 * 1024,
-        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
-      });
+      const uploadId = newUploadId();
+      const total = Math.ceil(file.size / CHUNK_BYTES);
+      for (let index = 0; index < total; index++) {
+        const part = file.slice(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES);
+        const qs = new URLSearchParams({ folderId, uploadId, index: String(index) });
+        let res: Response | null = null;
+        // Интернет үзіліп кетсе — әр бөлікті 3 ретке дейін қайталаймыз.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          res = await fetch(`/api/training/chunk?${qs}`, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: part }).catch(() => null);
+          if (res && (res.ok || res.status < 500)) break;
+        }
+        if (!res?.ok) {
+          const code = res ? ((await res.json().catch(() => ({}))) as { error?: string }).error : undefined;
+          throw new UploadError(code);
+        }
+        setProgress(Math.round(((index + 1) / total) * 100));
+      }
       const r = await addTrainingFileAction({
         section,
         folderId,
         title: file.name.replace(/\.pdf$/i, ""),
-        url: blob.url,
+        uploadId,
         fileName: file.name,
         fileSize: file.size,
       });
       if (!r.ok) setError(r.error);
       else router.refresh();
     } catch (e) {
-      console.error("[training upload]", e instanceof Error ? e.message : e);
-      setError(labels.errors.fileInvalid ?? labels.genericError);
+      // Сервер қайтарған күтілген қате (мыс. PDF емес) — тек хабар көрсетеміз; басқасы — консольге.
+      const code = e instanceof UploadError ? e.code : undefined;
+      if (!code) console.error("[training upload]", e instanceof Error ? e.message : e);
+      setError((code && labels.errors[code]) || labels.errors.fileInvalid || labels.genericError);
     } finally {
       setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -241,7 +262,7 @@ export function UploadPdfButton({
       <button
         type="button"
         disabled={progress !== null}
-        onClick={() => (storageReady ? inputRef.current?.click() : setError(labels.errors.storageMissing))}
+        onClick={() => inputRef.current?.click()}
         className="flex items-center gap-1.5 rounded-pill border border-accent px-4 py-2 text-sm font-semibold text-accent transition-colors hover:bg-accent-tint disabled:opacity-60"
       >
         <FileUp size={16} /> {progress === null ? labels.upload : `${labels.uploading} ${progress}%`}

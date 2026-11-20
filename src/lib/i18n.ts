@@ -469,9 +469,8 @@ const kk = {
       materialNotFound: "Материал табылмады",
       materialForbidden: "Бұл материалды тек оны қосқан адам немесе басшы өшіре алады",
       fileNotPdf: "Тек PDF файл жүктеуге болады",
-      fileTooLarge: "Файл тым үлкен (ең көбі 50 МБ)",
+      fileTooLarge: "Файл тым үлкен (ең көбі 20 МБ)",
       fileInvalid: "Файл жүктелмеді, қайта байқап көріңіз",
-      storageMissing: "Файл қоймасы әлі қосылмаған — CEO-ға хабарлаңыз",
     } as Record<string, string>,
   },
   roles: {
@@ -793,9 +792,8 @@ const ru = {
       materialNotFound: "Материал не найден",
       materialForbidden: "Удалить этот материал может только тот, кто его добавил, или руководитель",
       fileNotPdf: "Можно загрузить только PDF файл",
-      fileTooLarge: "Файл слишком большой (максимум 50 МБ)",
+      fileTooLarge: "Файл слишком большой (максимум 20 МБ)",
       fileInvalid: "Файл не загрузился, попробуйте снова",
-      storageMissing: "Хранилище файлов ещё не подключено — сообщите CEO",
     } as Record<string, string>,
   },
   roles: {
