@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { canUseWorkshop, isLeader } from "@/lib/access";
 import { listJobs, staleJobCount, syncWorkshopJobs, workshopActiveSince } from "@/lib/domain/workshop";
 import { jobHeadline, splitMaterial } from "@/lib/domain/workshop/calc";
+import { carTitle } from "@/lib/domain/lekala/calc";
 import { ActivateButton } from "./ActivateButton";
 import { PushSetup } from "./PushSetup";
 import { JobList, type ListJob, type ListView } from "./JobList";
@@ -74,7 +75,10 @@ export async function WorkshopListPage({ list, q: rawQ }: { list: ListView; q?: 
     doneAt: j.doneAt?.toISOString() ?? null,
     handedAt: j.handedAt?.toISOString() ?? null,
     manager: j.manager,
-    car: jobHeadline({ car: j.car, brand: j.brand, carYear: j.carYear }),
+    car: (() => {
+      const t = carTitle(j.car, j.brand).title;
+      return t ? `${t}${j.carYear ? ` ${j.carYear}` : ""}` : jobHeadline({ car: j.car, brand: j.brand, carYear: j.carYear });
+    })(),
     product: j.product?.trim() || null,
     leather: splitMaterial(j.leatherType)?.name ?? null,
     leatherMeters: j.leatherMeters == null ? null : Number(j.leatherMeters),
