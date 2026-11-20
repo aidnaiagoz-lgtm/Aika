@@ -116,6 +116,30 @@ export function LekalaBadge({ make, model, year }: { make: string; model: string
           </span>
         )}
       </div>
+      {data.products.length > 0 && (v.status === "have" || v.status === "check_year") && (
+        <div className="mt-1 max-w-[560px] rounded-[12px] border border-border bg-surface px-3.5 py-2.5">
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-text-secondary">
+            {data.make} {data.model} — бұрын тіккендер
+          </div>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {data.products.map((p) => (
+              <li
+                key={p.label}
+                className={`flex items-baseline justify-between gap-3 border-b border-border py-1.5 text-[13px] last:border-b-0 ${p.fitsYear === false ? "text-text-secondary" : "text-text-primary"}`}
+              >
+                <span className="font-semibold">
+                  {p.fitsYear === true && <Check size={13} strokeWidth={3} className="mr-1 inline text-[#15803d]" />}
+                  {p.label}
+                </span>
+                <span className="shrink-0 text-xs text-text-secondary">
+                  {p.count} рет{p.years ? ` · ${p.years}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {data.year && <div className="mt-1 text-[11px] text-text-secondary">✓ — {data.year} жылға (±1) тігілгені</div>}
+        </div>
+      )}
       {error && <span className="text-xs text-danger">{error}</span>}
     </div>
   );

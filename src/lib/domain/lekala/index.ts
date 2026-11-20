@@ -4,7 +4,17 @@ import { canUseWorkshop, WORKSHOP_ROLES } from "@/lib/access";
 import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import { sendPushToUsers } from "@/lib/push";
 import type { SessionUser } from "@/lib/session";
-import { lekalaKey, lekalaVerdict, yearsText, type LekalaHistory, type LekalaVerdict } from "./calc";
+import {
+  lekalaKey,
+  lekalaMatLabel,
+  lekalaProductLabel,
+  lekalaVerdict,
+  summarizeProducts,
+  yearsText,
+  type LekalaHistory,
+  type LekalaProduct,
+  type LekalaVerdict,
+} from "./calc";
 
 /**
  * Лекала (CEO, 2026-11-19): менеджер марка+модельді жазғанда «бар / жоқ» өзі шығады.
@@ -13,7 +23,18 @@ import { lekalaKey, lekalaVerdict, yearsText, type LekalaHistory, type LekalaVer
 
 export class LekalaError extends Error {}
 
-type Hist = LekalaHistory & { make: string; model: string };
+type YearSpan = { count: number; minYear: number | null; maxYear: number | null };
+type Hist = LekalaHistory & { make: string; model: string; products: Map<string, YearSpan> };
+
+function bump(m: Map<string, YearSpan>, label: string, year: number | null) {
+  const p = m.get(label) ?? { count: 0, minYear: null, maxYear: null };
+  p.count++;
+  if (year) {
+    p.minYear = p.minYear == null ? year : Math.min(p.minYear, year);
+    p.maxYear = p.maxYear == null ? year : Math.max(p.maxYear, year);
+  }
+  m.set(label, p);
+}
 
 let cache: { at: number; map: Map<string, Hist> } | null = null;
 const TTL = 10 * 60_000;
@@ -21,14 +42,21 @@ const TTL = 10 * 60_000;
 /** Тарих индексі: кілт → неше рет тіктік, қай жылдар, соңғысы. 10 минут кэште. */
 export async function historyIndex(force = false): Promise<Map<string, Hist>> {
   if (!force && cache && Date.now() - cache.at < TTL) return cache.map;
-  const rows = await prisma.salesLedgerRow.findMany({ select: { car: true, brand: true, carYear: true, workshop: true, date: true } });
+  const rows = await prisma.salesLedgerRow.findMany({
+    select: { car: true, brand: true, carYear: true, workshop: true, date: true, product: true, matType: true },
+  });
   const map = new Map<string, Hist>();
   for (const r of rows) {
     if (!isChecked(r.workshop)) continue;
     const k = lekalaKey(r.car, r.brand);
     if (!k) continue;
-    const h = map.get(k.key) ?? { make: k.make, model: k.model, count: 0, minYear: null, maxYear: null, last: null };
+    const h = map.get(k.key) ?? { make: k.make, model: k.model, count: 0, minYear: null, maxYear: null, last: null, products: new Map() };
     h.count++;
+    const yr = r.carYear && r.carYear > 1980 && r.carYear < 2100 ? r.carYear : null;
+    const pl = lekalaProductLabel(r.product);
+    if (pl) bump(h.products, pl, yr);
+    const ml = lekalaMatLabel(r.matType);
+    if (ml) bump(h.products, ml, yr);
     if (r.carYear && r.carYear > 1980 && r.carYear < 2100) {
       h.minYear = h.minYear == null ? r.carYear : Math.min(h.minYear, r.carYear);
       h.maxYear = h.maxYear == null ? r.carYear : Math.max(h.maxYear, r.carYear);
@@ -50,6 +78,8 @@ export interface LekalaLookup {
   model: string;
   year: number | null;
   verdict: LekalaVerdict;
+  /** Бұрын осы көлікке не тіккенбіз (3Д/5Д/багаж/леска…) — менеджер бірден көреді */
+  products: LekalaProduct[];
   request: { id: string; status: string; by: string | null; at: string; answeredBy: string | null } | null;
 }
 
@@ -64,11 +94,13 @@ export async function lookupLekala(make: string, model: string, year?: number | 
   ]);
   const open = req && (req.status === "OPEN" || req.status === "SEARCHING") ? { by: req.requestedByName } : null;
   const y = year && year > 1980 && year < 2100 ? year : null;
+  const h = hist.get(k.key);
   return {
+    products: h ? summarizeProducts(h.products, y) : [],
     make: k.make,
     model: k.model,
     year: y,
-    verdict: lekalaVerdict(hist.get(k.key) ?? null, mark, open, y),
+    verdict: lekalaVerdict(h ?? null, mark, open, y),
     request: req
       ? { id: req.id, status: req.status, by: req.requestedByName, at: req.createdAt.toISOString(), answeredBy: req.answeredByName }
       : null,

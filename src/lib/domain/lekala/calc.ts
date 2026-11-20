@@ -71,3 +71,49 @@ export function carTitle(rawMake: string | null | undefined, rawModel: string | 
   const cap = rawText.replace(/(^|\s)(\S)/g, (_m, a: string, b: string) => a + b.toUpperCase());
   return { make: "", model: "", title: cap, raw: rawText };
 }
+
+/**
+ * Бұрын не тіккенбіз (CEO, 2026-11-20): Продажи «Товар» («3Д - Люкс - салон полный 2 ряд») → «3Д · салон полный 2 ряд».
+ * Класс (Люкс/Премиум) лекалаға әсер етпейді — алынып тасталады. Код-тауарлар (Подпятник, Руль…) — лекаласыз, null.
+ */
+export function lekalaProductLabel(product: string | null | undefined): string | null {
+  const parts = (product ?? "").split(" - ").map((s) => s.trim());
+  const [type = "", cls = "", cover = ""] = parts;
+  if (!parts.some(Boolean) || /^\d+$/.test(type)) return null;
+  const t = type.toLowerCase();
+  if (t === "багаж") return ["Багаж", cover].filter(Boolean).join(" · ");
+  if (t === "съемный" || t === "съёмный") return ["Съёмный", cls, cover].filter(Boolean).join(" · ");
+  if (type) return [type, cover].filter(Boolean).join(" · ");
+  return [cls, cover].filter(Boolean).join(" · ") || null;
+}
+
+/** «Съёмный полик вид» («1041 - Леска - кара») → «Съёмный полик · Леска». */
+export function lekalaMatLabel(matType: string | null | undefined): string | null {
+  const kind = (matType ?? "").split(" - ").map((s) => s.trim())[1];
+  return kind ? `+ Съёмный полик · ${kind}` : null;
+}
+
+export interface LekalaProduct {
+  label: string;
+  count: number;
+  years: string | null;
+  /** Жыл жазылса: осы жылға (±1) тіккенбіз бе */
+  fitsYear: boolean | null;
+}
+
+/** Жинақтау: белгі → саны, жылдары. Көп тігілгені жоғарыда. */
+export function summarizeProducts(
+  items: Map<string, { count: number; minYear: number | null; maxYear: number | null }>,
+  year?: number | null,
+  limit = 8,
+): LekalaProduct[] {
+  return [...items.entries()]
+    .map(([label, h]) => ({
+      label,
+      count: h.count,
+      years: yearsText(h),
+      fitsYear: year == null || h.minYear == null || h.maxYear == null ? null : year >= h.minYear - 1 && year <= h.maxYear + 1,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, limit);
+}
