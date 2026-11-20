@@ -93,6 +93,15 @@ function Step({ icon: Icon, title, at, state }: { icon: typeof Inbox; title: str
 
 const Line = ({ on }: { on: boolean }) => <span className={`mt-5 h-[3px] flex-1 rounded ${on ? "bg-accent" : "bg-border"}`} />;
 
+function CarCell({ label, value, big }: { label: string; value: string; big?: boolean }) {
+  return (
+    <span className="flex min-w-0 flex-col justify-center border-r border-border px-3 py-2 last:border-r-0 md:px-4">
+      <span className="text-[10px] font-bold uppercase tracking-wide md:text-[11px] text-text-secondary">{label}</span>
+      <span className={`break-words font-extrabold leading-tight ${big ? "text-[22px] md:text-[30px]" : "text-[16px] md:text-[22px]"}`}>{value}</span>
+    </span>
+  );
+}
+
 function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-card bg-surface p-5 shadow-card">
@@ -161,10 +170,17 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             Заказ №{job.orderNo}
             <span className={`rounded-pill px-2.5 py-0.5 text-xs font-bold ${st.cls}`}>● {st.label}</span>
           </div>
-          <h1 className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-[26px] font-extrabold leading-tight text-text-primary md:text-[30px]">
-            <CarFront size={30} className="shrink-0 text-accent" />
-            {ct.title || "Көлік жазылмаған"}
-            {job.carYear && <span className="rounded-[10px] bg-accent-tint px-2.5 py-0.5 text-[20px] font-bold text-accent md:text-[22px]">{job.carYear}</span>}
+          {/* Көлік — марка / модель / жыл бөлек ұяшықтарда, алыстан оқылатындай */}
+          <h1 className="m-0 mt-1 flex w-fit max-w-full items-stretch overflow-hidden rounded-[12px] border border-border bg-surface text-text-primary">
+            {ct.make ? (
+              <>
+                <CarCell label="Марка" value={ct.make} />
+                <CarCell label="Модель" value={ct.model} big />
+              </>
+            ) : (
+              <CarCell label="Көлік" value={ct.title || "жазылмаған"} big />
+            )}
+            <CarCell label="Жылы" value={job.carYear ? String(job.carYear) : "—"} />
           </h1>
           {ct.title && ct.raw && ct.raw.toLowerCase() !== ct.title.toLowerCase() && (
             <span className="text-xs text-text-secondary">менеджер жазғаны: {ct.raw}</span>
