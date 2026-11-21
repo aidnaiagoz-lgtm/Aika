@@ -4,7 +4,53 @@ import { prisma, PermissionAction } from "@/lib/db";
 import { assertPermission, can } from "@/lib/rbac";
 import { canUseWorkshop } from "@/lib/access";
 import type { ActingUser } from "@/lib/domain/orders";
-import { daysLeft, moySkladCategory, parseLedgerMaterial, rollLengthFor, rollsOf, stockStatus, type MoySkladRow, type StockStatus } from "./stock-calc";
+import { forecast, moySkladCategory, parseLedgerMaterial, rollLengthFor, rollsOf, type MoySkladRow, type StockStatus } from "./stock-calc";
+import { splitMaterial } from "@/lib/domain/workshop/calc";
+import { isTestName } from "@/lib/domain/sales-ledger/test-mode";
+
+const DAY = 86400_000;
+
+/**
+ * Соңғы 30 күнде әр материалдан қанша жұмсалды: қоймадан шыққаны (OUT) + цех реестріндегі «кожа / съёмный расходы»
+ * («Дайын» заказдар; қоймадан әлі шегерілмегендері — екі рет саналмайды). windowDays — цех жүйесі жаңа болса, өткен күн саны.
+ */
+async function usageLast30(materials: Array<{ id: string; sku: string }>) {
+  const since = new Date(Date.now() - 30 * DAY);
+  const ids = materials.map((m) => m.id);
+  const [outs, jobs, active] = await Promise.all([
+    prisma.stockMovement.findMany({
+      where: { materialId: { in: ids }, kind: "OUT", qty: { lt: 0 }, createdAt: { gte: since } },
+      select: { materialId: true, qty: true, workshopJobId: true },
+    }),
+    prisma.workshopJob.findMany({
+      where: { status: "DONE", doneAt: { gte: since } },
+      select: { id: true, manager: true, leatherType: true, leatherMeters: true, matType: true, matMeters: true },
+    }),
+    prisma.appSetting.findUnique({ where: { key: "workshop.activeSince" } }),
+  ]);
+  const used = new Map<string, number>();
+  const add = (id: string, n: number) => used.set(id, (used.get(id) ?? 0) + n);
+  const counted = new Set<string>();
+  for (const o of outs) {
+    add(o.materialId, Math.abs(Number(o.qty)));
+    if (o.workshopJobId) counted.add(o.workshopJobId);
+  }
+  const bySku = new Map(materials.map((m) => [m.sku, m.id]));
+  for (const j of jobs) {
+    if (counted.has(j.id) || isTestName(j.manager)) continue;
+    for (const [type, meters] of [
+      [j.leatherType, j.leatherMeters],
+      [j.matType, j.matMeters],
+    ] as const) {
+      const code = splitMaterial(type)?.code;
+      const id = code ? bySku.get(code) : undefined;
+      if (id && meters != null && Number(meters) > 0) add(id, Number(meters));
+    }
+  }
+  const activeSince = active ? new Date(active.value) : null;
+  const windowDays = activeSince && !Number.isNaN(activeSince.getTime()) && activeSince > since ? (Date.now() - activeSince.getTime()) / DAY : 30;
+  return { used, windowDays };
+}
 
 /**
  * Қойма, 1-кезең (CEO, 2026-11-18): каталог (Google/тапсырыс формасындағы кодтар), қалдық, кіріс (накладная), қозғалыс тарихы.
@@ -64,6 +110,11 @@ export interface StockRow {
   price: number;
   status: StockStatus;
   days: number | null;
+  /** Соңғы 30 күндегі орташа шығын, күніне */
+  perDay: number | null;
+  /** Заказ беру керек мөлшер (бірлікпен) және рулонмен */
+  order: number;
+  orderRolls: number | null;
   last: { at: string; qty: number; kind: string; orderNo: string | null } | null;
   photo: string | null;
 }
@@ -81,25 +132,25 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
     include: { photo: { select: { updatedAt: true } } },
   });
   const ids = materials.map((m) => m.id);
-  const since = new Date(Date.now() - 30 * 86400_000);
-  const [lastMoves, out30, moved] = await Promise.all([
+  const [lastMoves, usage, moved] = await Promise.all([
     prisma.stockMovement.findMany({
       where: { materialId: { in: ids } },
       orderBy: { createdAt: "desc" },
       distinct: ["materialId"],
       select: { materialId: true, createdAt: true, qty: true, kind: true, orderNo: true },
     }),
-    prisma.stockMovement.groupBy({ by: ["materialId"], where: { materialId: { in: ids }, qty: { lt: 0 }, kind: "OUT", createdAt: { gte: since } }, _sum: { qty: true } }),
+    usageLast30(materials),
     prisma.stockMovement.groupBy({ by: ["materialId"], where: { materialId: { in: ids } }, _count: { _all: true } }),
   ]);
   const lastBy = new Map(lastMoves.map((m) => [m.materialId, m]));
-  const outBy = new Map(out30.map((m) => [m.materialId, Math.abs(Number(m._sum.qty ?? 0))]));
   const movedSet = new Set(moved.map((m) => m.materialId));
 
   const all: StockRow[] = materials.map((m) => {
     const stock = Number(m.currentStock);
     const min = m.minStock == null ? null : Number(m.minStock);
     const l = lastBy.get(m.id);
+    const rollLen = rollLengthFor(m.category, m.rollLength == null ? null : Number(m.rollLength));
+    const f = forecast({ stock, min, everMoved: movedSet.has(m.id), used: usage.used.get(m.id) ?? 0, windowDays: usage.windowDays, rollLength: rollLen, leadDays: m.leadDays });
     return {
       id: m.id,
       sku: m.sku,
@@ -108,10 +159,13 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
       unit: m.unit,
       stock,
       min,
-      rolls: rollsOf(stock, rollLengthFor(m.category, m.rollLength == null ? null : Number(m.rollLength))),
+      rolls: rollsOf(stock, rollLen),
       price: Number(m.costPrice),
-      status: stockStatus(stock, min, movedSet.has(m.id)),
-      days: daysLeft(stock, outBy.get(m.id) ?? 0),
+      status: f.status,
+      days: f.days,
+      perDay: f.perDay,
+      order: f.order,
+      orderRolls: f.orderRolls,
       last: l ? { at: l.createdAt.toISOString(), qty: Number(l.qty), kind: l.kind, orderNo: l.orderNo } : null,
       photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null,
     };
@@ -121,7 +175,8 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
     value: all.reduce((s, r) => s + Math.max(0, r.stock) * r.price, 0),
     leather: all.filter((r) => r.category === "LEATHER").reduce((s, r) => s + Math.max(0, r.stock), 0),
     leatherRolls: Math.round(all.filter((r) => r.category === "LEATHER").reduce((s, r) => s + (r.rolls ?? 0), 0)),
-    low: all.filter((r) => r.status === "low").length,
+    low: all.filter((r) => r.status === "low" || r.status === "order").length,
+    urgent: all.filter((r) => r.status === "urgent").length,
     out: all.filter((r) => r.status === "out").length,
   };
   const byCategory = new Map<MaterialCategory, number>();
@@ -130,7 +185,7 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
   const q = (opts.q ?? "").trim().toLowerCase();
   const rows = all.filter(
     (r) =>
-      (!opts.filter || opts.filter === "all" || r.status === opts.filter) &&
+      (!opts.filter || opts.filter === "all" || r.status === opts.filter || (opts.filter === "low" && r.status === "order") || (opts.filter === "out" && r.status === "urgent")) &&
       (!opts.category || r.category === opts.category) &&
       (!q || r.sku.includes(q) || r.name.toLowerCase().includes(q)),
   );
@@ -253,9 +308,24 @@ export async function materialDetail(user: ActingUser, id: string) {
   assertView(user);
   const m = await prisma.material.findUnique({ where: { id }, include: { photo: { select: { updatedAt: true, uploadedByName: true } } } });
   if (!m) return null;
-  const moves = await prisma.stockMovement.findMany({ where: { materialId: id }, orderBy: { createdAt: "desc" }, take: 100 });
+  const [moves, usage] = await Promise.all([
+    prisma.stockMovement.findMany({ where: { materialId: id }, orderBy: { createdAt: "desc" }, take: 100 }),
+    usageLast30([m]),
+  ]);
+  const stock = Number(m.currentStock);
+  const rollLen = rollLengthFor(m.category, m.rollLength == null ? null : Number(m.rollLength));
+  const plan = forecast({
+    stock,
+    min: m.minStock == null ? null : Number(m.minStock),
+    everMoved: moves.length > 0,
+    used: usage.used.get(m.id) ?? 0,
+    windowDays: usage.windowDays,
+    rollLength: rollLen,
+    leadDays: m.leadDays,
+  });
   return {
     material: m,
+    plan,
     moves,
     photo: m.photo ? photoUrl(m.id, m.photo.updatedAt) : null,
     photoBy: m.photo ? { name: m.photo.uploadedByName, at: m.photo.updatedAt } : null,
@@ -263,7 +333,11 @@ export async function materialDetail(user: ActingUser, id: string) {
 }
 
 /** Минимум қалдық (одан төмен түссе — «Аз қалды») және 1 бірліктің бағасы. */
-export async function updateMaterialStockSettings(user: ActingUser, id: string, patch: { minStock?: number | null; price?: number | null; rollLength?: number | null }) {
+export async function updateMaterialStockSettings(
+  user: ActingUser,
+  id: string,
+  patch: { minStock?: number | null; price?: number | null; rollLength?: number | null; leadDays?: number | null },
+) {
   assertEdit(user);
   const data: Prisma.MaterialUpdateInput = {};
   if ("minStock" in patch) {
@@ -278,6 +352,11 @@ export async function updateMaterialStockSettings(user: ActingUser, id: string, 
     // Бос — санаттың әдепкісі (кожа 50 м, леска 45 м)
     if (patch.rollLength != null && !(patch.rollLength > 0 && patch.rollLength <= 1000)) throw new StockError("Рулон ұзындығы дұрыс емес");
     data.rollLength = patch.rollLength == null ? null : new Prisma.Decimal(patch.rollLength);
+  }
+  if ("leadDays" in patch) {
+    // Бос — 45 күн (Қытай)
+    if (patch.leadDays != null && !(Number.isInteger(patch.leadDays) && patch.leadDays > 0 && patch.leadDays <= 365)) throw new StockError("Жеткізу мерзімі 1–365 күн болсын");
+    data.leadDays = patch.leadDays;
   }
   return prisma.material.update({ where: { id }, data });
 }

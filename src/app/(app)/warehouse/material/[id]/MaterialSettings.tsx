@@ -14,6 +14,7 @@ export function MaterialSettings({
   price,
   roll,
   defaultRoll,
+  leadDays,
 }: {
   id: string;
   unit: string;
@@ -22,14 +23,17 @@ export function MaterialSettings({
   /** Материалдың өз рулон ұзындығы (бос — санаттың әдепкісі) */
   roll: number | null;
   defaultRoll: number | null;
+  /** Жеткізу мерзімі, күн (бос — 45) */
+  leadDays: number | null;
 }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [minV, setMinV] = useState(min == null ? "" : String(min).replace(".", ","));
   const [priceV, setPriceV] = useState(price > 0 ? String(price).replace(".", ",") : "");
   const [rollV, setRollV] = useState(roll == null ? "" : String(roll).replace(".", ","));
+  const [leadV, setLeadV] = useState(leadDays == null ? "" : String(leadDays));
 
-  const save = (patch: { minStock?: number | null; price?: number | null; rollLength?: number | null }) =>
+  const save = (patch: { minStock?: number | null; price?: number | null; rollLength?: number | null; leadDays?: number | null }) =>
     start(async () => {
       const r = await updateMaterialSettingsAction(id, patch);
       setMsg(r.ok ? { ok: true, text: "Сақталды" } : { ok: false, text: r.error });
@@ -52,6 +56,21 @@ export function MaterialSettings({
           className={inputCls}
         />
         <span className="mt-1 block text-xs text-text-secondary">Қалдық осыған жетсе не төмен түссе — «Аз қалды» болады{min != null ? ` (қазір ${fmtQty(min)} ${unit})` : ""}</span>
+      </label>
+      <label>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Жеткізу мерзімі, күн</span>
+        <input
+          inputMode="numeric"
+          value={leadV}
+          placeholder="әдепкі 45 (Қытай)"
+          onChange={(e) => setLeadV(e.target.value.replace(/[^0-9]/g, ""))}
+          onBlur={() => {
+            const n = leadV.trim() === "" ? null : Number(leadV);
+            if (n !== leadDays) save({ leadDays: n });
+          }}
+          className={inputCls}
+        />
+        <span className="mt-1 block text-xs text-text-secondary">Заказ бергеннен қоймаға келгенше. Қалдық «осы + 15 күн»-нен аз уақытқа жетсе — «Заказ беру керек».</span>
       </label>
       <label>
         <span className="mb-1.5 block text-xs font-semibold text-text-secondary">1 рулонда, {unit}</span>

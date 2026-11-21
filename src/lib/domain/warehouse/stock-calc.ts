@@ -49,11 +49,69 @@ export function parseLedgerMaterial(raw: string | null | undefined): CatalogItem
   };
 }
 
-export type StockStatus = "ok" | "low" | "out" | "none";
+export type StockStatus = "ok" | "order" | "urgent" | "low" | "out" | "none";
+
+/** Қытайдан жеткізу ≈ 1,5 ай; оған қоса 15 күн қор → 60 күннен аз қалса заказ беру керек (CEO, 2026-11-21). */
+export const LEAD_DAYS = 45;
+export const RESERVE_DAYS = 15;
+/** Заказ келген соң тағы неше күнге жетсін */
+export const COVER_DAYS = 60;
+
+/**
+ * Орташа шығын, күніне: соңғы 30 күндегі жұмсалғаны ÷ күн саны. Цех жүйесі жаңа іске қосылса (мыс. 4 күн бұрын) —
+ * 30-ға емес, өткен күнге бөлеміз (кемі 3 күн, бір күннің шуы асып кетпесін).
+ */
+export function perDayUsage(used: number, windowDays: number): number | null {
+  if (!(used > 0)) return null;
+  return used / Math.max(3, Math.min(30, windowDays));
+}
+
+/** Қалдық неше күнге жетеді (шығын белгісіз не қалдық жоқ — null). */
+export function daysFor(stock: number, perDay: number | null): number | null {
+  if (!perDay || perDay <= 0 || stock <= 0) return null;
+  return Math.floor(stock / perDay);
+}
+
+export interface Forecast {
+  perDay: number | null;
+  days: number | null;
+  status: StockStatus;
+  /** Заказ беру керек мөлшер (бірлікпен) және рулонмен (рулон белгілі болса, жоғары дөңгелектенеді) */
+  order: number;
+  orderRolls: number | null;
+}
+
+/** Қалдық + 30 күндегі шығын → күйі, неше күнге жетеді, қанша заказ беру керек. */
+export function forecast(input: {
+  stock: number;
+  min: number | null;
+  everMoved: boolean;
+  used: number;
+  windowDays: number;
+  rollLength: number | null;
+  leadDays: number | null;
+}): Forecast {
+  const lead = input.leadDays != null && input.leadDays > 0 ? input.leadDays : LEAD_DAYS;
+  const perDay = perDayUsage(input.used, input.windowDays);
+  const days = daysFor(input.stock, perDay);
+  const status = stockStatus(input.stock, input.min, input.everMoved, days, lead);
+  const order = status === "order" || status === "urgent" || status === "out" ? orderQty(input.stock, perDay ?? 0, lead) : 0;
+  const orderRolls = order > 0 && input.rollLength ? Math.ceil(order / input.rollLength) : null;
+  return { perDay, days, status, order, orderRolls };
+}
+
+/** Қанша заказ беру керек (бірлікпен): жеткізу + келесі кезеңге жететін мөлшер − қазіргі қалдық. */
+export function orderQty(stock: number, perDay: number, lead = LEAD_DAYS, cover = COVER_DAYS): number {
+  if (!(perDay > 0)) return 0;
+  return Math.max(0, perDay * (lead + cover) - Math.max(0, stock));
+}
 
 /** Күйі: кіріс болмаған (none) · бітті (out) · аз қалды (low, минимумға жетті не төмен) · жеткілікті (ok). */
-export function stockStatus(stock: number, min: number | null, everMoved: boolean): StockStatus {
+export function stockStatus(stock: number, min: number | null, everMoved: boolean, days: number | null = null, lead = LEAD_DAYS): StockStatus {
   if (stock <= 0) return everMoved ? "out" : "none";
+  // Жұмсалу қарқынымен: тауар келгенше бітеді → шұғыл; 60 күннен аз → заказ беру керек
+  if (days != null && days <= lead) return "urgent";
+  if (days != null && days <= lead + RESERVE_DAYS) return "order";
   // Минимумға ТЕҢ болса да «Аз қалды» — тапсырыс беру уақыты келді (CEO, 2026-11-21: 800 м / минимум 800 м «Жеткілікті» деп тұрды)
   if (min != null && min > 0 && stock <= min) return "low";
   return "ok";
