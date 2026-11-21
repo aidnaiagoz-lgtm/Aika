@@ -24,6 +24,10 @@ test("stockStatus және daysLeft", () => {
   assert.equal(stockStatus(12.5, 30, true), "low");
   assert.equal(stockStatus(86, 30, true), "ok");
   assert.equal(stockStatus(5, null, true), "ok");
+  // Минимумға тең — «Аз қалды»; минимум 0 — ескерілмейді
+  assert.equal(stockStatus(800, 800, true), "low");
+  assert.equal(stockStatus(800.01, 800, true), "ok");
+  assert.equal(stockStatus(5, 0, true), "ok");
   assert.equal(daysLeft(30, 90), 10);
   assert.equal(daysLeft(30, 0), null);
   assert.equal(daysLeft(0, 90), null);
