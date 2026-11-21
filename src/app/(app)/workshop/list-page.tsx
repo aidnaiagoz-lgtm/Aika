@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canOpenWorkshop, isLeader } from "@/lib/access";
-import { listJobs, staleJobCount, syncWorkshopJobs, workshopActiveSince } from "@/lib/domain/workshop";
+import { listJobs, needsInstaller, staleJobCount, syncWorkshopJobs, workshopActiveSince } from "@/lib/domain/workshop";
 import { jobHeadline, splitMaterial } from "@/lib/domain/workshop/calc";
 import { carTitle } from "@/lib/domain/lekala/calc";
 import { ActivateButton } from "./ActivateButton";
@@ -74,6 +74,10 @@ export async function WorkshopListPage({ list, q: rawQ }: { list: ListView; q?: 
     startedAt: j.startedAt?.toISOString() ?? null,
     doneAt: j.doneAt?.toISOString() ?? null,
     handedAt: j.handedAt?.toISOString() ?? null,
+    handedBy: j.handedBy,
+    pickedUpAt: j.pickedUpAt?.toISOString() ?? null,
+    pickedUpBy: j.pickedUpBy,
+    needsInstaller: needsInstaller(j.ledgerRow?.pickupMethod),
     manager: j.manager,
     car: (() => {
       const t = carTitle(j.car, j.brand).title;

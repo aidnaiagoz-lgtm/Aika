@@ -1313,6 +1313,9 @@ model WorkshopJob {
   /// Клиентке берілді (менеджер «Берілді» басты, 2026-11-17) — «Дайын» тізімінен шығады
   handedAt   DateTime?
   handedBy   String?
+  /// Орнатушы (Расул/Берекет) цехтан алып кетті (2026-11-21, «Алып кеттім»)
+  pickedUpAt DateTime?
+  pickedUpBy String?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 

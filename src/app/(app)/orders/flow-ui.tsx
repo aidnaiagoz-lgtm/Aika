@@ -35,9 +35,9 @@ export function HandedButton({ id }: { id: string }) {
             setError(r.ok ? null : r.error);
           })
         }
-        className="rounded-icon border border-accent px-4 py-1.5 text-sm font-semibold text-accent hover:bg-accent/10 disabled:opacity-60"
+        className="whitespace-nowrap rounded-icon bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-60"
       >
-        {pending ? "…" : "Берілді"}
+        {pending ? "…" : "Клиент алып кетті"}
       </button>
       {error && <span className="text-xs text-danger">{error}</span>}
     </div>

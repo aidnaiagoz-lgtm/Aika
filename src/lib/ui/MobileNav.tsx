@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckCircle2, Home, Inbox, KeyRound, Layers, Package, Scissors, Table2, Trophy, Users, Wallet, type LucideIcon } from "lucide-react";
+import { CheckCircle2, Home, Inbox, KeyRound, Layers, Package, Scissors, Table2, Trophy, Truck, Users, Wallet, type LucideIcon } from "lucide-react";
 
-type Mode = "manager" | "workshop" | "leader" | "staff";
+type Mode = "manager" | "workshop" | "installer" | "leader" | "staff";
 type Item = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 
 const ITEMS: Record<Mode, Item[]> = {
@@ -14,6 +14,10 @@ const ITEMS: Record<Mode, Item[]> = {
     { href: "/workshop/ready", label: "Дайын", icon: CheckCircle2 },
     { href: "/workshop/pay", label: "Айлық", icon: Wallet },
     { href: "/lekala", label: "Лекала", icon: Layers },
+  ],
+  installer: [
+    { href: "/install", label: "Алып кету", icon: Truck },
+    { href: "/change-password", label: "Пароль", icon: KeyRound },
   ],
   manager: [
     { href: "/rating", label: "Рейтинг", icon: Trophy },

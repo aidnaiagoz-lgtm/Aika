@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { CarFront, Check, Inbox, Scissors, Handshake } from "lucide-react";
+import { CarFront, Check, Inbox, Scissors, Handshake, Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { canOpenWorkshop } from "@/lib/access";
-import { getJobDetail, listWorkers, missingForDone } from "@/lib/domain/workshop";
+import { getJobDetail, listWorkers, missingForDone, needsInstaller } from "@/lib/domain/workshop";
 import { jobHeadline, leatherNorm, splitMaterial, swatchColor } from "@/lib/domain/workshop/calc";
 import { carTitle } from "@/lib/domain/lekala/calc";
 import { Elapsed } from "../../../orders/flow-ui";
@@ -148,6 +148,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           : null;
 
   const missing = job.status === "IN_PROGRESS" ? missingForDone(job) : [];
+  // «Установка» заказы орнатушы арқылы өтеді (2026-11-21)
+  const installer = needsInstaller(detail.pickup);
   const handedText = job.handedAt ? (job.handedBy?.startsWith("Архив") ? "архивке жабылды" : tm.format(job.handedAt)) : "—";
 
   return (
@@ -222,8 +224,24 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         />
         <Line on={!!job.doneAt} />
         <Step icon={Check} title="Дайын" at={job.doneAt ? tm.format(job.doneAt) : "—"} state={job.doneAt ? "done" : job.status === "IN_PROGRESS" ? "cur" : "off"} />
+        {installer && (
+          <>
+            <Line on={!!job.pickedUpAt} />
+            <Step
+              icon={Truck}
+              title={job.pickedUpAt ? `${job.pickedUpBy ?? "Орнатушы"} алды` : "Орнатушы алды"}
+              at={job.pickedUpAt ? tm.format(job.pickedUpAt) : "—"}
+              state={job.pickedUpAt || job.handedAt ? "done" : job.status === "DONE" ? "cur" : "off"}
+            />
+          </>
+        )}
         <Line on={!!job.handedAt} />
-        <Step icon={Handshake} title="Берілді" at={handedText} state={job.handedAt ? "done" : job.status === "DONE" ? "cur" : "off"} />
+        <Step
+          icon={Handshake}
+          title="Клиентке берілді"
+          at={handedText}
+          state={job.handedAt ? "done" : job.status === "DONE" && (!installer || job.pickedUpAt) ? "cur" : "off"}
+        />
       </div>
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[1fr_340px]">

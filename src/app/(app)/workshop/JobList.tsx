@@ -6,6 +6,7 @@ import { Check, ChevronRight, Play } from "lucide-react";
 import { startJobAction } from "./actions";
 import { Elapsed } from "../orders/flow-ui";
 import { DragScroll } from "../orders/DragScroll";
+import { PathSteps } from "@/lib/ui/PathSteps";
 
 export type ListView = "incoming" | "sewing" | "ready";
 
@@ -17,6 +18,10 @@ export interface ListJob {
   startedAt: string | null;
   doneAt: string | null;
   handedAt: string | null;
+  handedBy: string | null;
+  pickedUpAt: string | null;
+  pickedUpBy: string | null;
+  needsInstaller: boolean;
   manager: string | null;
   car: string;
   product: string | null;
@@ -93,12 +98,9 @@ function ReadyLink({ id, big }: { id: string; big?: boolean }) {
   );
 }
 
+/** Дайыннан кейінгі жол: Дайын → Орнатушы алды → Клиент алды (2026-11-21) */
 function ReadyState({ j }: { j: ListJob }) {
-  return j.handedAt ? (
-    <span className="whitespace-nowrap rounded-pill bg-page-bg px-2.5 py-1 text-xs font-semibold text-text-secondary">✓ Берілді · {when(j.handedAt)}</span>
-  ) : (
-    <span className="whitespace-nowrap rounded-pill bg-[#e7f7ec] px-2.5 py-1 text-xs font-semibold text-[#15803d]">Клиентке берілмеген</span>
-  );
+  return <PathSteps p={j} />;
 }
 
 function Ops({ j }: { j: ListJob }) {
@@ -122,7 +124,7 @@ export function JobList({ list, jobs }: { list: ListView; jobs: ListJob[] }) {
       ? ["№", "Түсті", "Менеджер", "Көлік", "Тауар", "Кожа", "Күтіп тұр", ""]
       : list === "sewing"
         ? ["№", "Басталды", "Өтті", "Менеджер", "Көлік", "Тауар", "Кожа", "Шеберлер", ""]
-        : ["№", "Дайын болды", "Тігілді", "Менеджер", "Көлік", "Тауар", "Кожа, м", "Шеберлер", "Күйі"];
+        : ["№", "Дайын болды", "Тігілді", "Менеджер", "Көлік", "Тауар", "Кожа, м", "Шеберлер", "Жолы"];
 
   return (
     <>

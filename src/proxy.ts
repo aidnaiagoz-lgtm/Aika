@@ -6,9 +6,11 @@ const PUBLIC_PATHS = ["/login"];
 const MODE_COOKIE = "automax_mode";
 // access.ts-тегі MANAGER_ALLOWED_PREFIXES-пен бірдей болуы керек
 // "/workshop" — тек тест аккаунтқа (layout.tsx серверде тексереді; басқа менеджер /rating-ке қайтады)
-const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/orders", "/change-password", "/workshop"];
+const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/orders", "/change-password", "/workshop", "/install"];
 // access.ts-тегі WORKSHOP_ALLOWED_PREFIXES-пен бірдей
 const WORKSHOP_ALLOWED = ["/workshop", "/lekala", "/change-password"];
+// access.ts-тегі INSTALLER_ALLOWED_PREFIXES-пен бірдей (орнатушы — тек «Алып кету»)
+const INSTALLER_ALLOWED = ["/install", "/change-password"];
 
 // Жеңіл gate: тек cookie бар/жоғын тексереді. Нақты сессия/RBAC тексеруі
 // (§26 талабы бойынша) әр Server Component/Server Action ішінде getSessionUser()
@@ -36,7 +38,7 @@ export function proxy(request: NextRequest) {
     }
     if (hasSession) {
       const mode = request.cookies.get(MODE_COOKIE)?.value;
-      const home = mode === "manager" ? "/rating" : mode === "workshop" ? "/workshop" : "/dashboard";
+      const home = mode === "manager" ? "/rating" : mode === "workshop" ? "/workshop" : mode === "installer" ? "/install" : "/dashboard";
       return NextResponse.redirect(new URL(home, request.url));
     }
     return NextResponse.next();
@@ -52,6 +54,12 @@ export function proxy(request: NextRequest) {
   if (request.cookies.get(MODE_COOKIE)?.value === "manager") {
     const allowed = MANAGER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (!allowed) return NextResponse.redirect(new URL("/rating", request.url));
+  }
+
+  // Орнатушы: тек «Алып кету».
+  if (request.cookies.get(MODE_COOKIE)?.value === "installer") {
+    const allowed = INSTALLER_ALLOWED.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    if (!allowed) return NextResponse.redirect(new URL("/install", request.url));
   }
 
   // Цех жауаптысы: тек цех беттері.
