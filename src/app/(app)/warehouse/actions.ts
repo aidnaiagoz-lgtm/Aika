@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { ForbiddenError } from "@/lib/rbac";
-import { addReceiptPhoto, applyMoySklad, createReceipt, previewMoySklad, saveMaterialPhotos, setMaterialPhoto, StockError, updateMaterialStockSettings, type PhotoFile, type ReceiptInput } from "@/lib/domain/warehouse/stock";
+import { addReceiptPhoto, applyMoySklad, createReceipt, previewMoySklad, saveMaterialPhotos, setMaterialPhoto, setMinStockBulk, StockError, updateMaterialStockSettings, type PhotoFile, type ReceiptInput } from "@/lib/domain/warehouse/stock";
+import type { MaterialCategory } from "@prisma/client";
 import type { MoySkladRow } from "@/lib/domain/warehouse/stock-calc";
 import { getLocale } from "@/lib/locale";
 import { localizeError } from "./t";
@@ -96,4 +97,20 @@ export async function addReceiptPhotoAction(receiptId: string, form: FormData) {
     if (!f) throw new StockError("Фотоны таңдаңыз");
     await addReceiptPhoto(u, receiptId, f);
   });
+}
+
+/** Минимумды бірден қою (санат бойынша). */
+export async function setMinStockBulkAction(input: { category: MaterialCategory | "ALL"; minStock: number | null; onlyEmpty: boolean }) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, error: await L("Сессия аяқталған — қайта кіріңіз") };
+  try {
+    const r = await setMinStockBulk(user, input);
+    revalidatePath("/warehouse", "layout");
+    return { ok: true as const, count: r.count };
+  } catch (e) {
+    if (e instanceof StockError) return { ok: false as const, error: await L(e.message) };
+    if (e instanceof ForbiddenError) return { ok: false as const, error: await L("Рұқсат жоқ") };
+    console.error("[stock] bulk min", e instanceof Error ? e.message : e);
+    return { ok: false as const, error: await L("Сақталмады — қайта байқап көріңіз") };
+  }
 }

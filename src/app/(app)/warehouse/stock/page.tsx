@@ -4,7 +4,8 @@ import { AccessDenied } from "@/lib/ui";
 import { ForbiddenError } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
-import { stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
+import { canEditWarehouse, stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
+import { BulkMin } from "./BulkMin";
 import { fmtQty } from "@/lib/domain/warehouse/stock-calc";
 import { WH } from "../t";
 import { CATEGORY_ORDER, StatusPill, Thumb } from "../ui";
@@ -124,6 +125,12 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           <input name="q" defaultValue={q} placeholder={t.stock.search} className="min-h-10 min-w-0 flex-1 bg-transparent text-sm focus:outline-none" />
         </form>
       </div>
+
+      {canEditWarehouse(user) && (
+        <div className="flex">
+          <BulkMin locale={locale} current={cat} categories={CATEGORY_ORDER.filter((c) => byCategory.some(([k]) => k === c))} />
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary shadow-card">
