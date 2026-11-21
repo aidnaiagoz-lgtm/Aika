@@ -505,9 +505,12 @@ export async function workshopStatusByLedger(ids: string[]) {
 
 // ---------- орнатушылар (Расул, Берекет) — «Алып кету» (CEO, 2026-11-21) ----------
 
-/** «Установка» заказы ғана орнатушы арқылы өтеді; «өзі алып кетеді», почта, такси т.б. — бірден менеджер береді. */
-export const needsInstaller = (pickup: string | null | undefined) => /установ/i.test(pickup ?? "");
-const INSTALL_WHERE: Prisma.WorkshopJobWhereInput = { ledgerRow: { pickupMethod: { contains: "установ", mode: "insensitive" } } };
+/**
+ * CEO (2026-11-21, 2-шешім): ЖӘНЕ «Дайын» болған БАРЛЫҚ заказ орнатушы арқылы өтеді (установка, почта, авиа, өзі алады — бәрі);
+ * алу тәсілі карточкада жазылады. Бұрын тек «установка» еді.
+ */
+export const needsInstaller = (pickup?: string | null): boolean => (void pickup, true);
+const INSTALL_WHERE: Prisma.WorkshopJobWhereInput = {};
 const INSTALL_DAYS = 14;
 
 function assertInstallAccess(user: SessionUser) {
@@ -517,8 +520,6 @@ function assertInstallAccess(user: SessionUser) {
 
 /** «Дайын» болғанда — орнатушыларға хабар (телефонға да). Тест тапсырмасы — тек тест аккаунтқа. Клиент аты/телефоны жоқ. */
 async function notifyInstallers(job: WorkshopJob) {
-  const row = job.ledgerRowId ? await prisma.salesLedgerRow.findUnique({ where: { id: job.ledgerRowId }, select: { pickupMethod: true } }) : null;
-  if (!needsInstaller(row?.pickupMethod)) return;
   const recipients = isTestName(job.manager)
     ? await prisma.user.findMany({ where: { status: "ACTIVE", employee: { fullName: { equals: (job.manager ?? "").trim(), mode: "insensitive" } } }, select: { id: true } })
     : await prisma.user.findMany({ where: { status: "ACTIVE", userRoles: { some: { role: { name: { in: [...INSTALLER_ROLES] } } } } }, select: { id: true } });
@@ -549,6 +550,7 @@ export async function listInstallJobs(user: SessionUser) {
     },
     orderBy: { doneAt: "desc" },
     take: 200,
+    include: { ledgerRow: { select: { pickupMethod: true } } },
   });
   return [...jobs.filter((j) => !j.pickedUpAt), ...jobs.filter((j) => j.pickedUpAt)];
 }
