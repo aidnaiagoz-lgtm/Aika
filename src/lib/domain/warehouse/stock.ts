@@ -62,6 +62,7 @@ type U = ActingUser & { employee?: { id: string; departmentId: string | null; br
 export const canUseWarehouse = (user: ActingUser) => can(user, "materials", PermissionAction.VIEW);
 const assertView = (user: ActingUser) => assertPermission(user, "materials", PermissionAction.VIEW);
 const assertEdit = (user: ActingUser) => assertPermission(user, "materials", PermissionAction.EDIT);
+export const canEditWarehouse = (user: ActingUser) => can(user, "materials", PermissionAction.EDIT);
 
 const LEDGER_FIELDS = ["leatherType", "leatherThread", "leatherPiping", "matType", "matThread", "matPiping"] as const;
 
@@ -357,6 +358,24 @@ export async function updateMaterialStockSettings(
     data.leadDays = patch.leadDays;
   }
   return prisma.material.update({ where: { id }, data });
+}
+
+/**
+ * Минимумды бірден қою (CEO, 2026-11-21): бір санаттың (не бәрінің) материалдарына бірдей минимум.
+ * onlyEmpty — тек минимумы әлі жоқтарға (қолмен қойылғандар өзгермейді). minStock = null — минимумды алып тастау.
+ */
+export async function setMinStockBulk(user: ActingUser, input: { category: MaterialCategory | "ALL"; minStock: number | null; onlyEmpty: boolean }) {
+  assertEdit(user);
+  const { category, minStock, onlyEmpty } = input;
+  if (minStock != null && !(minStock >= 0 && minStock <= 100000)) throw new StockError("Минимум дұрыс емес");
+  const where: Prisma.MaterialWhereInput = {
+    AND: [visibleWhere, category === "ALL" ? {} : { category }, onlyEmpty ? { minStock: null } : {}],
+  };
+  const r = await prisma.material.updateMany({ where, data: { minStock: minStock == null ? null : new Prisma.Decimal(minStock) } });
+  await prisma.auditLog.create({
+    data: { actorId: user.id, action: "UPDATE", entityType: "Material", entityId: "bulk-min-stock", newValue: { category, minStock, onlyEmpty, count: r.count } },
+  });
+  return { count: r.count };
 }
 
 // ---------- МойСкладтан қалдық жүктеу (2026-11-18) ----------
