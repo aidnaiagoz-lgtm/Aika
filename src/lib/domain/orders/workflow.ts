@@ -32,13 +32,17 @@ const SELECT = {
   receivedAt: true,
   startedAt: true,
   doneAt: true,
+  handedAt: true,
+  handedBy: true,
+  pickedUpAt: true,
+  pickedUpBy: true,
   manager: true,
   car: true,
   brand: true,
   carYear: true,
   product: true,
   leatherType: true,
-  ledgerRow: { select: { customerName: true, phoneNorm: true, customerPhone: true, remainder: true } },
+  ledgerRow: { select: { customerName: true, phoneNorm: true, customerPhone: true, remainder: true, pickupMethod: true } },
 } as const;
 
 export interface FlowRow {
@@ -54,6 +58,12 @@ export interface FlowRow {
   product: string;
   leather: string;
   remainder: number;
+  /** Дайыннан кейінгі жол (2026-11-21) */
+  needsInstaller: boolean;
+  pickedUpAt: string | null;
+  pickedUpBy: string | null;
+  handedAt: string | null;
+  handedBy: string | null;
 }
 
 function toRow(j: Prisma.WorkshopJobGetPayload<{ select: typeof SELECT }>): FlowRow {
@@ -72,6 +82,11 @@ function toRow(j: Prisma.WorkshopJobGetPayload<{ select: typeof SELECT }>): Flow
     product: (j.product ?? "").trim(),
     leather: (j.leatherType ?? "").replace(/^\d+\s*-\s*Кожа\s*-\s*/i, "").trim(),
     remainder: Math.max(0, Number(j.ledgerRow?.remainder ?? 0)),
+    needsInstaller: /установ/i.test(j.ledgerRow?.pickupMethod ?? ""),
+    pickedUpAt: j.pickedUpAt?.toISOString() ?? null,
+    pickedUpBy: j.pickedUpBy ?? null,
+    handedAt: j.handedAt?.toISOString() ?? null,
+    handedBy: j.handedBy ?? null,
   };
 }
 

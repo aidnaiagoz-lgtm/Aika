@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { verifyPassword, createSession, SESSION_COOKIE } from "@/lib/session";
-import { homePathFor, loginLookup, isSalesManagerOnly, isWorkshopOnly, isManagedAccount, MODE_COOKIE } from "@/lib/access";
+import { homePathFor, loginLookup, isSalesManagerOnly, isWorkshopOnly, isInstallerOnly, isManagedAccount, MODE_COOKIE } from "@/lib/access";
 import { sealPassword, openPassword } from "@/lib/domain/managers/vault";
 
 export async function loginAction(formData: FormData) {
@@ -38,7 +38,7 @@ export async function loginAction(formData: FormData) {
     path: "/",
     expires: session.expiresAt,
   });
-  const mode = isSalesManagerOnly(user) ? "manager" : isWorkshopOnly(user) ? "workshop" : null;
+  const mode = isSalesManagerOnly(user) ? "manager" : isWorkshopOnly(user) ? "workshop" : isInstallerOnly(user) ? "installer" : null;
   if (mode) {
     cookieStore.set(MODE_COOKIE, mode, {
       httpOnly: true,

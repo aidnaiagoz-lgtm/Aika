@@ -83,6 +83,7 @@ export default async function ManagersPage({ searchParams }: { searchParams: Pro
                   const archived = m.user.status === "ARCHIVED";
                   const senior = m.user.userRoles.some((r) => r.role.name === "SENIOR_SALES_MANAGER");
                   const workshop = m.user.userRoles.some((r) => r.role.name === "WORKSHOP_HEAD");
+                  const installer = m.user.userRoles.some((r) => r.role.name === "INSTALLER");
                   return (
                     <tr key={m.id} className="border-b border-border align-top last:border-0">
                       <td className="py-3 pr-3 font-semibold text-text-primary">{m.fullName}</td>
@@ -94,7 +95,7 @@ export default async function ManagersPage({ searchParams }: { searchParams: Pro
                           <PasswordCell userId={m.userId} hasCopy={!!m.user.passwordEnc} />
                         </td>
                       )}
-                      <td className="py-3 pr-3 text-text-secondary">{workshop ? "Цех жауаптысы" : senior ? "Аға менеджер" : "Менеджер"}</td>
+                      <td className="py-3 pr-3 text-text-secondary">{installer ? "Орнатушы" : workshop ? "Цех жауаптысы" : senior ? "Аға менеджер" : "Менеджер"}</td>
                       <td className="py-3 pr-3 text-text-secondary">
                         {m.user.lastLoginAt ? fmt.format(m.user.lastLoginAt) : "—"}
                         {m.user.mustChangePassword && (

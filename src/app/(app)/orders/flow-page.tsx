@@ -4,6 +4,7 @@ import { isLeader } from "@/lib/access";
 import type { FlowRow } from "@/lib/domain/orders/workflow";
 import { Elapsed, HandedButton } from "./flow-ui";
 import { PushSetup } from "../workshop/PushSetup";
+import { PathSteps, waitingInstaller } from "@/lib/ui/PathSteps";
 
 const dt = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Almaty" });
 const money = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
@@ -66,7 +67,7 @@ export function FlowPage({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs text-text-secondary">
-                  {["№", "Клиент", "Көлік", "Тауар", ...(who === "all" ? ["Менеджер"] : []), ...(sewing ? ["Күйі", "Цехта"] : ["Дайын болды", "Қалдық", ""])].map(
+                  {["№", "Клиент", "Көлік", "Тауар", ...(who === "all" ? ["Менеджер"] : []), ...(sewing ? ["Күйі", "Цехта"] : ["Жолы", "Қалдық", ""])].map(
                     (h, i) => (
                       <th key={i} className="whitespace-nowrap border-b border-border px-4 py-3 font-semibold">
                         {h}
@@ -103,12 +104,14 @@ export function FlowPage({
                       </>
                     ) : (
                       <>
-                        <td className="whitespace-nowrap px-4 py-3 tabular-nums">{r.doneAt ? dt.format(new Date(r.doneAt)) : "—"}</td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <PathSteps p={r} />
+                        </td>
                         <td className={`whitespace-nowrap px-4 py-3 font-semibold tabular-nums ${r.remainder > 0 ? "text-danger" : "text-emerald-600"}`}>
                           {r.remainder > 0 ? `${money(r.remainder)} ₸` : "0"}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <HandedButton id={r.id} />
+                          <ReadyAction r={r} />
                         </td>
                       </>
                     )}
@@ -139,7 +142,7 @@ export function FlowPage({
                       <span className={r.remainder > 0 ? "font-semibold text-danger" : "font-semibold text-emerald-600"}>
                         Қалдық: {r.remainder > 0 ? `${money(r.remainder)} ₸` : "0"}
                       </span>
-                      <HandedButton id={r.id} />
+                      <ReadyAction r={r} />
                     </>
                   )}
                 </div>
@@ -150,4 +153,11 @@ export function FlowPage({
       )}
     </div>
   );
+}
+
+/** Орнатушы әлі алмаған «установка» заказы — «Цехта тұр»; әйтпесе менеджер «Клиент алып кетті» басады. */
+function ReadyAction({ r }: { r: FlowRow }) {
+  if (waitingInstaller(r))
+    return <span className="whitespace-nowrap rounded-pill bg-[#fff4e0] px-2.5 py-1 text-xs font-bold text-[#b45309]">Цехта тұр</span>;
+  return <HandedButton id={r.id} />;
 }
