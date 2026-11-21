@@ -2,6 +2,8 @@ import type { MaterialCategory } from "@prisma/client";
 import { swatchColor } from "@/lib/domain/workshop/calc";
 import { PhotoZoom } from "./PhotoZoom";
 import type { StockStatus } from "@/lib/domain/warehouse/stock-calc";
+import type { Locale } from "@/lib/i18n";
+import { WH } from "./t";
 
 /** Материалдың түсі — кішкене дөңгелек (атауынан; табылмаса — сұр сызықты). */
 export function Dot({ name }: { name: string }) {
@@ -20,28 +22,28 @@ export function Thumb({ name, photo, size = 40 }: { name: string; photo: string 
   return <PhotoZoom src={photo} alt={name} size={size} className="mr-3" />;
 }
 
-export const STATUS: Record<StockStatus, { label: string; cls: string }> = {
-  ok: { label: "Жеткілікті", cls: "bg-page-bg text-text-secondary" },
-  order: { label: "Заказ беру керек", cls: "bg-[#fff4e0] text-[#b45309]" },
-  urgent: { label: "Шұғыл", cls: "bg-danger/10 text-danger" },
-  low: { label: "Аз қалды", cls: "bg-[#fff4e0] text-[#b45309]" },
-  out: { label: "Бітті", cls: "bg-danger/10 text-danger" },
-  none: { label: "Кіріс болмаған", cls: "bg-page-bg text-text-secondary/70" },
+const STATUS_CLS: Record<StockStatus, string> = {
+  ok: "bg-page-bg text-text-secondary",
+  order: "bg-[#fff4e0] text-[#b45309]",
+  urgent: "bg-danger/10 text-danger",
+  low: "bg-[#fff4e0] text-[#b45309]",
+  out: "bg-danger/10 text-danger",
+  none: "bg-page-bg text-text-secondary/70",
 };
 
-export function StatusPill({ s }: { s: StockStatus }) {
-  return <span className={`whitespace-nowrap rounded-pill px-2.5 py-1 text-xs font-semibold ${STATUS[s].cls}`}>{STATUS[s].label}</span>;
+export function StatusPill({ s, locale }: { s: StockStatus; locale: Locale }) {
+  return <span className={`whitespace-nowrap rounded-pill px-2.5 py-1 text-xs font-semibold ${STATUS_CLS[s]}`}>{WH[locale].status[s]}</span>;
 }
 
 export const CATEGORY_ORDER: MaterialCategory[] = ["LEATHER", "THREAD", "EDGING", "EVA", "FISHING_LINE", "CARPET", "ACCESSORIES"];
 
 const day = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "Asia/Almaty" });
 const almaty = (d: Date) => new Date(d.getTime() + 5 * 3600_000).toISOString().slice(0, 10);
-/** «Бүгін» / «Кеше» / «16.11» */
-export function relDay(iso: string, now = new Date()) {
+/** «Бүгін» / «Кеше» / «16.11» (орысша: «Сегодня» / «Вчера») */
+export function relDay(iso: string, locale: Locale = "kk", now = new Date()) {
   const d = new Date(iso);
   const k = almaty(d);
-  if (k === almaty(now)) return "Бүгін";
-  if (k === almaty(new Date(now.getTime() - 86400_000))) return "Кеше";
+  if (k === almaty(now)) return WH[locale].today;
+  if (k === almaty(new Date(now.getTime() - 86400_000))) return WH[locale].yesterday;
   return day.format(d);
 }
