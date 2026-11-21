@@ -96,7 +96,8 @@ export async function removeSheetOrphans(user: SessionUser) {
  */
 export async function unpushedSummary() {
   const cfg = await sheetPushConfig();
-  if (!cfg.enabled || !cfg.since) return { count: 0, sum: 0, nos: [] as number[], managers: [] as string[], error: null as string | null };
+  type U = { id: string; no: number; day: string | null; manager: string | null; car: string; product: string | null; sum: number };
+  if (!cfg.enabled || !cfg.since) return { count: 0, sum: 0, nos: [] as number[], managers: [] as string[], error: null as string | null, rows: [] as U[] };
   const rows = await prisma.salesLedgerRow.findMany({
     where: {
       importKey: null,
@@ -104,7 +105,7 @@ export async function unpushedSummary() {
       createdAt: { gte: cfg.since, lt: new Date(Date.now() - 10 * 60_000) },
       sheetPushError: { not: null },
     },
-    select: { no: true, soldFor: true, manager: true, sheetPushError: true, updatedAt: true },
+    select: { id: true, no: true, date: true, car: true, brand: true, product: true, soldFor: true, manager: true, sheetPushError: true, updatedAt: true },
     orderBy: { updatedAt: "desc" },
   });
   const real = rows.filter((r) => r.sheetPushError !== "pending");
@@ -114,5 +115,31 @@ export async function unpushedSummary() {
     nos: real.map((r) => r.no).sort((a, b) => a - b),
     managers: [...new Set(real.map((r) => r.manager).filter((m): m is string => !!m))],
     error: real.find((r) => r.sheetPushError && !/timeout|aborted|үзілді/i.test(r.sheetPushError))?.sheetPushError ?? real[0]?.sheetPushError ?? null,
+    // Клиент аты/телефоны жоқ — тек заказды тану үшін көлік, тауар, сома
+    rows: real
+      .map((r) => ({
+        id: r.id,
+        no: r.no,
+        day: r.date?.toISOString().slice(0, 10) ?? null,
+        manager: r.manager,
+        car: [r.car, r.brand].filter(Boolean).join(" "),
+        product: r.product,
+        sum: Number(r.soldFor ?? 0),
+      }))
+      .sort((a, b) => a.no - b.no) as U[],
   };
+}
+
+/** CEO/РОП: Google-ға түспеген сайт жолын өшіру (мыс. тест заказ). Тек кестеге ешқашан түспеген жол өшеді. */
+export async function removeUnpushedRow(user: SessionUser, id: string) {
+  if (!isLeader(user)) throw new Error("Тек CEO немесе РОП өшіре алады");
+  return withLedgerLock(async () => {
+    const row = await prisma.salesLedgerRow.findUnique({ where: { id }, select: { id: true, no: true, importKey: true, sheetPushedAt: true } });
+    if (!row) throw new Error("Жол табылмады");
+    if (row.importKey || row.sheetPushedAt) throw new Error("Бұл жол Google кестеде бар — оны кестеде өзгертіңіз");
+    await prisma.workshopJob.updateMany({ where: { ledgerRowId: id, status: { in: ["NEW", "IN_PROGRESS"] } }, data: { status: "CANCELLED" } });
+    await prisma.salesLedgerRow.delete({ where: { id } });
+    await prisma.auditLog.create({ data: { actorId: user.id, action: "DELETE", entityType: "SalesLedgerRow", entityId: id, newValue: { no: row.no, reason: "unpushed" } as object } });
+    return { no: row.no };
+  });
 }

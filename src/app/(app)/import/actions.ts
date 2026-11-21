@@ -6,7 +6,7 @@ import { ensureManagers, blockDemoManager, ManagerError } from "@/lib/domain/man
 import { importLedgerChunk, logImport, type ExcelRow } from "@/lib/domain/sales-ledger/import";
 import { syncFromGoogleSheet } from "@/lib/domain/sales-ledger/sheet-sync";
 import { removeLedgerDuplicates } from "@/lib/domain/sales-ledger/duplicates";
-import { removeSheetOrphans } from "@/lib/domain/sales-ledger/orphans";
+import { removeSheetOrphans, removeUnpushedRow } from "@/lib/domain/sales-ledger/orphans";
 import { setSalesSource } from "@/lib/domain/settings";
 import { isLeader } from "@/lib/access";
 import { redirect } from "next/navigation";
@@ -137,6 +137,19 @@ export async function removeSheetOrphansAction(): Promise<{ ok: true; removed: n
     return { ok: true, removed: r.removed };
   } catch (e) {
     console.error("[ledger] orphans", e instanceof Error ? e.message : e);
+    return { ok: false, error: e instanceof Error ? e.message : "Өшірілмеді" };
+  }
+}
+
+/** CEO: Google-ға түспеген сайт жолын өшіру (тест заказ). */
+export async function removeUnpushedRowAction(id: string): Promise<{ ok: true; no: number } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Сессия аяқталған — қайта кіріңіз" };
+  try {
+    const r = await removeUnpushedRow(user, id);
+    revalidatePath("/", "layout");
+    return { ok: true, no: r.no };
+  } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Өшірілмеді" };
   }
 }

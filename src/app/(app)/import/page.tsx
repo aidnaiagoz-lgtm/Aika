@@ -36,7 +36,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           рейтинг бірден есептеледі. Тек CEO мен РОП.
         </p>
       </div>
-      {unpushed.count > 0 && <UnpushedBox {...unpushed} />}
+      {unpushed.count > 0 && <UnpushedBox rows={unpushed.rows} error={unpushed.error} />}
       {orphans.count > 0 && <OrphansBox {...orphans} />}
       {dupes.extraRows > 0 && <DuplicatesBox extraRows={dupes.extraRows} extraSum={dupes.extraSum} sample={dupes.sample} />}
       <section id="source" className="rounded-[20px] border border-border bg-surface p-5">
