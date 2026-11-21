@@ -148,7 +148,7 @@ export function SalesOrderForm({
 }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [city, setCity] = useState("Алматы");
+  const [city, setCity] = useState("") // CEO (2026-11-21): қала өздігінен толмасын — менеджер өзі таңдайды;
   const [channel, setChannel] = useState("");
   // Бір клиент 2–3 көлікке алуы мүмкін (CEO, 2026-11-14) — көліктер тізімі
   const [cars, setCars] = useState<CarState[]>([emptyCar()]);
@@ -324,7 +324,7 @@ export function SalesOrderForm({
               <ListInput value={name} onChange={setName} placeholder="Клиенттің аты" />
             </Field>
             <Field label="Қаласы">
-              <ListInput value={city} onChange={setCity} list="o-city" />
+              <ListInput value={city} onChange={setCity} list="o-city" placeholder="Алматы, Астана..." />
             </Field>
             <Field label="Канал обращения">
               <ListInput value={channel} onChange={setChannel} list="o-channel" placeholder="OLX, Instagram..." />
