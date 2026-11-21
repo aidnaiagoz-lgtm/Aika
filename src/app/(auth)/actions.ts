@@ -58,5 +58,6 @@ export async function loginAction(formData: FormData) {
     data: { actorId: user.id, action: "LOGIN", entityType: "User", entityId: user.id },
   });
 
-  redirect(user.mustChangePassword ? "/change-password" : homePathFor(user));
+  // Уақытша пароль болса да — бірден өз бетіне (Рейтинг); пароль ауыстыру ескертуі жоғарыда тұрады (CEO, 2026-11-21)
+  redirect(homePathFor(user));
 }
