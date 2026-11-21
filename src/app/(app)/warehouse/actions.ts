@@ -5,21 +5,26 @@ import { getCurrentUser } from "@/lib/auth";
 import { ForbiddenError } from "@/lib/rbac";
 import { addReceiptPhoto, applyMoySklad, createReceipt, previewMoySklad, saveMaterialPhotos, setMaterialPhoto, StockError, updateMaterialStockSettings, type PhotoFile, type ReceiptInput } from "@/lib/domain/warehouse/stock";
 import type { MoySkladRow } from "@/lib/domain/warehouse/stock-calc";
+import { getLocale } from "@/lib/locale";
+import { localizeError } from "./t";
+
+/** Қате мәтіні — қолданушының тілінде (ҚАЗ/РУС). */
+const L = async (msg: string) => localizeError(msg, await getLocale());
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
 async function run(fn: (u: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>) => Promise<{ id?: string } | unknown>): Promise<ActionResult> {
   const user = await getCurrentUser();
-  if (!user) return { ok: false, error: "Сессия аяқталған — қайта кіріңіз" };
+  if (!user) return { ok: false, error: await L("Сессия аяқталған — қайта кіріңіз") };
   try {
     const r = (await fn(user)) as { id?: string } | undefined;
     revalidatePath("/warehouse", "layout");
     return { ok: true, id: r?.id };
   } catch (e) {
-    if (e instanceof StockError) return { ok: false, error: e.message };
-    if (e instanceof ForbiddenError) return { ok: false, error: "Рұқсат жоқ" };
+    if (e instanceof StockError) return { ok: false, error: await L(e.message) };
+    if (e instanceof ForbiddenError) return { ok: false, error: await L("Рұқсат жоқ") };
     console.error("[stock] action", e instanceof Error ? e.message : e);
-    return { ok: false, error: "Сақталмады — қайта байқап көріңіз" };
+    return { ok: false, error: await L("Сақталмады — қайта байқап көріңіз") };
   }
 }
 
@@ -34,14 +39,14 @@ export async function updateMaterialSettingsAction(id: string, patch: { minStock
 /** МойСклад: алдын ала қарау (базаға ештеңе жазылмайды). */
 export async function previewMoySkladAction(rows: MoySkladRow[]) {
   const user = await getCurrentUser();
-  if (!user) return { ok: false as const, error: "Сессия аяқталған — қайта кіріңіз" };
+  if (!user) return { ok: false as const, error: await L("Сессия аяқталған — қайта кіріңіз") };
   try {
     return { ok: true as const, data: await previewMoySklad(user, rows) };
   } catch (e) {
-    if (e instanceof StockError) return { ok: false as const, error: e.message };
-    if (e instanceof ForbiddenError) return { ok: false as const, error: "Рұқсат жоқ" };
+    if (e instanceof StockError) return { ok: false as const, error: await L(e.message) };
+    if (e instanceof ForbiddenError) return { ok: false as const, error: await L("Рұқсат жоқ") };
     console.error("[stock] moysklad preview", e instanceof Error ? e.message : e);
-    return { ok: false as const, error: "Файлды тексеру мүмкін болмады" };
+    return { ok: false as const, error: await L("Файлды тексеру мүмкін болмады") };
   }
 }
 
@@ -62,16 +67,16 @@ async function filesOf(form: FormData): Promise<PhotoFile[]> {
 /** Бірнеше фото (атауы — код). */
 export async function uploadPhotosAction(form: FormData) {
   const user = await getCurrentUser();
-  if (!user) return { ok: false as const, error: "Сессия аяқталған — қайта кіріңіз" };
+  if (!user) return { ok: false as const, error: await L("Сессия аяқталған — қайта кіріңіз") };
   try {
     const r = await saveMaterialPhotos(user, await filesOf(form));
     revalidatePath("/warehouse", "layout");
     return { ok: true as const, ...r };
   } catch (e) {
-    if (e instanceof StockError) return { ok: false as const, error: e.message };
-    if (e instanceof ForbiddenError) return { ok: false as const, error: "Рұқсат жоқ" };
+    if (e instanceof StockError) return { ok: false as const, error: await L(e.message) };
+    if (e instanceof ForbiddenError) return { ok: false as const, error: await L("Рұқсат жоқ") };
     console.error("[stock] photos", e instanceof Error ? e.message : e);
-    return { ok: false as const, error: "Фото сақталмады" };
+    return { ok: false as const, error: await L("Фото сақталмады") };
   }
 }
 

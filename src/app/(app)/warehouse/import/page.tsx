@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { canUseWarehouse } from "@/lib/domain/warehouse/stock";
 import { MoySkladImport } from "./MoySkladImport";
 import { PhotoUpload } from "./PhotoUpload";
+import { getLocale } from "@/lib/locale";
+import { WH } from "../t";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +13,16 @@ export default async function ImportPage() {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!canUseWarehouse(user)) redirect("/dashboard");
+  const locale = await getLocale();
+  const t = WH[locale].ms;
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="m-0 text-2xl font-bold text-text-primary">МойСкладтан жүктеу</h1>
-        <p className="m-0 mt-1 max-w-3xl text-sm text-text-secondary">
-          МойСклад → Склад → Остатки → Печать → «Остатки по товарам» → Excel. Тек «Цех/…» топтарындағы материалдар алынады (кожа, жіп, лента,
-          Ева, леска). Алдымен не өзгеретіні көрсетіледі — «Иә, жүктеймін» баспайынша ештеңе жазылмайды.
-        </p>
+        <h1 className="m-0 text-2xl font-bold text-text-primary">{t.title}</h1>
+        <p className="m-0 mt-1 max-w-3xl text-sm text-text-secondary">{t.intro}</p>
       </div>
-      <MoySkladImport />
-      <PhotoUpload />
+      <MoySkladImport locale={locale} />
+      <PhotoUpload locale={locale} />
     </div>
   );
 }
