@@ -76,6 +76,25 @@ export function parseQty(v: string | number | null | undefined): number | null {
 
 export const fmtQty = (n: number) => new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(n);
 
+// ---------- Рулон (CEO, 2026-11-21): кожа рулоны ≈ 48–50 м, леска — 45 м ----------
+
+/** Санаттың әдепкі рулон ұзындығы (м). Материалдың өз мәні болса — сол алынады. */
+export const DEFAULT_ROLL_LENGTH: Partial<Record<MaterialCategory, number>> = { LEATHER: 50, FISHING_LINE: 45 };
+
+export function rollLengthFor(category: MaterialCategory, own: number | null | undefined): number | null {
+  if (own != null && own > 0) return own;
+  return DEFAULT_ROLL_LENGTH[category] ?? null;
+}
+
+/** Қалдық неше рулон: 0,1-ге дейін дөңгелектенеді. Рулон ұзындығы жоқ не қалдық 0 — null. */
+export function rollsOf(stock: number, rollLength: number | null): number | null {
+  if (!rollLength || rollLength <= 0 || !(stock > 0)) return null;
+  return Math.round((stock / rollLength) * 10) / 10;
+}
+
+/** «≈ 16 рулон» / «≈ 0,4 рулон» */
+export const fmtRolls = (rolls: number) => `≈ ${fmtQty(rolls)} рулон`;
+
 // ---------- МойСклад «Остатки по товарам» импорты (2026-11-18) ----------
 
 export interface MoySkladRow {

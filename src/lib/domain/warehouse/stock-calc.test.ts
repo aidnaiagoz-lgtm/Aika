@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { daysLeft, parseLedgerMaterial, parseQty, stockStatus } from "./stock-calc";
+import { daysLeft, fmtRolls, parseLedgerMaterial, parseQty, rollLengthFor, rollsOf, stockStatus } from "./stock-calc";
 
 test("parseLedgerMaterial: код, санат, бірлік", () => {
   assert.deepEqual(parseLedgerMaterial("4050 - Кожа - Жанек ромб қара"), {
@@ -62,4 +62,18 @@ test("parseMoySkladMatrix: тақырып, топтар, тек цех", async (
   assert.equal(moySkladCategory("Цех/Материалы / Кожы", "м"), "LEATHER");
   assert.equal(moySkladCategory("Цех/Материалы / Кожы", "шт"), "ACCESSORIES");
   assert.throws(() => parseMoySkladMatrix([["a", "b"]]));
+});
+
+test("рулон: әдепкі ұзындық, материалдың өз мәні, санау", () => {
+  assert.equal(rollLengthFor("LEATHER", null), 50);
+  assert.equal(rollLengthFor("FISHING_LINE", null), 45);
+  assert.equal(rollLengthFor("LEATHER", 48), 48);
+  assert.equal(rollLengthFor("THREAD", null), null);
+  assert.equal(rollLengthFor("EVA", 30), 30);
+  assert.equal(rollsOf(800, 50), 16);
+  assert.equal(rollsOf(85.15, 50), 1.7);
+  assert.equal(rollsOf(90, 45), 2);
+  assert.equal(rollsOf(0, 50), null);
+  assert.equal(rollsOf(100, null), null);
+  assert.equal(fmtRolls(16), "≈ 16 рулон");
 });

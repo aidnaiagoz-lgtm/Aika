@@ -5,7 +5,7 @@ import { ForbiddenError } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
-import { CATEGORY_LABEL, fmtQty } from "@/lib/domain/warehouse/stock-calc";
+import { CATEGORY_LABEL, fmtQty, fmtRolls } from "@/lib/domain/warehouse/stock-calc";
 import { CATEGORY_ORDER, relDay, StatusPill, Thumb } from "../ui";
 
 export const dynamic = "force-dynamic";
@@ -49,10 +49,10 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   };
 
   const cards = [
-    { key: null, label: "Қойма құны", value: money(kpi.value), icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: "low", label: "Аз қалды", value: String(kpi.low), icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
-    { key: "out", label: "Бітті", value: String(kpi.out), icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
+    { key: null, label: "Қойма құны", value: money(kpi.value), sub: null, icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
+    { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, sub: kpi.leatherRolls > 0 ? fmtRolls(kpi.leatherRolls) : null, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
+    { key: "low", label: "Аз қалды", value: String(kpi.low), sub: null, icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
+    { key: "out", label: "Бітті", value: String(kpi.out), sub: null, icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
   ] as const;
 
   return (
@@ -78,6 +78,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               <span className="min-w-0">
                 <span className="block text-[13px] text-text-secondary">{c.label}</span>
                 <span className={`block whitespace-nowrap text-[19px] font-bold leading-tight sm:text-[22px] ${c.key === "out" && kpi.out > 0 ? "text-danger" : "text-text-primary"}`}>{c.value}</span>
+                {c.sub && <span className="block text-xs text-text-secondary">{c.sub}</span>}
               </span>
               {active && (
                 <span title="Қайта басса — сүзгі алынады" className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-page-bg text-text-secondary">
@@ -151,6 +152,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     </td>
                     <td className="whitespace-nowrap px-5 py-3 font-semibold tabular-nums">
                       {fmtQty(r.stock)} {r.unit}
+                      {r.rolls != null && <div className="text-xs font-normal text-text-secondary">{fmtRolls(r.rolls)}</div>}
                     </td>
                     <td className={`whitespace-nowrap px-5 py-3 tabular-nums ${r.status === "low" ? "font-semibold text-[#b45309]" : "text-text-secondary"}`}>{r.min == null ? "—" : `${fmtQty(r.min)} ${r.unit}`}</td>
                     <td className="px-5 py-3">
@@ -182,6 +184,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                   <span className="font-semibold tabular-nums">
                     {fmtQty(r.stock)} {r.unit}
                   </span>
+                  {r.rolls != null && <span className="text-xs text-text-secondary">{fmtRolls(r.rolls)}</span>}
                   <StatusPill s={r.status} />
                 </div>
               </Link>
