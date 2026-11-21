@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { daysFor, daysLeft, fmtRolls, orderQty, parseLedgerMaterial, parseQty, perDayUsage, rollLengthFor, rollsOf, stockStatus } from "./stock-calc";
+import { isOwnStock, materialCode, writeOffLines, daysFor, daysLeft, fmtRolls, orderQty, parseLedgerMaterial, parseQty, perDayUsage, rollLengthFor, rollsOf, stockStatus } from "./stock-calc";
 
 test("parseLedgerMaterial: код, санат, бірлік", () => {
   assert.deepEqual(parseLedgerMaterial("4050 - Кожа - Жанек ромб қара"), {
@@ -105,4 +105,25 @@ test("заказ мөлшері мен шығын қарқыны", () => {
   assert.equal(daysFor(85, 3), 28);
   assert.equal(daysFor(0, 3), null);
   assert.equal(daysFor(85, null), null);
+});
+
+test("цех «Дайын» → қоймадан шегеру жолдары", () => {
+  const isTest = (n: string | null) => !!n && /тест/i.test(n);
+  const base = { manager: "Амина", leatherType: "4050 - Кожа - Жанек ромб қара", leatherMeters: "1.75", leatherOwner: "Өзіміздікі", matType: null, matMeters: null, matOwner: null };
+  assert.deepEqual(writeOffLines(base, isTest), [{ code: "4050", qty: 1.75 }]);
+  // клиенттің өз кожасы — шегерілмейді
+  assert.deepEqual(writeOffLines({ ...base, leatherOwner: "Автомода" }, isTest), []);
+  // иесі бос — біздікі
+  assert.deepEqual(writeOffLines({ ...base, leatherOwner: null }, isTest), [{ code: "4050", qty: 1.75 }]);
+  // кожа + съёмный
+  assert.deepEqual(writeOffLines({ ...base, matType: "5049 - Ева - кара мини", matMeters: 0.5, matOwner: null }, isTest), [
+    { code: "4050", qty: 1.75 },
+    { code: "5049", qty: 0.5 },
+  ]);
+  // метр жазылмаған / коды жоқ / тест менеджер
+  assert.deepEqual(writeOffLines({ ...base, leatherMeters: null }, isTest), []);
+  assert.deepEqual(writeOffLines({ ...base, leatherType: "Жанек ромб" }, isTest), []);
+  assert.deepEqual(writeOffLines({ ...base, manager: "Аягөз тест" }, isTest), []);
+  assert.equal(isOwnStock(" өзіміздікі "), true);
+  assert.equal(materialCode("1162 - Жіп - кара"), "1162");
 });

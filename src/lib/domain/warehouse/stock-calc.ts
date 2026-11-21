@@ -208,3 +208,39 @@ export function parseMoySkladMatrix(matrix: unknown[][]): MoySkladRow[] {
   }
   return out;
 }
+
+// ---------- Қойма 2-кезең: цех «Дайын» → қоймадан шегеру (2026-11-21) ----------
+
+/** Біздің кожа: иесі бос не «Өзіміздікі». Опт клиенттің өз кожасы қоймадан шегерілмейді. */
+export const isOwnStock = (owner: string | null | undefined) => !owner || owner.trim().toLowerCase() === "өзіміздікі";
+
+/** Материал жолынан код: «4050 - Кожа - Жанек ромб қара» → «4050» (коды жоқ — null). */
+export function materialCode(raw: string | null | undefined): string | null {
+  const m = (raw ?? "").trim().match(/^(\d{3,6})\s*-/);
+  return m ? m[1] : null;
+}
+
+export interface WriteOffJob {
+  manager: string | null;
+  leatherType: string | null;
+  leatherMeters: unknown;
+  leatherOwner: string | null;
+  matType: string | null;
+  matMeters: unknown;
+  matOwner: string | null;
+}
+
+/** Заказ «Дайын» болғанда қоймадан не шегеріледі: [{ код, метр }]. Тест менеджердің заказы — ештеңе. */
+export function writeOffLines(job: WriteOffJob, isTest: (name: string | null) => boolean): Array<{ code: string; qty: number }> {
+  if (isTest(job.manager)) return [];
+  const out = new Map<string, number>();
+  const add = (type: string | null, meters: unknown, owner: string | null) => {
+    const code = materialCode(type);
+    const qty = meters == null ? 0 : Number(meters);
+    if (!code || !(qty > 0) || !isOwnStock(owner)) return;
+    out.set(code, (out.get(code) ?? 0) + qty);
+  };
+  add(job.leatherType, job.leatherMeters, job.leatherOwner);
+  add(job.matType, job.matMeters, job.matOwner);
+  return [...out].map(([code, qty]) => ({ code, qty: Math.round(qty * 100) / 100 }));
+}

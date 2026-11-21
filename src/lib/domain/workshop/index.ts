@@ -7,6 +7,7 @@ import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { SessionUser } from "@/lib/session";
 import { sendPushToUsers } from "@/lib/push";
 import { materialIdsByCode, photoUrlsByCode } from "@/lib/domain/warehouse/stock";
+import { returnForJob, writeOffForJob } from "@/lib/domain/warehouse/workshop-writeoff";
 import { splitMaterial } from "./calc";
 import { computePay, DEFAULT_RATES, DEFAULT_WORKERS, jobHeadline, OPERATION_FIELD, OPERATIONS, type Operation } from "./calc";
 
@@ -331,6 +332,8 @@ export async function finishJob(user: SessionUser, id: string) {
     },
   });
   await prisma.auditLog.create({ data: { actorId: user.id, action: "WORKSHOP_DONE", entityType: "WorkshopJob", entityId: id } });
+  // Қойма 2-кезең: жұмсалған кожа / съёмный қоймадан шегеріледі (сәтсіз болса — «Дайын» бәрібір сақталады)
+  await writeOffForJob(done, user).catch((e) => console.error("[workshop] stock write-off", e instanceof Error ? e.message : e));
   await notifyManager(done, "done").catch((e) => console.error("[workshop] notify manager", e instanceof Error ? e.message : e));
   await notifyInstallers(done).catch((e) => console.error("[workshop] notify installers", e instanceof Error ? e.message : e));
   return done;
@@ -340,7 +343,9 @@ export async function finishJob(user: SessionUser, id: string) {
 export async function reopenJob(user: SessionUser, id: string) {
   assertAccess(user);
   await assertJobInScope(user, id);
-  await prisma.workshopJob.updateMany({ where: { id, status: "DONE" }, data: { status: "IN_PROGRESS", doneAt: null } });
+  const r = await prisma.workshopJob.updateMany({ where: { id, status: "DONE" }, data: { status: "IN_PROGRESS", doneAt: null } });
+  // Қойма: шегерілген кожа қайтарылады
+  if (r.count > 0) await returnForJob(id, user).catch((e) => console.error("[workshop] stock return", e instanceof Error ? e.message : e));
 }
 
 /** Менеджерге хабар: сайттағы қоңырау + телефонға (Web Push). Клиенттің аты/телефоны жазылмайды. */

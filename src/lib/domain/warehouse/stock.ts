@@ -4,8 +4,7 @@ import { prisma, PermissionAction } from "@/lib/db";
 import { assertPermission, can } from "@/lib/rbac";
 import { canUseWorkshop } from "@/lib/access";
 import type { ActingUser } from "@/lib/domain/orders";
-import { forecast, moySkladCategory, parseLedgerMaterial, rollLengthFor, rollsOf, type MoySkladRow, type StockStatus } from "./stock-calc";
-import { splitMaterial } from "@/lib/domain/workshop/calc";
+import { forecast, moySkladCategory, parseLedgerMaterial, rollLengthFor, rollsOf, writeOffLines, type MoySkladRow, type StockStatus } from "./stock-calc";
 import { isTestName } from "@/lib/domain/sales-ledger/test-mode";
 
 const DAY = 86400_000;
@@ -19,32 +18,31 @@ async function usageLast30(materials: Array<{ id: string; sku: string }>) {
   const ids = materials.map((m) => m.id);
   const [outs, jobs, active] = await Promise.all([
     prisma.stockMovement.findMany({
-      where: { materialId: { in: ids }, kind: "OUT", qty: { lt: 0 }, createdAt: { gte: since } },
+      where: { materialId: { in: ids }, createdAt: { gte: since }, OR: [{ kind: "OUT", qty: { lt: 0 } }, { workshopJobId: { not: null } }] },
       select: { materialId: true, qty: true, workshopJobId: true },
     }),
     prisma.workshopJob.findMany({
       where: { status: "DONE", doneAt: { gte: since } },
-      select: { id: true, manager: true, leatherType: true, leatherMeters: true, matType: true, matMeters: true },
+      select: { id: true, manager: true, leatherType: true, leatherMeters: true, leatherOwner: true, matType: true, matMeters: true, matOwner: true },
     }),
     prisma.appSetting.findUnique({ where: { key: "workshop.activeSince" } }),
   ]);
   const used = new Map<string, number>();
   const add = (id: string, n: number) => used.set(id, (used.get(id) ?? 0) + n);
   const counted = new Set<string>();
+  // Цех заказының қозғалыстары таза есептеледі (шегерілді − «Дайын» қайтарылды)
   for (const o of outs) {
-    add(o.materialId, Math.abs(Number(o.qty)));
+    add(o.materialId, -Number(o.qty));
     if (o.workshopJobId) counted.add(o.workshopJobId);
   }
+  for (const [id, v] of used) if (v <= 0) used.delete(id);
   const bySku = new Map(materials.map((m) => [m.sku, m.id]));
+  // Қоймадан әлі шегерілмеген «Дайын» заказдар — реестрден (клиенттің өз кожасы мен тест заказы кірмейді)
   for (const j of jobs) {
-    if (counted.has(j.id) || isTestName(j.manager)) continue;
-    for (const [type, meters] of [
-      [j.leatherType, j.leatherMeters],
-      [j.matType, j.matMeters],
-    ] as const) {
-      const code = splitMaterial(type)?.code;
-      const id = code ? bySku.get(code) : undefined;
-      if (id && meters != null && Number(meters) > 0) add(id, Number(meters));
+    if (counted.has(j.id)) continue;
+    for (const l of writeOffLines(j, isTestName)) {
+      const id = bySku.get(l.code);
+      if (id) add(id, l.qty);
     }
   }
   const activeSince = active ? new Date(active.value) : null;
