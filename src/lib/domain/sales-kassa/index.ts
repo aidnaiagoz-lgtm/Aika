@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { NOT_TEST_WHERE } from "../sales-ledger/test-mode";
 import { salesSheetId } from "../sales-ledger/normalize/sheet-id";
 import { isLeader, hasAnyRole } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
@@ -55,7 +56,7 @@ const norm = (s: string | null | undefined) => (s ?? "").trim().toLocaleLowerCas
 async function loadRows() {
   const cash = { contains: "налич", mode: "insensitive" as const };
   return prisma.salesLedgerRow.findMany({
-    where: { OR: [{ receipt1Method: cash }, { receipt2Method: cash }, { receipt3Method: cash }] },
+    where: { OR: [{ receipt1Method: cash }, { receipt2Method: cash }, { receipt3Method: cash }], ...NOT_TEST_WHERE },
     orderBy: [{ date: "desc" }, { no: "desc" }],
     include: { cashEvents: { include: { user: { select: { employee: { select: { fullName: true } }, email: true } } } } },
   });
@@ -171,7 +172,7 @@ export type KassaData = Awaited<ReturnType<typeof loadKassa>>;
 /** Сатылым − төлем айырмасы: клиент толық төлемеген (соңғы 120 күн, қайтарылғандар есептелмейді). */
 export async function loadDebts(user: SessionUser) {
   const rows = await prisma.salesLedgerRow.findMany({
-    where: { soldFor: { gt: 0 }, remainder: { gt: 0 }, date: { gte: new Date(Date.now() - 120 * DAY) }, NOT: { orderStatus: { contains: "возврат", mode: "insensitive" } } },
+    where: { soldFor: { gt: 0 }, remainder: { gt: 0 }, date: { gte: new Date(Date.now() - 120 * DAY) }, NOT: { orderStatus: { contains: "возврат", mode: "insensitive" } }, AND: [NOT_TEST_WHERE] },
     orderBy: { remainder: "desc" },
     take: 300,
     select: { no: true, date: true, manager: true, customerName: true, soldFor: true, remainder: true, createdById: true },

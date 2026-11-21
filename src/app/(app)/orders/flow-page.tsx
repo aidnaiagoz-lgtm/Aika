@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TestTag } from "@/lib/ui/TestTag";
 import { isLeader } from "@/lib/access";
 import type { FlowRow } from "@/lib/domain/orders/workflow";
 import { Elapsed, HandedButton } from "./flow-ui";
@@ -77,7 +78,10 @@ export function FlowPage({
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-border/60 last:border-0">
-                    <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums">{r.orderNo}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-bold tabular-nums">
+                      {r.orderNo}
+                      <TestTag manager={r.manager} />
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <div className="text-text-primary">{r.customer || "—"}</div>
                       <div className="text-xs text-text-secondary">{r.phone}</div>

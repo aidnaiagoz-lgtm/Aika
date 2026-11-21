@@ -5,6 +5,7 @@ import { isLeader } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 import { LEDGER_COLUMNS } from "../fields";
 import { toSheetValues, appsScript, htmlErrorText } from "./format";
+import { isTestName, NOT_TEST_WHERE } from "../test-mode";
 import { salesSheetId } from "../normalize/sheet-id";
 
 export { isPushedCopy } from "./format";
@@ -93,6 +94,7 @@ export async function pushRowToSheet(id: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const row = await prisma.salesLedgerRow.findUnique({ where: { id } });
     if (!row || row.importKey || row.createdAt < cfg.since!) return; // кестеден келгендер мен ескі жолдар жіберілмейді
+    if (isTestName(row.manager)) return; // тест аккаунттың заказы — тек сайтта
     if (!row.customerPhone && !row.customerName && !row.product && row.soldFor == null) return; // әлі бос
     // Ұстап алу: басқа жіберу жүріп жатса — сол аяқтағанда соңғы мәнді өзі жібереді
     const claim = await prisma.salesLedgerRow.updateMany({
@@ -133,6 +135,7 @@ export async function retryPendingPushes() {
     where: {
       importKey: null,
       createdAt: { gte: cfg.since! },
+      ...NOT_TEST_WHERE,
       // Қате болса — 10 минуттан кейін ғана қайта (2026-11-21: әр 2 минут сайын 4 жолды қатар жіберу скрипттің құлпын
       // ұстап, бәрі «Lock timeout»-қа түсті)
       OR: [

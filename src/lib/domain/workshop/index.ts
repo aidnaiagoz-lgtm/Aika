@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma, type WorkshopJob, type WorkshopJobStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { NOT_TEST_WHERE } from "@/lib/domain/sales-ledger/test-mode";
 import { canUseWorkshop, isLeader, WORKSHOP_ROLES } from "@/lib/access";
 import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { SessionUser } from "@/lib/session";
@@ -117,6 +118,7 @@ export async function syncWorkshopJobs(
     where: {
       ...(ids ? { id: { in: ids } } : {}),
       OR: [{ date: { gte: since } }, { date: null, createdAt: { gte: since } }],
+      ...NOT_TEST_WHERE, // тест аккаунттың заказы цехқа түспейді
       ...(opts.recentDays ? { updatedAt: { gte: new Date(Date.now() - opts.recentDays * 86400_000) } } : {}),
     },
     select: LEDGER_SELECT,
