@@ -7,7 +7,7 @@ import { getDictionary, INTL_LOCALE } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
-import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen } from "@/lib/access";
+import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen, isTestAccount } from "@/lib/access";
 import { flowCounts } from "@/lib/domain/orders/workflow";
 import { jobCounts } from "@/lib/domain/workshop";
 
@@ -22,7 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Сатушы-менеджер тек өз бөлімдерін ашады (Рейтинг, Продажи, пароль). Қалғаны — серверде жабық.
   const managerMode = isSalesManagerOnly(user);
-  if (managerMode && pathname && !managerCanOpen(pathname)) redirect("/rating");
+  // Тест аккаунт цех беттерін де ашады (өз тест тапсырмаларымен)
+  const testMode = managerMode && isTestAccount(user);
+  const testWorkshopPath = /^\/workshop(\/(incoming|sewing|ready|job)(\/|$)|$)/.test(pathname);
+  if (managerMode && pathname && !managerCanOpen(pathname) && !(testMode && testWorkshopPath)) redirect("/rating");
   const workshopMode = isWorkshopOnly(user);
   if (workshopMode && pathname && !workshopCanOpen(pathname)) redirect("/workshop");
 
@@ -36,7 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // «Заказдар ▾» сандары (цехта / дайын) — цех жауаптысына керек емес
   const orderCounts = workshopMode ? undefined : await flowCounts(user).catch(() => undefined);
   // «Цех ▾» сандары — цех жауаптысы мен басшыға
-  const workshopCounts = workshopMode || isLeader(user) ? await jobCounts(user).catch(() => undefined) : undefined;
+  const workshopCounts = workshopMode || isLeader(user) || testMode ? await jobCounts(user).catch(() => undefined) : undefined;
 
   const unreadCount = await prisma.notification.count({
     where: {

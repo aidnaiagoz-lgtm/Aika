@@ -54,6 +54,8 @@ export function Sidebar({
             active={pathname.startsWith("/departments/sales/almaty")}
           />
           <OrdersGroup label={t.sidebar.nav.orders} pathname={pathname} counts={orderCounts} />
+          {/* Тест аккаунт — цехты да көреді (тек өз тест тапсырмалары) */}
+          {workshopCounts && <WorkshopGroup pathname={pathname} counts={workshopCounts} />}
           <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
         </nav>
         <UserCard userName={userName} userRole={userRole} online={t.common.online} />
