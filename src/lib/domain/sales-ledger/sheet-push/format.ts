@@ -73,16 +73,25 @@ const SHEET = "продажи";
 const SEGMENTS = ${JSON.stringify(WRITE_SEGMENTS.map(([a, b]) => [a + 1, b + 1]))}; // [бастау, соңы], 1-ден
 
 function doPost(e) {
-  const body = JSON.parse(e.postData.contents);
+  // Кез келген қате JSON болып қайтады — сайт себебін көрсете алады (2026-11-21)
+  try {
+    return handle(JSON.parse(e.postData.contents));
+  } catch (err) {
+    return out({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+function handle(body) {
   if (body.token !== TOKEN) return out({ ok: false, error: "token" });
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   if (body.action === "ping") return out({ ok: true, sheet: !!ss.getSheetByName(SHEET) });
   const sh = ss.getSheetByName(SHEET);
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  let row = Number(body.row) || 0;
+  const isNew = !row;
   try {
-    let row = Number(body.row) || 0;
-    if (!row) {
+    if (isNew) {
       // Бірінші бос жол: D (Дата) бағаны бойынша соңғы толтырылған жолдан кейін
       const d = sh.getRange(2, 4, sh.getLastRow() - 1, 1).getValues();
       let i = d.length;
@@ -90,9 +99,15 @@ function doPost(e) {
       row = i + 2;
     }
     const v = body.values;
-    SEGMENTS.forEach(function (s) {
-      sh.getRange(row, s[0], 1, s[1] - s[0] + 1).setValues([v.slice(s[0] - 1, s[1])]);
-    });
+    try {
+      SEGMENTS.forEach(function (s) {
+        sh.getRange(row, s[0], 1, s[1] - s[0] + 1).setValues([v.slice(s[0] - 1, s[1])]);
+      });
+    } catch (err) {
+      // Жаңа жол жартылай жазылып қалмасын (бос жол пайда болмасын) — жазғанымызды тазалаймыз
+      if (isNew) SEGMENTS.forEach(function (s) { sh.getRange(row, s[0], 1, s[1] - s[0] + 1).clearContent(); });
+      throw err;
+    }
     SpreadsheetApp.flush();
     return out({ ok: true, row: row, no: sh.getRange(row, 1).getValue() });
   } finally {
@@ -104,4 +119,18 @@ function out(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 `;
+}
+
+/** Apps Script JSON орнына HTML қате беті қайтарса — ішіндегі мәтін (тегтерсіз, 300 таңбаға дейін). */
+export function htmlErrorText(html: string): string {
+  const body = html.replace(/<(script|style|title)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ");
+  const text = body
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.slice(0, 300);
 }

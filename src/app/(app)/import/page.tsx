@@ -10,7 +10,8 @@ import { SheetPushSetup } from "./SheetPushSetup";
 import { DuplicatesBox } from "./DuplicatesBox";
 import { ledgerDuplicateSummary } from "@/lib/domain/sales-ledger/duplicates";
 import { OrphansBox } from "./OrphansBox";
-import { sheetOrphanSummary } from "@/lib/domain/sales-ledger/orphans";
+import { sheetOrphanSummary, unpushedSummary } from "@/lib/domain/sales-ledger/orphans";
+import { UnpushedBox } from "./UnpushedBox";
 
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ sync?: string }> }) {
   const user = await getCurrentUser();
@@ -23,6 +24,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
   const push = await sheetPushConfig();
   const dupes = await ledgerDuplicateSummary();
   const orphans = await sheetOrphanSummary();
+  const unpushed = await unpushedSummary();
   const fmt = new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Almaty", dateStyle: "short", timeStyle: "short" });
 
   return (
@@ -34,6 +36,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           рейтинг бірден есептеледі. Тек CEO мен РОП.
         </p>
       </div>
+      {unpushed.count > 0 && <UnpushedBox {...unpushed} />}
       {orphans.count > 0 && <OrphansBox {...orphans} />}
       {dupes.extraRows > 0 && <DuplicatesBox extraRows={dupes.extraRows} extraSum={dupes.extraSum} sample={dupes.sample} />}
       <section id="source" className="rounded-[20px] border border-border bg-surface p-5">

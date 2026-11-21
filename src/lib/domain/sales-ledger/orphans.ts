@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import type { SessionUser } from "@/lib/session";
 import { isLeader } from "@/lib/access";
 import { withLedgerLock } from "./lock";
+import { sheetPushConfig } from "./sheet-push";
 
 /**
  * Google-дан өшірілген, бірақ сайтта қалған жолдар (CEO, 2026-11-21).
@@ -87,4 +88,31 @@ export async function removeSheetOrphans(user: SessionUser) {
     });
     return { removed: del.count };
   });
+}
+
+/**
+ * Сайтта жазылып, Google кестеге ТҮСПЕЙ тұрған жолдар (скрипт қате береді). 2026-11-21: CEO-ның 3 заказы кестеге
+ * жіберілмей, бірақ сайтта саналып тұрды — айналым екі жақта әртүрлі. Себебін (скрипт қатесін) CEO-ға көрсетеміз.
+ */
+export async function unpushedSummary() {
+  const cfg = await sheetPushConfig();
+  if (!cfg.enabled || !cfg.since) return { count: 0, sum: 0, nos: [] as number[], managers: [] as string[], error: null as string | null };
+  const rows = await prisma.salesLedgerRow.findMany({
+    where: {
+      importKey: null,
+      sheetPushedAt: null,
+      createdAt: { gte: cfg.since, lt: new Date(Date.now() - 10 * 60_000) },
+      sheetPushError: { not: null },
+    },
+    select: { no: true, soldFor: true, manager: true, sheetPushError: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
+  const real = rows.filter((r) => r.sheetPushError !== "pending");
+  return {
+    count: real.length,
+    sum: real.reduce((s, r) => s + Number(r.soldFor ?? 0), 0),
+    nos: real.map((r) => r.no).sort((a, b) => a - b),
+    managers: [...new Set(real.map((r) => r.manager).filter((m): m is string => !!m))],
+    error: real.find((r) => r.sheetPushError && !/timeout|aborted|үзілді/i.test(r.sheetPushError))?.sheetPushError ?? real[0]?.sheetPushError ?? null,
+  };
 }
