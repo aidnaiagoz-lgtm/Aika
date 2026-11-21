@@ -9,6 +9,8 @@ import { sheetPushConfig } from "@/lib/domain/sales-ledger/sheet-push";
 import { SheetPushSetup } from "./SheetPushSetup";
 import { DuplicatesBox } from "./DuplicatesBox";
 import { ledgerDuplicateSummary } from "@/lib/domain/sales-ledger/duplicates";
+import { OrphansBox } from "./OrphansBox";
+import { sheetOrphanSummary } from "@/lib/domain/sales-ledger/orphans";
 
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ sync?: string }> }) {
   const user = await getCurrentUser();
@@ -20,6 +22,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
   const source = await getSalesSource();
   const push = await sheetPushConfig();
   const dupes = await ledgerDuplicateSummary();
+  const orphans = await sheetOrphanSummary();
   const fmt = new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Almaty", dateStyle: "short", timeStyle: "short" });
 
   return (
@@ -31,6 +34,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           рейтинг бірден есептеледі. Тек CEO мен РОП.
         </p>
       </div>
+      {orphans.count > 0 && <OrphansBox {...orphans} />}
       {dupes.extraRows > 0 && <DuplicatesBox extraRows={dupes.extraRows} extraSum={dupes.extraSum} sample={dupes.sample} />}
       <section id="source" className="rounded-[20px] border border-border bg-surface p-5">
         <h2 className="text-base font-semibold text-text-primary">Деректер көзі — менеджерлер қайда толтырады?</h2>
