@@ -92,13 +92,13 @@ export async function addTrainingFileAction(input: {
   section: string;
   folderId: string;
   title: string;
-  url: string;
+  uploadId: string;
   fileName: string;
   fileSize: number;
 }): Promise<TrainingActionResult> {
   return run(async (user) => {
     const s = sectionOf(input.section);
-    await addTrainingFile(user.id, String(input.folderId), String(input.title ?? ""), String(input.url), String(input.fileName), Number(input.fileSize));
+    await addTrainingFile(user.id, String(input.folderId), String(input.title ?? ""), String(input.uploadId), String(input.fileName), Number(input.fileSize));
     refresh(s);
     return { ok: true };
   });

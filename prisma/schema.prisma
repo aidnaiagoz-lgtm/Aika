@@ -1171,7 +1171,7 @@ model TrainingFolder {
   @@map("training_folders")
 }
 
-// Папка ішіндегі оқу материалы. Қазір тек сілтеме (YouTube, Google Drive...); файл жүктеу үшін қойма керек.
+// Папка ішіндегі оқу материалы: сілтеме (YouTube, Google Drive...) немесе PDF (kind="pdf", файлы базада — TrainingFileChunk).
 model TrainingMaterial {
   id          String         @id @default(cuid())
   folderId    String
@@ -1185,9 +1185,27 @@ model TrainingMaterial {
   createdById String
   createdBy   User           @relation(fields: [createdById], references: [id])
   createdAt   DateTime       @default(now())
+  chunks      TrainingFileChunk[]
 
   @@index([folderId])
   @@map("training_materials")
+}
+
+// PDF файлдың бір бөлігі (≤3 МБ) — сайттың өз базасында сақталады, бөлек файл қоймасы керек емес.
+// Браузер файлды бөліп жібереді (Vercel-дің 4.5 МБ шегі үшін); materialId бос болса — жүктеу әлі аяқталмаған.
+model TrainingFileChunk {
+  id           String            @id @default(cuid())
+  uploadId     String
+  index        Int
+  data         Bytes
+  materialId   String?
+  material     TrainingMaterial? @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  uploadedById String
+  createdAt    DateTime          @default(now())
+
+  @@unique([uploadId, index])
+  @@index([materialId, index])
+  @@map("training_file_chunks")
 }
 
 // ---------- Sales goals (айлық мақсаттар, CEO/РОП қояды) ----------
