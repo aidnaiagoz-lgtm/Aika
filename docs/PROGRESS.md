@@ -24,6 +24,10 @@
 
 ## Журнал (жаңасы — жоғарыда)
 
+### 2026-11-21 — Сайт ашылмады: «too many database connections» (Claude, CEO сессиясы)
+- Vercel логы: `PrismaClientInitializationError: too many connections for role "prisma_migration"` (/login, /rating, /orders/new). Әр функция данасы әдепкі пул (CPU×2+1) ашып, база шегі толған.
+- `src/lib/db.ts`: prod-та DATABASE_URL-ге `connection_limit=2&pool_timeout=20` (URL-де жоқ болса) қосылады; клиент globalThis-те бір рет. Ұзақ мерзімде — Prisma Accelerate / pooled URL қарастыру.
+
 ### 2026-11-21 — Тест аккаунт цехты да көреді (тек өз тест тапсырмалары) (Claude, CEO сессиясы)
 - CEO: «цех беті тоже менде көріну керек но тест ретінде». Тест заказы «Цех ✓» болса — цех тапсырмасы ашылады (бұрын ашылмайтын), бірақ:
   - тест аккаунт (`isTestAccount`) цех беттерінде ТЕК тест тапсырмаларын көреді; цех (Бекзат) пен басшы тест тапсырмаларын КӨРМЕЙДІ (`jobScope` — listJobs, jobCounts, getJobDetail, update/start/finish/reopen);
