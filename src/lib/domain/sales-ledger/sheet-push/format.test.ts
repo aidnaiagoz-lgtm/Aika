@@ -48,4 +48,14 @@ test("Apps Script: токен мен бөліктер ішінде", () => {
   assert.ok(!s.includes("getActive()"));
   assert.ok(s.includes("[[4,24],[26,26],[28,43],[45,45]]"));
   assert.ok(s.includes("function doPost"));
+  assert.ok(s.includes("catch (err)")); // қате JSON болып қайтады
+  assert.ok(s.includes("clearContent()")); // жартылай жазылған жаңа жол тазаланады
+});
+
+test("htmlErrorText: Apps Script қате бетінен мәтін", async () => {
+  const { htmlErrorText } = await import("./format");
+  const html = '<html><head><title>Ошибка</title></head><body><div style="x">Exception: The data you entered in cell E12630 violates the data validation rules set on this cell. (строка 31, файл &quot;Код&quot;)</div></body></html>';
+  assert.match(htmlErrorText(html), /violates the data validation rules/);
+  assert.ok(!htmlErrorText(html).includes("<"));
+  assert.ok(htmlErrorText("x".repeat(1000)).length <= 300);
 });

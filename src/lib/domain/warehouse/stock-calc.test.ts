@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { daysLeft, parseLedgerMaterial, parseQty, stockStatus } from "./stock-calc";
+import { daysFor, daysLeft, fmtRolls, orderQty, parseLedgerMaterial, parseQty, perDayUsage, rollLengthFor, rollsOf, stockStatus } from "./stock-calc";
 
 test("parseLedgerMaterial: код, санат, бірлік", () => {
   assert.deepEqual(parseLedgerMaterial("4050 - Кожа - Жанек ромб қара"), {
@@ -24,6 +24,10 @@ test("stockStatus және daysLeft", () => {
   assert.equal(stockStatus(12.5, 30, true), "low");
   assert.equal(stockStatus(86, 30, true), "ok");
   assert.equal(stockStatus(5, null, true), "ok");
+  // Минимумға тең — «Аз қалды»; минимум 0 — ескерілмейді
+  assert.equal(stockStatus(800, 800, true), "low");
+  assert.equal(stockStatus(800.01, 800, true), "ok");
+  assert.equal(stockStatus(5, 0, true), "ok");
   assert.equal(daysLeft(30, 90), 10);
   assert.equal(daysLeft(30, 0), null);
   assert.equal(daysLeft(0, 90), null);
@@ -58,4 +62,47 @@ test("parseMoySkladMatrix: тақырып, топтар, тек цех", async (
   assert.equal(moySkladCategory("Цех/Материалы / Кожы", "м"), "LEATHER");
   assert.equal(moySkladCategory("Цех/Материалы / Кожы", "шт"), "ACCESSORIES");
   assert.throws(() => parseMoySkladMatrix([["a", "b"]]));
+});
+
+test("рулон: әдепкі ұзындық, материалдың өз мәні, санау", () => {
+  assert.equal(rollLengthFor("LEATHER", null), 50);
+  assert.equal(rollLengthFor("FISHING_LINE", null), 45);
+  assert.equal(rollLengthFor("LEATHER", 48), 48);
+  assert.equal(rollLengthFor("THREAD", null), null);
+  assert.equal(rollLengthFor("EVA", 30), 30);
+  assert.equal(rollsOf(800, 50), 16);
+  assert.equal(rollsOf(85.15, 50), 1.7);
+  assert.equal(rollsOf(90, 45), 2);
+  assert.equal(rollsOf(0, 50), null);
+  assert.equal(rollsOf(100, null), null);
+  assert.equal(fmtRolls(16), "≈ 16 рулон");
+});
+
+test("заказ: шұғыл / заказ беру керек / жеткілікті (Қытай — 45 күн)", () => {
+  assert.equal(stockStatus(85, null, true, 28), "urgent");
+  assert.equal(stockStatus(160, null, true, 53), "order");
+  assert.equal(stockStatus(400, null, true, 133), "ok");
+  assert.equal(stockStatus(400, null, true, 45), "urgent");
+  assert.equal(stockStatus(400, null, true, 60), "order");
+  // жеткізу 7 күн (Алматы): 30 күн — жеткілікті, 20 күн (≤ 7 + 15) — заказ беру керек
+  assert.equal(stockStatus(60, null, true, 30, 7), "ok");
+  assert.equal(stockStatus(60, null, true, 20, 7), "order");
+  // шығын белгісіз — қолмен қойылған минимум жұмыс істейді
+  assert.equal(stockStatus(80, 80, true, null), "low");
+  assert.equal(stockStatus(0, 80, true, 10), "out");
+});
+
+test("заказ мөлшері мен шығын қарқыны", () => {
+  // күніне 3 м, жеткізу 45 + келесі 60 күн = 315 м − 85 м қалдық = 230 м
+  assert.equal(orderQty(85, 3), 230);
+  assert.equal(orderQty(400, 3), 0);
+  assert.equal(orderQty(10, 0), 0);
+  assert.equal(orderQty(0, 2, 7, 60), 134);
+  assert.equal(perDayUsage(90, 30), 3);
+  assert.equal(perDayUsage(12, 4), 3);
+  assert.equal(perDayUsage(6, 1), 2);
+  assert.equal(perDayUsage(0, 30), null);
+  assert.equal(daysFor(85, 3), 28);
+  assert.equal(daysFor(0, 3), null);
+  assert.equal(daysFor(85, null), null);
 });

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Check, Inbox, Scissors, Handshake } from "lucide-react";
+import { CarFront, Check, Inbox, Scissors, Handshake, Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
-import { canUseWorkshop } from "@/lib/access";
-import { getJobDetail, listWorkers, missingForDone } from "@/lib/domain/workshop";
+import { canOpenWorkshop } from "@/lib/access";
+import { getJobDetail, listWorkers, missingForDone, needsInstaller } from "@/lib/domain/workshop";
 import { jobHeadline, leatherNorm, splitMaterial, swatchColor } from "@/lib/domain/workshop/calc";
+import { carTitle } from "@/lib/domain/lekala/calc";
 import { Elapsed } from "../../../orders/flow-ui";
 import { DoneActions, LekalaBox, RegistryForm, StartAction } from "./JobActions";
 import { PhotoZoom } from "../../../warehouse/PhotoZoom";
@@ -92,6 +93,15 @@ function Step({ icon: Icon, title, at, state }: { icon: typeof Inbox; title: str
 
 const Line = ({ on }: { on: boolean }) => <span className={`mt-5 h-[3px] flex-1 rounded ${on ? "bg-accent" : "bg-border"}`} />;
 
+function CarCell({ label, value, big }: { label: string; value: string; big?: boolean }) {
+  return (
+    <span className="flex min-w-0 flex-col justify-center border-r border-border px-3 py-2 last:border-r-0 md:px-4">
+      <span className="text-[10px] font-bold uppercase tracking-wide md:text-[11px] text-text-secondary">{label}</span>
+      <span className={`break-words font-extrabold leading-tight ${big ? "text-[22px] md:text-[30px]" : "text-[16px] md:text-[22px]"}`}>{value}</span>
+    </span>
+  );
+}
+
 function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-card bg-surface p-5 shadow-card">
@@ -107,7 +117,7 @@ function Section({ title, aside, children }: { title: string; aside?: React.Reac
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!canUseWorkshop(user)) redirect("/dashboard");
+  if (!canOpenWorkshop(user)) redirect("/dashboard");
   const { id } = await params;
   const detail = await getJobDetail(user, id);
   if (!detail) notFound();
@@ -115,7 +125,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const workers = (await listWorkers(user)).map((w) => w.name);
 
   const st = STATUS[job.status];
-  const car = jobHeadline({ car: job.car, brand: job.brand, carYear: job.carYear });
+  // Көлік — беттегі ең көрнекі жазу (CEO, 2026-11-20): «Hyundai Stariya» + жылы
+  const ct = carTitle(job.car, job.brand);
+  const car = ct.title ? `${ct.title}${job.carYear ? ` · ${job.carYear}` : ""}` : jobHeadline({ car: job.car, brand: job.brand, carYear: job.carYear });
   const leather = splitMaterial(job.leatherType);
   const leatherColor = swatchColor(leather?.name) ?? "#2a2a2a";
   const threadColor = swatchColor(splitMaterial(job.leatherPipingThread ?? job.leatherThread)?.name) ?? "#b91c1c";
@@ -136,6 +148,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           : null;
 
   const missing = job.status === "IN_PROGRESS" ? missingForDone(job) : [];
+  // «Установка» заказы орнатушы арқылы өтеді (2026-11-21)
+  const installer = needsInstaller(detail.pickup);
   const handedText = job.handedAt ? (job.handedBy?.startsWith("Архив") ? "архивке жабылды" : tm.format(job.handedAt)) : "—";
 
   return (
@@ -154,10 +168,25 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       {/* Тақырып */}
       <header className="flex flex-col gap-4 rounded-card bg-surface p-5 shadow-card md:flex-row md:items-center md:justify-between md:px-6">
         <div className="flex flex-col gap-1.5">
-          <h1 className="m-0 flex flex-wrap items-center gap-3 text-2xl font-extrabold text-text-primary">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-text-secondary">
             Заказ №{job.orderNo}
-            <span className={`rounded-pill px-3 py-1 text-[13px] font-bold ${st.cls}`}>● {st.label}</span>
+            <span className={`rounded-pill px-2.5 py-0.5 text-xs font-bold ${st.cls}`}>● {st.label}</span>
+          </div>
+          {/* Көлік — марка / модель / жыл бөлек ұяшықтарда, алыстан оқылатындай */}
+          <h1 className="m-0 mt-1 flex w-fit max-w-full items-stretch overflow-hidden rounded-[12px] border border-border bg-surface text-text-primary">
+            {ct.make ? (
+              <>
+                <CarCell label="Марка" value={ct.make} />
+                <CarCell label="Модель" value={ct.model} big />
+              </>
+            ) : (
+              <CarCell label="Көлік" value={ct.title || "жазылмаған"} big />
+            )}
+            <CarCell label="Жылы" value={job.carYear ? String(job.carYear) : "—"} />
           </h1>
+          {ct.title && ct.raw && ct.raw.toLowerCase() !== ct.title.toLowerCase() && (
+            <span className="text-xs text-text-secondary">менеджер жазғаны: {ct.raw}</span>
+          )}
           <p className="m-0 text-[13px] text-text-secondary">
             Түсті <b className="font-semibold text-text-primary">{fmt(job.receivedAt)}</b>
             {job.manager && (
@@ -195,8 +224,24 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         />
         <Line on={!!job.doneAt} />
         <Step icon={Check} title="Дайын" at={job.doneAt ? tm.format(job.doneAt) : "—"} state={job.doneAt ? "done" : job.status === "IN_PROGRESS" ? "cur" : "off"} />
+        {installer && (
+          <>
+            <Line on={!!job.pickedUpAt} />
+            <Step
+              icon={Truck}
+              title={job.pickedUpAt ? `${job.pickedUpBy ?? "Орнатушы"} алды` : "Орнатушы алды"}
+              at={job.pickedUpAt ? tm.format(job.pickedUpAt) : "—"}
+              state={job.pickedUpAt || job.handedAt ? "done" : job.status === "DONE" ? "cur" : "off"}
+            />
+          </>
+        )}
         <Line on={!!job.handedAt} />
-        <Step icon={Handshake} title="Берілді" at={handedText} state={job.handedAt ? "done" : job.status === "DONE" ? "cur" : "off"} />
+        <Step
+          icon={Handshake}
+          title="Клиентке берілді"
+          at={handedText}
+          state={job.handedAt ? "done" : job.status === "DONE" && (!installer || job.pickedUpAt) ? "cur" : "off"}
+        />
       </div>
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[1fr_340px]">
@@ -244,7 +289,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-extrabold leading-snug text-text-primary">{job.product?.trim() || "Тауар жазылмаған"}</div>
-                <div className="text-[13px] text-text-secondary">{car || "Көлік жазылмаған"}</div>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[15px] font-bold text-text-primary">
+                  <CarFront size={16} className="text-accent" />
+                  {car || "Көлік жазылмаған"}
+                </div>
                 {chips.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {chips.map((c) => (

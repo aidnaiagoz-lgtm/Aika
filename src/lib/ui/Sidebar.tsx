@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot, BarChart3, Settings, ChevronDown, ChevronRight, Trophy, Table2, KeyRound, Target, Users, FileUp, Scissors, Wallet, Boxes, Layers } from "lucide-react";
+import { Home, Network, GraduationCap, Package, LayoutGrid, ListTodo, Bell, Bot, BarChart3, Settings, ChevronDown, ChevronRight, Trophy, Table2, KeyRound, Target, Users, FileUp, Scissors, Wallet, Boxes, Layers, Truck } from "lucide-react";
 import { Logo } from "./Logo";
 import { getDictionary, DEPARTMENT_SLUGS, type Locale } from "@/lib/i18n";
 
@@ -18,7 +18,7 @@ export function Sidebar({
   userName: string;
   userRole: string;
   locale: Locale;
-  mode?: "manager" | "workshop" | "leader" | "staff";
+  mode?: "manager" | "workshop" | "installer" | "leader" | "staff";
   /** «Заказдар ▾» ішіндегі сандар: цехта / дайын (берілмеген). */
   orderCounts?: { sewing: number; ready: number };
   /** «Цех ▾» ішіндегі сандар: түскен / тігіліп жатыр / дайын (14 күн). */
@@ -54,6 +54,25 @@ export function Sidebar({
             active={pathname.startsWith("/departments/sales/almaty")}
           />
           <OrdersGroup label={t.sidebar.nav.orders} pathname={pathname} counts={orderCounts} />
+          {/* Тест аккаунт — цехты да көреді (тек өз тест тапсырмалары) */}
+          {workshopCounts && <WorkshopGroup pathname={pathname} counts={workshopCounts} />}
+          {workshopCounts && <NavLink href="/install" label="Алып кету (орнатушы)" icon={Truck} active={pathname.startsWith("/install")} />}
+          <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
+        </nav>
+        <UserCard userName={userName} userRole={userRole} online={t.common.online} />
+      </aside>
+    );
+  }
+
+  // Орнатушы (Расул, Берекет) — тек «Алып кету».
+  if (mode === "installer") {
+    return (
+      <aside className="hidden h-full w-[260px] shrink-0 flex-col border-r border-border bg-surface px-4 py-5 md:flex">
+        <div className="px-2 pb-6">
+          <Logo />
+        </div>
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+          <NavLink href="/install" label="Алып кету" icon={Truck} active={pathname.startsWith("/install")} />
           <NavLink href="/change-password" label="Парольді өзгерту" icon={KeyRound} active={pathname === "/change-password"} />
         </nav>
         <UserCard userName={userName} userRole={userRole} online={t.common.online} />

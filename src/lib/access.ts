@@ -1,3 +1,4 @@
+import { isTestName } from "@/lib/domain/sales-ledger/test-mode";
 // Рөлге байланысты қарапайым тексерулер (бет деңгейі).
 // Деректер деңгейіндегі нақты рұқсат — rbac.ts + domain сервистерінде.
 
@@ -7,6 +8,8 @@ export const LEADER_ROLES = ["CEO", "ADMIN", "DEPARTMENT_HEAD"] as const;
 export const MANAGER_ROLES = ["SALES_MANAGER", "SENIOR_SALES_MANAGER"] as const;
 /** 2026-11-12: цехты жүргізетін адам (Бекзат) — тек «Цех» беттері. */
 export const WORKSHOP_ROLES = ["WORKSHOP_HEAD"] as const;
+/** 2026-11-21: орнатушы (Расул, Берекет) — тек «Алып кету» беті: цехта дайын заказды алып кетеді. */
+export const INSTALLER_ROLES = ["INSTALLER"] as const;
 
 export function hasAnyRole(user: RoleCarrier, roles: readonly string[]): boolean {
   return user.userRoles.some((ur) => roles.includes(ur.role.name));
@@ -22,6 +25,16 @@ export function isSalesManagerOnly(user: RoleCarrier): boolean {
   return hasAnyRole(user, MANAGER_ROLES) && !isLeader(user);
 }
 
+/** Тек орнатушы (басшы емес). */
+export function isInstallerOnly(user: RoleCarrier): boolean {
+  return hasAnyRole(user, INSTALLER_ROLES) && !isLeader(user);
+}
+
+export const INSTALLER_ALLOWED_PREFIXES = ["/install", "/change-password"];
+export function installerCanOpen(pathname: string): boolean {
+  return INSTALLER_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 /** Тек цех жауаптысы (басшы емес). */
 export function isWorkshopOnly(user: RoleCarrier): boolean {
   return hasAnyRole(user, WORKSHOP_ROLES) && !isLeader(user);
@@ -32,9 +45,19 @@ export function canUseWorkshop(user: RoleCarrier): boolean {
   return isLeader(user) || hasAnyRole(user, WORKSHOP_ROLES);
 }
 
+/** Тест аккаунт (аты-жөнінде «тест»): заказдары тек сайтта, цехты тек өз тест заказдарымен көреді (CEO, 2026-11-21). */
+export function isTestAccount(user: { employee?: { fullName?: string | null } | null }): boolean {
+  return isTestName(user.employee?.fullName);
+}
+
+/** Цех беттерін (Түскен / Тігіліп жатыр / Дайын / тапсырма) ашуға бола ма: цех, басшы, тест аккаунт. */
+export function canOpenWorkshop(user: RoleCarrier & { employee?: { fullName?: string | null } | null }): boolean {
+  return canUseWorkshop(user) || isTestAccount(user);
+}
+
 /** CEO басқаратын қарапайым аккаунттар (менеджер / цех) — паролінің көшірмесі CEO-ға көрінеді. */
 export function isManagedAccount(user: RoleCarrier): boolean {
-  return (hasAnyRole(user, MANAGER_ROLES) || hasAnyRole(user, WORKSHOP_ROLES)) && !isLeader(user);
+  return (hasAnyRole(user, MANAGER_ROLES) || hasAnyRole(user, WORKSHOP_ROLES) || hasAnyRole(user, INSTALLER_ROLES)) && !isLeader(user);
 }
 
 export const WORKSHOP_ALLOWED_PREFIXES = ["/workshop", "/lekala", "/change-password"];
@@ -59,6 +82,7 @@ export const MODE_COOKIE = "automax_mode";
 
 /** Кіргеннен кейінгі бірінші бет. */
 export function homePathFor(user: RoleCarrier): string {
+  if (isInstallerOnly(user)) return "/install";
   if (isWorkshopOnly(user)) return "/workshop";
   return isSalesManagerOnly(user) ? "/rating" : "/dashboard";
 }

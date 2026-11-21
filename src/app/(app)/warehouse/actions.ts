@@ -27,7 +27,7 @@ export async function createReceiptAction(input: ReceiptInput) {
   return run((u) => createReceipt(u, input));
 }
 
-export async function updateMaterialSettingsAction(id: string, patch: { minStock?: number | null; price?: number | null }) {
+export async function updateMaterialSettingsAction(id: string, patch: { minStock?: number | null; price?: number | null; rollLength?: number | null; leadDays?: number | null }) {
   return run((u) => updateMaterialStockSettings(u, id, patch));
 }
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Sidebar, Header, MobileNav } from "@/lib/ui";
@@ -6,7 +7,7 @@ import { getDictionary, INTL_LOCALE } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { logoutAction, setLocaleAction } from "./actions";
-import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen } from "@/lib/access";
+import { isSalesManagerOnly, isLeader, managerCanOpen, isWorkshopOnly, workshopCanOpen, isTestAccount, isInstallerOnly, installerCanOpen } from "@/lib/access";
 import { flowCounts } from "@/lib/domain/orders/workflow";
 import { jobCounts } from "@/lib/domain/workshop";
 
@@ -16,11 +17,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login?expired=1");
 
   const pathname = (await headers()).get("x-pathname") ?? "";
-  if (user.mustChangePassword && pathname !== "/change-password") redirect("/change-password");
+  // Уақытша пароль: бетке бұрмаймыз (CEO, 2026-11-21 — кіргенде бірден Рейтинг ашылсын), жоғарыда ескерту ғана
+  const tempPassword = user.mustChangePassword && pathname !== "/change-password";
 
   // Сатушы-менеджер тек өз бөлімдерін ашады (Рейтинг, Продажи, пароль). Қалғаны — серверде жабық.
   const managerMode = isSalesManagerOnly(user);
-  if (managerMode && pathname && !managerCanOpen(pathname)) redirect("/rating");
+  // Тест аккаунт цех беттерін де ашады (өз тест тапсырмаларымен)
+  const testMode = managerMode && isTestAccount(user);
+  const testWorkshopPath = /^\/(workshop(\/(incoming|sewing|ready|job)(\/|$)|$)|install(\/|$))/.test(pathname);
+  if (managerMode && pathname && !managerCanOpen(pathname) && !(testMode && testWorkshopPath)) redirect("/rating");
+  const installerMode = isInstallerOnly(user);
+  if (installerMode && pathname && !installerCanOpen(pathname)) redirect("/install");
   const workshopMode = isWorkshopOnly(user);
   if (workshopMode && pathname && !workshopCanOpen(pathname)) redirect("/workshop");
 
@@ -32,9 +39,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const displayName = user.employee?.fullName ?? user.email;
 
   // «Заказдар ▾» сандары (цехта / дайын) — цех жауаптысына керек емес
-  const orderCounts = workshopMode ? undefined : await flowCounts(user).catch(() => undefined);
+  const orderCounts = workshopMode || installerMode ? undefined : await flowCounts(user).catch(() => undefined);
   // «Цех ▾» сандары — цех жауаптысы мен басшыға
-  const workshopCounts = workshopMode || isLeader(user) ? await jobCounts(user).catch(() => undefined) : undefined;
+  const workshopCounts = workshopMode || isLeader(user) || testMode ? await jobCounts(user).catch(() => undefined) : undefined;
 
   const unreadCount = await prisma.notification.count({
     where: {
@@ -52,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-page-bg">
-      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} orderCounts={orderCounts} workshopCounts={workshopCounts} mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
+      <Sidebar userName={displayName} userRole={roleLabel} locale={locale} orderCounts={orderCounts} workshopCounts={workshopCounts} mode={managerMode ? "manager" : workshopMode ? "workshop" : installerMode ? "installer" : isLeader(user) ? "leader" : "staff"} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           userName={displayName}
@@ -63,8 +70,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           locale={locale}
           onSetLocale={setLocaleAction}
         />
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">{children}</main>
-        <MobileNav mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">
+          {tempPassword && (
+            <Link
+              href="/change-password"
+              className="mb-4 flex items-center justify-between gap-3 rounded-[14px] border border-[#d6e0fa] bg-[#f5f8ff] px-4 py-2.5 text-sm text-[#1f4fd8]"
+            >
+              <span>{locale === "ru" ? "У вас временный пароль — поставьте свой." : "Сізде уақытша пароль тұр — өз пароліңізді қойыңыз."}</span>
+              <b className="shrink-0">{locale === "ru" ? "Сменить →" : "Ауыстыру →"}</b>
+            </Link>
+          )}
+          {children}
+        </main>
+        <MobileNav mode={managerMode ? "manager" : workshopMode ? "workshop" : installerMode ? "installer" : isLeader(user) ? "leader" : "staff"} />
       </div>
     </div>
   );

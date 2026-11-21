@@ -1,7 +1,8 @@
 import "server-only";
 import { Prisma, type WorkshopJob, type WorkshopJobStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { canUseWorkshop, isLeader, WORKSHOP_ROLES } from "@/lib/access";
+import { isTestName } from "@/lib/domain/sales-ledger/test-mode";
+import { canOpenWorkshop, isInstallerOnly, isLeader, isTestAccount, INSTALLER_ROLES, WORKSHOP_ROLES } from "@/lib/access";
 import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { SessionUser } from "@/lib/session";
 import { sendPushToUsers } from "@/lib/push";
@@ -14,7 +15,23 @@ export class WorkshopError extends Error {}
 const ACTIVE_KEY = "workshop.activeSince";
 
 function assertAccess(user: SessionUser) {
-  if (!canUseWorkshop(user)) throw new WorkshopError("Цех беттері тек цех жауаптысы мен басшыларға ашық");
+  if (!canOpenWorkshop(user)) throw new WorkshopError("Цех беттері тек цех жауаптысы мен басшыларға ашық");
+}
+
+/**
+ * Тест тапсырмалары (менеджері «… тест»): тест аккаунт ТЕК соларды көреді, цех пен басшы оларды көрмейді (CEO, 2026-11-21).
+ */
+const TEST_JOB: Prisma.WorkshopJobWhereInput = {
+  OR: [{ manager: { contains: "тест", mode: "insensitive" } }, { manager: { contains: "test", mode: "insensitive" } }],
+};
+const NOT_TEST_JOB: Prisma.WorkshopJobWhereInput = { NOT: TEST_JOB };
+function jobScope(user: SessionUser): Prisma.WorkshopJobWhereInput {
+  return isTestAccount(user) ? TEST_JOB : NOT_TEST_JOB;
+}
+/** Әрекет алдында: тапсырма осы қолданушының көрінісіне жата ма */
+async function assertJobInScope(user: SessionUser, id: string) {
+  const ok = await prisma.workshopJob.count({ where: { AND: [{ id }, jobScope(user)] } });
+  if (!ok) throw new WorkshopError("Тапсырма табылмады");
 }
 
 // ---------- іске қосу ----------
@@ -157,10 +174,13 @@ async function maybeNotify(job: WorkshopJob): Promise<boolean> {
   if (!(job.car || job.brand) || !job.product) return false;
   const claimed = await prisma.workshopJob.updateMany({ where: { id: job.id, notifiedAt: null }, data: { notifiedAt: new Date() } });
   if (claimed.count === 0) return false;
-  const recipients = await prisma.user.findMany({
-    where: { status: "ACTIVE", userRoles: { some: { role: { name: { in: [...WORKSHOP_ROLES] } } } } },
-    select: { id: true },
-  });
+  // Тест тапсырмасы — цехқа (Бекзатқа) хабар бармайды, тек тест аккаунттың өзіне
+  const recipients = isTestName(job.manager)
+    ? await prisma.user.findMany({ where: { status: "ACTIVE", employee: { fullName: { equals: (job.manager ?? "").trim(), mode: "insensitive" } } }, select: { id: true } })
+    : await prisma.user.findMany({
+        where: { status: "ACTIVE", userRoles: { some: { role: { name: { in: [...WORKSHOP_ROLES] } } } } },
+        select: { id: true },
+      });
   const title = `Жаңа тапсырма №${job.orderNo}`;
   const body = jobHeadline(job);
   if (recipients.length) {
@@ -208,7 +228,8 @@ export async function listJobs(user: SessionUser, view: JobView, q?: string) {
       }
     : null;
   return prisma.workshopJob.findMany({
-    where: search ? { AND: [byView, search] } : byView,
+    where: { AND: [byView, jobScope(user), ...(search ? [search] : [])] },
+    include: { ledgerRow: { select: { pickupMethod: true } } },
     orderBy: view === "done" ? { doneAt: "desc" } : { receivedAt: "asc" },
     take: 300,
   });
@@ -216,10 +237,10 @@ export async function listJobs(user: SessionUser, view: JobView, q?: string) {
 
 export async function jobCounts(user: SessionUser) {
   assertAccess(user);
-  const rows = await prisma.workshopJob.groupBy({ by: ["status"], _count: { _all: true } });
+  const rows = await prisma.workshopJob.groupBy({ by: ["status"], where: jobScope(user), _count: { _all: true } });
   const c = Object.fromEntries(rows.map((r) => [r.status, r._count._all])) as Partial<Record<WorkshopJobStatus, number>>;
   const doneRecent = await prisma.workshopJob.count({
-    where: { status: "DONE", doneAt: { gte: new Date(Date.now() - DONE_DAYS * 86400_000) }, AND: [notArchived] },
+    where: { status: "DONE", doneAt: { gte: new Date(Date.now() - DONE_DAYS * 86400_000) }, AND: [notArchived, jobScope(user)] },
   });
   return { all: (c.NEW ?? 0) + (c.IN_PROGRESS ?? 0) + doneRecent, new: c.NEW ?? 0, work: c.IN_PROGRESS ?? 0, done: doneRecent };
 }
@@ -259,6 +280,7 @@ export async function updateJob(user: SessionUser, id: string, patch: JobPatch) 
   if ("leatherOwner" in patch) data.leatherOwner = cleanName(patch.leatherOwner);
   if ("matOwner" in patch) data.matOwner = cleanName(patch.matOwner);
   if ("lekalaNote" in patch) data.lekalaNote = cleanName(patch.lekalaNote);
+  await assertJobInScope(user, id);
   const job = await prisma.workshopJob.findUnique({ where: { id } });
   if (!job) throw new WorkshopError("Тапсырма табылмады");
   // Біреу операция белгілесе — тапсырма «жасалып жатыр» болады
@@ -272,6 +294,7 @@ export async function updateJob(user: SessionUser, id: string, patch: JobPatch) 
 /** «Тігуді бастау» — тапсырма «Тігіліп жатыр»-ға өтеді, менеджерге хабар барады. */
 export async function startJob(user: SessionUser, id: string) {
   assertAccess(user);
+  await assertJobInScope(user, id);
   const r = await prisma.workshopJob.updateMany({ where: { id, status: "NEW" }, data: { status: "IN_PROGRESS", startedAt: new Date() } });
   if (r.count === 0) return;
   const job = await prisma.workshopJob.findUnique({ where: { id } });
@@ -291,6 +314,7 @@ export function missingForDone(job: Pick<WorkshopJob, "leatherType" | "leatherMe
 /** «Дайын»: метр мен шеберлер толуы керек; менеджерге хабар (телефонға да). */
 export async function finishJob(user: SessionUser, id: string) {
   assertAccess(user);
+  await assertJobInScope(user, id);
   const job = await prisma.workshopJob.findUnique({ where: { id } });
   if (!job) throw new WorkshopError("Тапсырма табылмады");
   if (job.status === "DONE") return job;
@@ -308,12 +332,14 @@ export async function finishJob(user: SessionUser, id: string) {
   });
   await prisma.auditLog.create({ data: { actorId: user.id, action: "WORKSHOP_DONE", entityType: "WorkshopJob", entityId: id } });
   await notifyManager(done, "done").catch((e) => console.error("[workshop] notify manager", e instanceof Error ? e.message : e));
+  await notifyInstallers(done).catch((e) => console.error("[workshop] notify installers", e instanceof Error ? e.message : e));
   return done;
 }
 
 /** Қате басылса: «Дайын»-нан қайтару. */
 export async function reopenJob(user: SessionUser, id: string) {
   assertAccess(user);
+  await assertJobInScope(user, id);
   await prisma.workshopJob.updateMany({ where: { id, status: "DONE" }, data: { status: "IN_PROGRESS", doneAt: null } });
 }
 
@@ -337,8 +363,8 @@ async function notifyManager(job: WorkshopJob, kind: "started" | "done") {
 /** Тапсырманың толық беті: тапсырма + заказдағы алып кету/түсініктеме (клиенттің аты мен телефонынсыз). */
 export async function getJobDetail(user: SessionUser, id: string) {
   assertAccess(user);
-  const job = await prisma.workshopJob.findUnique({
-    where: { id },
+  const job = await prisma.workshopJob.findFirst({
+    where: { AND: [{ id }, jobScope(user)] },
     include: {
       ledgerRow: {
         select: {
@@ -378,7 +404,7 @@ export async function getJobDetail(user: SessionUser, id: string) {
 export async function closeStaleJobs(actor: SessionUser, before: Date) {
   if (!isLeader(actor)) throw new WorkshopError("Тек CEO жаба алады");
   const stale = await prisma.workshopJob.findMany({
-    where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before } },
+    where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before }, ...NOT_TEST_JOB },
     select: { id: true, receivedAt: true },
   });
   const now = new Date();
@@ -400,7 +426,7 @@ export function almatyTodayStart(now = Date.now()) {
 }
 
 export async function staleJobCount(before: Date = almatyTodayStart()) {
-  return prisma.workshopJob.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before } } });
+  return prisma.workshopJob.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before }, ...NOT_TEST_JOB } });
 }
 
 // ---------- қызметкерлер мен бағалар ----------
@@ -455,7 +481,7 @@ export async function payReport(user: SessionUser, from: Date, to: Date) {
   assertAccess(user);
   const [jobs, rates] = await Promise.all([
     prisma.workshopJob.findMany({
-      where: { status: "DONE", doneAt: { gte: from, lt: to }, AND: [notArchived] },
+      where: { status: "DONE", doneAt: { gte: from, lt: to }, AND: [notArchived, NOT_TEST_JOB] }, // тест тапсырмалары айлыққа кірмейді
       select: { doneAt: true, cutBy: true, joinBy: true, edgeBy: true, bottomBy: true, leatherMeters: true, leatherOwner: true },
     }),
     prisma.workshopRate.findMany(),
@@ -470,4 +496,89 @@ export async function workshopStatusByLedger(ids: string[]) {
   if (ids.length === 0) return new Map<string, WorkshopJobStatus>();
   const jobs = await prisma.workshopJob.findMany({ where: { ledgerRowId: { in: ids } }, select: { ledgerRowId: true, status: true } });
   return new Map(jobs.filter((j) => j.ledgerRowId).map((j) => [j.ledgerRowId as string, j.status]));
+}
+
+// ---------- орнатушылар (Расул, Берекет) — «Алып кету» (CEO, 2026-11-21) ----------
+
+/** «Установка» заказы ғана орнатушы арқылы өтеді; «өзі алып кетеді», почта, такси т.б. — бірден менеджер береді. */
+export const needsInstaller = (pickup: string | null | undefined) => /установ/i.test(pickup ?? "");
+const INSTALL_WHERE: Prisma.WorkshopJobWhereInput = { ledgerRow: { pickupMethod: { contains: "установ", mode: "insensitive" } } };
+const INSTALL_DAYS = 14;
+
+function assertInstallAccess(user: SessionUser) {
+  if (!(isInstallerOnly(user) || isLeader(user) || isTestAccount(user) || canOpenWorkshop(user)))
+    throw new WorkshopError("«Алып кету» беті тек орнатушыларға ашық");
+}
+
+/** «Дайын» болғанда — орнатушыларға хабар (телефонға да). Тест тапсырмасы — тек тест аккаунтқа. Клиент аты/телефоны жоқ. */
+async function notifyInstallers(job: WorkshopJob) {
+  const row = job.ledgerRowId ? await prisma.salesLedgerRow.findUnique({ where: { id: job.ledgerRowId }, select: { pickupMethod: true } }) : null;
+  if (!needsInstaller(row?.pickupMethod)) return;
+  const recipients = isTestName(job.manager)
+    ? await prisma.user.findMany({ where: { status: "ACTIVE", employee: { fullName: { equals: (job.manager ?? "").trim(), mode: "insensitive" } } }, select: { id: true } })
+    : await prisma.user.findMany({ where: { status: "ACTIVE", userRoles: { some: { role: { name: { in: [...INSTALLER_ROLES] } } } } }, select: { id: true } });
+  if (!recipients.length) return;
+  const title = `✅ №${job.orderNo} дайын — алып кетіңіз`;
+  const body = jobHeadline(job);
+  await prisma.notification.createMany({
+    data: recipients.map((u) => ({ recipientId: u.id, type: "install.ready", title, body, payload: { jobId: job.id, url: "/install" } })),
+  });
+  await sendPushToUsers(recipients.map((u) => u.id), { title, body, url: "/install", tag: `install-${job.id}` });
+}
+
+/** Орнатушының тізімі: цехта дайын, клиентке әлі берілмеген «установка» заказдары + бүгін алынғандары. */
+export async function listInstallJobs(user: SessionUser) {
+  assertInstallAccess(user);
+  const since = new Date(Date.now() - INSTALL_DAYS * 86400_000);
+  const scope = isTestAccount(user) ? TEST_JOB : NOT_TEST_JOB;
+  const jobs = await prisma.workshopJob.findMany({
+    where: {
+      AND: [
+        INSTALL_WHERE,
+        scope,
+        notArchived,
+        { status: "DONE", doneAt: { gte: since } },
+        // күтіп тұрғандар (әлі ешкім алмаған, клиентке берілмеген) + бүгін алынғандар (клиентке берілсе де)
+        { OR: [{ pickedUpAt: null, handedAt: null }, { pickedUpAt: { gte: almatyTodayStart() } }] },
+      ],
+    },
+    orderBy: { doneAt: "desc" },
+    take: 200,
+  });
+  return [...jobs.filter((j) => !j.pickedUpAt), ...jobs.filter((j) => j.pickedUpAt)];
+}
+
+export async function installCount(user: SessionUser) {
+  const scope = isTestAccount(user) ? TEST_JOB : NOT_TEST_JOB;
+  return prisma.workshopJob.count({
+    where: { AND: [INSTALL_WHERE, scope, notArchived, { status: "DONE", handedAt: null, pickedUpAt: null, doneAt: { gte: new Date(Date.now() - INSTALL_DAYS * 86400_000) } }] },
+  });
+}
+
+/** «Алып кеттім»: орнатушы цехтан алды → менеджерге хабар. */
+export async function pickUpJob(user: SessionUser, id: string) {
+  assertInstallAccess(user);
+  const scope = isTestAccount(user) ? TEST_JOB : NOT_TEST_JOB;
+  const job = await prisma.workshopJob.findFirst({ where: { AND: [{ id }, scope] } });
+  if (!job) throw new WorkshopError("Заказ табылмады");
+  if (job.status !== "DONE") throw new WorkshopError("Цех әлі бітірмеген");
+  if (job.pickedUpAt) return job;
+  const who = user.employee?.id
+    ? (await prisma.employee.findUnique({ where: { id: user.employee.id }, select: { fullName: true } }))?.fullName ?? null
+    : null;
+  const r = await prisma.workshopJob.updateMany({ where: { id, pickedUpAt: null }, data: { pickedUpAt: new Date(), pickedUpBy: who } });
+  if (r.count === 0) return job;
+  const done = await prisma.workshopJob.findUniqueOrThrow({ where: { id } });
+  await prisma.auditLog.create({ data: { actorId: user.id, action: "INSTALL_PICKUP", entityType: "WorkshopJob", entityId: id } });
+  // Менеджерге: «Расул алды»
+  if (done.manager) {
+    const emp = await prisma.employee.findFirst({ where: { fullName: { equals: done.manager.trim(), mode: "insensitive" } }, select: { userId: true } });
+    if (emp?.userId) {
+      const title = `🚚 №${done.orderNo} — ${who ?? "орнатушы"} алды`;
+      const body = jobHeadline(done);
+      await prisma.notification.create({ data: { recipientId: emp.userId, type: "install.pickup", level: "INFO", title, body, payload: { jobId: id, url: "/orders/ready" } } });
+      await sendPushToUsers([emp.userId], { title, body, url: "/orders/ready", tag: `job-${id}-pickup` }).catch(() => undefined);
+    }
+  }
+  return done;
 }

@@ -57,6 +57,9 @@ export function CreateManagerForm() {
           <label className="flex items-center gap-2">
             <input type="radio" name="role" value="workshop" className="h-4 w-4" /> Цех жауаптысы
           </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="role" value="installer" className="h-4 w-4" /> Орнатушы
+          </label>
         </div>
         <button
           type="submit"

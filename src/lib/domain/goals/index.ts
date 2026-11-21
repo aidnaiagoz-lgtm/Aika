@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { IN_SHEET_WHERE } from "@/lib/domain/sales-ledger/counted";
 import { isLeader, MANAGER_ROLES } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 
@@ -17,7 +18,7 @@ async function itemsByManager(month: string) {
   const from = new Date(month + "-01T00:00:00Z");
   const to = new Date(shiftMonth(month, 1) + "-01T00:00:00Z");
   const rows = await prisma.salesLedgerRow.findMany({
-    where: { date: { gte: from, lt: to }, NOT: { orderStatus: { contains: "возврат", mode: "insensitive" } } },
+    where: { date: { gte: from, lt: to }, NOT: { orderStatus: { contains: "возврат", mode: "insensitive" } }, AND: [IN_SHEET_WHERE] },
     select: { manager: true, product: true, soldFor: true, createdBy: { select: { fullName: true } } },
   });
   const map = new Map<string, number>();

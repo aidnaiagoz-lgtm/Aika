@@ -6,14 +6,34 @@ import { fmtQty, parseQty } from "@/lib/domain/warehouse/stock-calc";
 
 const inputCls = "min-h-11 w-full rounded-icon border border-border bg-surface px-3.5 text-[15px] tabular-nums focus:outline-none focus:ring-2 focus:ring-accent/30";
 
-/** Минимум (одан төмен — «Аз қалды») және бағасы — өріс шыққанда өзі сақталады. */
-export function MaterialSettings({ id, unit, min, price }: { id: string; unit: string; min: number | null; price: number }) {
+/** Минимум (осыған жетсе не төмен — «Аз қалды») және бағасы — өріс шыққанда өзі сақталады. */
+export function MaterialSettings({
+  id,
+  unit,
+  min,
+  price,
+  roll,
+  defaultRoll,
+  leadDays,
+}: {
+  id: string;
+  unit: string;
+  min: number | null;
+  price: number;
+  /** Материалдың өз рулон ұзындығы (бос — санаттың әдепкісі) */
+  roll: number | null;
+  defaultRoll: number | null;
+  /** Жеткізу мерзімі, күн (бос — 45) */
+  leadDays: number | null;
+}) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [minV, setMinV] = useState(min == null ? "" : String(min).replace(".", ","));
   const [priceV, setPriceV] = useState(price > 0 ? String(price).replace(".", ",") : "");
+  const [rollV, setRollV] = useState(roll == null ? "" : String(roll).replace(".", ","));
+  const [leadV, setLeadV] = useState(leadDays == null ? "" : String(leadDays));
 
-  const save = (patch: { minStock?: number | null; price?: number | null }) =>
+  const save = (patch: { minStock?: number | null; price?: number | null; rollLength?: number | null; leadDays?: number | null }) =>
     start(async () => {
       const r = await updateMaterialSettingsAction(id, patch);
       setMsg(r.ok ? { ok: true, text: "Сақталды" } : { ok: false, text: r.error });
@@ -35,7 +55,41 @@ export function MaterialSettings({ id, unit, min, price }: { id: string; unit: s
           }}
           className={inputCls}
         />
-        <span className="mt-1 block text-xs text-text-secondary">Қалдық осыдан төмен түссе — «Аз қалды» болады{min != null ? ` (қазір ${fmtQty(min)} ${unit})` : ""}</span>
+        <span className="mt-1 block text-xs text-text-secondary">Қалдық осыған жетсе не төмен түссе — «Аз қалды» болады{min != null ? ` (қазір ${fmtQty(min)} ${unit})` : ""}</span>
+      </label>
+      <label>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Жеткізу мерзімі, күн</span>
+        <input
+          inputMode="numeric"
+          value={leadV}
+          placeholder="әдепкі 45 (Қытай)"
+          onChange={(e) => setLeadV(e.target.value.replace(/[^0-9]/g, ""))}
+          onBlur={() => {
+            const n = leadV.trim() === "" ? null : Number(leadV);
+            if (n !== leadDays) save({ leadDays: n });
+          }}
+          className={inputCls}
+        />
+        <span className="mt-1 block text-xs text-text-secondary">Заказ бергеннен қоймаға келгенше. Қалдық «осы + 15 күн»-нен аз уақытқа жетсе — «Заказ беру керек».</span>
+      </label>
+      <label>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">1 рулонда, {unit}</span>
+        <input
+          inputMode="decimal"
+          value={rollV}
+          placeholder={defaultRoll != null ? `әдепкі ${String(defaultRoll).replace(".", ",")}` : "мыс. 50"}
+          onChange={(e) => setRollV(e.target.value)}
+          onBlur={() => {
+            const n = parseQty(rollV);
+            if (n !== roll) save({ rollLength: n });
+          }}
+          className={inputCls}
+        />
+        <span className="mt-1 block text-xs text-text-secondary">
+          {defaultRoll != null
+            ? `Бос болса — ${String(defaultRoll).replace(".", ",")} ${unit}. Бұл рулон басқаша болса (мыс. 48), осында жазыңыз.`
+            : "Жазсаңыз — қалдық рулонмен де көрсетіледі."}
+        </span>
       </label>
       <label>
         <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Бағасы, 1 {unit} үшін (₸)</span>

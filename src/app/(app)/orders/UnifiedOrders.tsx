@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DragScroll } from "./DragScroll";
+import { TestTag } from "@/lib/ui/TestTag";
 import { Card, AccessDenied } from "@/lib/ui";
 import { ForbiddenError } from "@/lib/rbac";
 import { isLeader } from "@/lib/access";
@@ -334,6 +335,7 @@ function OrderRows({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; ti
                   <span className={r.mine ? "font-semibold text-text-primary" : "text-text-secondary"}>
                     {r.manager || "—"}
                     {r.mine && ` (${t("мен", "я")})`}
+                    <TestTag manager={r.manager} />
                   </span>
                 </td>
                 <td rowSpan={span} className={`${cell} ${t0} whitespace-nowrap text-xs`}>
@@ -384,6 +386,7 @@ function MobileCard({ r, t, date, time }: { r: UnifiedRow; t: T; date: string; t
         <span className={r.mine ? "font-semibold text-text-primary" : "text-text-secondary"}>
           {r.manager || "—"}
           {r.mine && ` (${t("мен", "я")})`}
+          <TestTag manager={r.manager} />
         </span>
         <Action r={r} t={t} />
       </div>

@@ -49,12 +49,71 @@ export function parseLedgerMaterial(raw: string | null | undefined): CatalogItem
   };
 }
 
-export type StockStatus = "ok" | "low" | "out" | "none";
+export type StockStatus = "ok" | "order" | "urgent" | "low" | "out" | "none";
 
-/** Күйі: кіріс болмаған (none) · бітті (out) · аз қалды (low, минимумнан төмен) · жеткілікті (ok). */
-export function stockStatus(stock: number, min: number | null, everMoved: boolean): StockStatus {
+/** Қытайдан жеткізу ≈ 1,5 ай; оған қоса 15 күн қор → 60 күннен аз қалса заказ беру керек (CEO, 2026-11-21). */
+export const LEAD_DAYS = 45;
+export const RESERVE_DAYS = 15;
+/** Заказ келген соң тағы неше күнге жетсін */
+export const COVER_DAYS = 60;
+
+/**
+ * Орташа шығын, күніне: соңғы 30 күндегі жұмсалғаны ÷ күн саны. Цех жүйесі жаңа іске қосылса (мыс. 4 күн бұрын) —
+ * 30-ға емес, өткен күнге бөлеміз (кемі 3 күн, бір күннің шуы асып кетпесін).
+ */
+export function perDayUsage(used: number, windowDays: number): number | null {
+  if (!(used > 0)) return null;
+  return used / Math.max(3, Math.min(30, windowDays));
+}
+
+/** Қалдық неше күнге жетеді (шығын белгісіз не қалдық жоқ — null). */
+export function daysFor(stock: number, perDay: number | null): number | null {
+  if (!perDay || perDay <= 0 || stock <= 0) return null;
+  return Math.floor(stock / perDay);
+}
+
+export interface Forecast {
+  perDay: number | null;
+  days: number | null;
+  status: StockStatus;
+  /** Заказ беру керек мөлшер (бірлікпен) және рулонмен (рулон белгілі болса, жоғары дөңгелектенеді) */
+  order: number;
+  orderRolls: number | null;
+}
+
+/** Қалдық + 30 күндегі шығын → күйі, неше күнге жетеді, қанша заказ беру керек. */
+export function forecast(input: {
+  stock: number;
+  min: number | null;
+  everMoved: boolean;
+  used: number;
+  windowDays: number;
+  rollLength: number | null;
+  leadDays: number | null;
+}): Forecast {
+  const lead = input.leadDays != null && input.leadDays > 0 ? input.leadDays : LEAD_DAYS;
+  const perDay = perDayUsage(input.used, input.windowDays);
+  const days = daysFor(input.stock, perDay);
+  const status = stockStatus(input.stock, input.min, input.everMoved, days, lead);
+  const order = status === "order" || status === "urgent" || status === "out" ? orderQty(input.stock, perDay ?? 0, lead) : 0;
+  const orderRolls = order > 0 && input.rollLength ? Math.ceil(order / input.rollLength) : null;
+  return { perDay, days, status, order, orderRolls };
+}
+
+/** Қанша заказ беру керек (бірлікпен): жеткізу + келесі кезеңге жететін мөлшер − қазіргі қалдық. */
+export function orderQty(stock: number, perDay: number, lead = LEAD_DAYS, cover = COVER_DAYS): number {
+  if (!(perDay > 0)) return 0;
+  return Math.max(0, perDay * (lead + cover) - Math.max(0, stock));
+}
+
+/** Күйі: кіріс болмаған (none) · бітті (out) · аз қалды (low, минимумға жетті не төмен) · жеткілікті (ok). */
+export function stockStatus(stock: number, min: number | null, everMoved: boolean, days: number | null = null, lead = LEAD_DAYS): StockStatus {
   if (stock <= 0) return everMoved ? "out" : "none";
-  if (min != null && stock < min) return "low";
+  // Жұмсалу қарқынымен: тауар келгенше бітеді → шұғыл; 60 күннен аз → заказ беру керек
+  if (days != null && days <= lead) return "urgent";
+  if (days != null && days <= lead + RESERVE_DAYS) return "order";
+  // Минимумға ТЕҢ болса да «Аз қалды» — тапсырыс беру уақыты келді (CEO, 2026-11-21: 800 м / минимум 800 м «Жеткілікті» деп тұрды)
+  if (min != null && min > 0 && stock <= min) return "low";
   return "ok";
 }
 
@@ -74,6 +133,25 @@ export function parseQty(v: string | number | null | undefined): number | null {
 }
 
 export const fmtQty = (n: number) => new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(n);
+
+// ---------- Рулон (CEO, 2026-11-21): кожа рулоны ≈ 48–50 м, леска — 45 м ----------
+
+/** Санаттың әдепкі рулон ұзындығы (м). Материалдың өз мәні болса — сол алынады. */
+export const DEFAULT_ROLL_LENGTH: Partial<Record<MaterialCategory, number>> = { LEATHER: 50, FISHING_LINE: 45 };
+
+export function rollLengthFor(category: MaterialCategory, own: number | null | undefined): number | null {
+  if (own != null && own > 0) return own;
+  return DEFAULT_ROLL_LENGTH[category] ?? null;
+}
+
+/** Қалдық неше рулон: 0,1-ге дейін дөңгелектенеді. Рулон ұзындығы жоқ не қалдық 0 — null. */
+export function rollsOf(stock: number, rollLength: number | null): number | null {
+  if (!rollLength || rollLength <= 0 || !(stock > 0)) return null;
+  return Math.round((stock / rollLength) * 10) / 10;
+}
+
+/** «≈ 16 рулон» / «≈ 0,4 рулон» */
+export const fmtRolls = (rolls: number) => `≈ ${fmtQty(rolls)} рулон`;
 
 // ---------- МойСклад «Остатки по товарам» импорты (2026-11-18) ----------
 

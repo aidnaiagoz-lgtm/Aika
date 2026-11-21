@@ -702,6 +702,10 @@ model Material {
   isActive      Boolean          @default(true)
   /// Қойма (2026-11-18): минимум қалдық — одан төмен түссе «Аз қалды»
   minStock      Decimal?         @db.Decimal(14, 2)
+  /// Қойма (2026-11-21): 1 рулонда неше метр (бос болса — санаттың әдепкісі: кожа 50, леска 45)
+  rollLength    Decimal?         @db.Decimal(8, 2)
+  /// Қойма (2026-11-21): жеткізу мерзімі, күн (бос — 45: Қытайдан ≈ 1,5 ай). «Заказ беру керек» осыдан есептеледі
+  leadDays      Int?
   /// Google/тапсырыс формасындағы толық атауы («4050 - Кожа - Жанек ромб қара») — цехпен байланыстыру үшін
   sourceLabel   String?
 
@@ -1327,6 +1331,9 @@ model WorkshopJob {
   /// Клиентке берілді (менеджер «Берілді» басты, 2026-11-17) — «Дайын» тізімінен шығады
   handedAt   DateTime?
   handedBy   String?
+  /// Орнатушы (Расул/Берекет) цехтан алып кетті (2026-11-21, «Алып кеттім»)
+  pickedUpAt DateTime?
+  pickedUpBy String?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 

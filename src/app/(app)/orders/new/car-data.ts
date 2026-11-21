@@ -1,7 +1,7 @@
 // Google кестеде марка/модель кириллицамен де, латынша да жазылады ("тойота", "тойота хайлюкс", "камри 70"),
 // сондықтан әр марка мен модельдің жазылу нұсқалары (alias) бойынша танимыз.
 
-interface Gen {
+export interface Gen {
   code: string;
   from: number;
   to: number | null;
@@ -202,4 +202,11 @@ export function autoGeneration(make: string, model: string, year: number | null)
   if (!md) return undefined;
   const fit = optionsOf([{ make: mk, model: md }], year);
   return fit.length === 1 ? fit[0].code : undefined;
+}
+
+/** Лекала (2026-11-20): модель танылса — оның буындары (код, жылдары), әйтпесе null. */
+export function generationsOf(make: string, model: string): Gen[] | null {
+  const mk = findMake(make);
+  const md = mk ? findModel(mk, model) : undefined;
+  return md?.gens.length ? md.gens : null;
 }

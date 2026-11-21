@@ -20,6 +20,7 @@ export async function createManagerAction(_prev: CredentialState, formData: Form
       email: String(formData.get("email") ?? ""),
       senior: formData.get("role") === "senior" || formData.get("senior") === "on",
       workshop: formData.get("role") === "workshop",
+      installer: formData.get("role") === "installer",
     });
     revalidatePath("/managers");
     return { ok: true, kind: "created", ...res };

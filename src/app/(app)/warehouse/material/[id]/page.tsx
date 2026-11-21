@@ -5,7 +5,7 @@ import { ForbiddenError } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { materialDetail } from "@/lib/domain/warehouse/stock";
-import { CATEGORY_LABEL, fmtQty, stockStatus } from "@/lib/domain/warehouse/stock-calc";
+import { CATEGORY_LABEL, DEFAULT_ROLL_LENGTH, fmtQty, fmtRolls, LEAD_DAYS, rollLengthFor, rollsOf } from "@/lib/domain/warehouse/stock-calc";
 import { Dot, StatusPill } from "../../ui";
 import { MaterialSettings } from "./MaterialSettings";
 import { MaterialPhoto } from "./MaterialPhoto";
@@ -27,9 +27,12 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
     throw e;
   }
   if (!d) notFound();
-  const { material: m, moves, photo, photoBy } = d;
+  const { material: m, moves, photo, photoBy, plan } = d;
   const stock = Number(m.currentStock);
   const min = m.minStock == null ? null : Number(m.minStock);
+  const ownRoll = m.rollLength == null ? null : Number(m.rollLength);
+  const rollLen = rollLengthFor(m.category, ownRoll);
+  const rolls = rollsOf(stock, rollLen);
 
   return (
     <div className="flex flex-col gap-5">
@@ -59,15 +62,54 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <StatusPill s={stockStatus(stock, min, moves.length > 0)} />
+          <StatusPill s={plan.status} />
           <div className="text-right">
             <div className="text-xs text-text-secondary">Қалдық</div>
             <div className="text-[26px] font-bold leading-tight tabular-nums">
               {fmtQty(stock)} {m.unit}
             </div>
+            {rolls != null && (
+              <div className="text-sm text-text-secondary">
+                {fmtRolls(rolls)} <span className="text-xs">(1 рулон = {fmtQty(rollLen!)} {m.unit})</span>
+              </div>
+            )}
           </div>
         </div>
       </header>
+
+      {/* Заказ болжамы: соңғы 30 күндегі шығынмен (цех реестрі + қоймадан шыққаны) */}
+      <section
+        className={`grid grid-cols-2 gap-4 rounded-card p-5 shadow-card md:grid-cols-4 md:px-6 ${
+          plan.status === "urgent" || plan.status === "out" ? "bg-[#fdeeee]" : plan.status === "order" || plan.status === "low" ? "bg-[#fff8e6]" : "bg-surface"
+        }`}
+      >
+        <div>
+          <div className="text-xs text-text-secondary">Жұмсалуы (30 күн)</div>
+          <div className="text-lg font-bold tabular-nums">{plan.perDay != null ? `${fmtQty(Math.round(plan.perDay * 10) / 10)} ${m.unit}/күн` : "—"}</div>
+        </div>
+        <div>
+          <div className="text-xs text-text-secondary">Қалдық жетеді</div>
+          <div className={`text-lg font-bold tabular-nums ${plan.status === "urgent" ? "text-danger" : plan.status === "order" ? "text-[#b45309]" : ""}`}>
+            {plan.days != null ? `${plan.days} күн` : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-text-secondary">Жеткізу мерзімі</div>
+          <div className="text-lg font-bold tabular-nums">{m.leadDays ?? LEAD_DAYS} күн</div>
+        </div>
+        <div>
+          <div className="text-xs text-text-secondary">Заказ беру</div>
+          <div className="text-lg font-bold tabular-nums">
+            {plan.order > 0 ? (plan.orderRolls != null ? `${plan.orderRolls} рулон` : `${fmtQty(Math.ceil(plan.order))} ${m.unit}`) : "—"}
+          </div>
+          {plan.order > 0 && plan.orderRolls != null && <div className="text-xs text-text-secondary">≈ {fmtQty(Math.ceil(plan.order))} {m.unit}</div>}
+        </div>
+        {plan.perDay == null && (
+          <p className="col-span-full m-0 text-xs text-text-secondary">
+            Соңғы 30 күнде шығын жазылмаған — болжам жоқ. Цех заказда «кожа расходы»-н толтырғанда өзі есептеледі; оған дейін «Минимум» жұмыс істейді.
+          </p>
+        )}
+      </section>
 
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
         <section className="overflow-hidden rounded-card bg-surface shadow-card">
@@ -107,7 +149,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
             </table>
           )}
         </section>
-        <MaterialSettings id={m.id} unit={m.unit} min={min} price={Number(m.costPrice)} />
+        <MaterialSettings id={m.id} unit={m.unit} min={min} price={Number(m.costPrice)} roll={ownRoll} defaultRoll={DEFAULT_ROLL_LENGTH[m.category] ?? null} leadDays={m.leadDays} />
       </div>
     </div>
   );

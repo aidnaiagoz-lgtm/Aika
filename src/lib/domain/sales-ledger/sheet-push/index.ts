@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { isLeader } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 import { LEDGER_COLUMNS } from "../fields";
-import { toSheetValues, appsScript } from "./format";
+import { toSheetValues, appsScript, htmlErrorText } from "./format";
+import { isTestName, NOT_TEST_WHERE } from "../test-mode";
 import { salesSheetId } from "../normalize/sheet-id";
 
 export { isPushedCopy } from "./format";
@@ -45,13 +46,15 @@ async function call(url: string, body: object) {
     headers: { "Content-Type": "text/plain;charset=utf-8" }, // Apps Script — CORS preflight-сыз
     body: JSON.stringify(body),
     redirect: "follow",
-    signal: AbortSignal.timeout(25_000),
+    signal: AbortSignal.timeout(50_000), // скрипт құлыпты 20 с күтуі мүмкін
   });
   const text = await res.text();
   try {
     return JSON.parse(text) as { ok: boolean; error?: string; row?: number; no?: number | string; sheet?: boolean };
   } catch {
-    throw new Error(res.ok ? "Скрипт JSON қайтармады — «Web app», «Anyone» рұқсатымен деплой жасалды ма?" : `Скрипт жауабы ${res.status}`);
+    // Apps Script қатесі HTML бетпен келеді — себебін сақтаймыз (мыс. «data validation rules» — кестедегі тізімде жоқ мән)
+    const why = htmlErrorText(text);
+    throw new Error(`Скрипт қатесі${res.ok ? "" : ` (${res.status})`}: ${why || "JSON қайтармады — «Web app», «Anyone» рұқсатымен деплой жасалды ма?"}`);
   }
 }
 
@@ -91,6 +94,9 @@ export async function pushRowToSheet(id: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const row = await prisma.salesLedgerRow.findUnique({ where: { id } });
     if (!row || row.importKey || row.createdAt < cfg.since!) return; // кестеден келгендер мен ескі жолдар жіберілмейді
+    if (isTestName(row.manager)) return; // тест аккаунттың заказы — тек сайтта
+    // Бұрын қатемен біткен жол (кестеде жартылай көшірмесі қалуы мүмкін) — өздігінен қайта жіберілмейді (2026-11-21)
+    if (row.sheetPushError && row.sheetPushError !== PENDING && !row.sheetRow) return;
     if (!row.customerPhone && !row.customerName && !row.product && row.soldFor == null) return; // әлі бос
     // Ұстап алу: басқа жіберу жүріп жатса — сол аяқтағанда соңғы мәнді өзі жібереді
     const claim = await prisma.salesLedgerRow.updateMany({
@@ -131,10 +137,17 @@ export async function retryPendingPushes() {
     where: {
       importKey: null,
       createdAt: { gte: cfg.since! },
-      OR: [{ sheetPushedAt: null, updatedAt: { lt: new Date(Date.now() - 60_000) } }, { sheetPushError: { not: null } }],
+      ...NOT_TEST_WHERE,
+      // Қатемен аяқталған жол ҚАЙТА ЖІБЕРІЛМЕЙДІ (2026-11-21): скрипт жолды жартылай жазып, содан кейін қате/таймаут
+      // қайтарады — әр қайталау кестеде жаңа жартылай көшірме қалдырды (Аминаның заказы 5+ рет). Тек әлі жіберілмегендер
+      // (заказ толмай тұрғанда өткізіп жіберілген) жіберіледі. Қатемен қалғандары CEO-ға «Excel импорт»-та көрінеді.
+      sheetPushedAt: null,
+      sheetPushError: null,
+      updatedAt: { lt: new Date(Date.now() - 60_000) },
     },
     select: { id: true },
-    take: 20,
+    orderBy: { updatedAt: "asc" },
+    take: 3,
   });
   for (const r of rows) await pushRowToSheet(r.id);
   return rows.length;

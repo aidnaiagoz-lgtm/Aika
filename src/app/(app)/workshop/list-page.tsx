@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { canUseWorkshop, isLeader } from "@/lib/access";
-import { listJobs, staleJobCount, syncWorkshopJobs, workshopActiveSince } from "@/lib/domain/workshop";
+import { canOpenWorkshop, isLeader } from "@/lib/access";
+import { listJobs, needsInstaller, staleJobCount, syncWorkshopJobs, workshopActiveSince } from "@/lib/domain/workshop";
 import { jobHeadline, splitMaterial } from "@/lib/domain/workshop/calc";
+import { carTitle } from "@/lib/domain/lekala/calc";
 import { ActivateButton } from "./ActivateButton";
 import { PushSetup } from "./PushSetup";
 import { JobList, type ListJob, type ListView } from "./JobList";
@@ -40,7 +41,7 @@ const META: Record<ListView, { title: string; sub: string; empty: string; view: 
 export async function WorkshopListPage({ list, q: rawQ }: { list: ListView; q?: string }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!canUseWorkshop(user)) redirect("/dashboard");
+  if (!canOpenWorkshop(user)) redirect("/dashboard");
 
   const since = await workshopActiveSince();
   if (!since) {
@@ -73,8 +74,15 @@ export async function WorkshopListPage({ list, q: rawQ }: { list: ListView; q?: 
     startedAt: j.startedAt?.toISOString() ?? null,
     doneAt: j.doneAt?.toISOString() ?? null,
     handedAt: j.handedAt?.toISOString() ?? null,
+    handedBy: j.handedBy,
+    pickedUpAt: j.pickedUpAt?.toISOString() ?? null,
+    pickedUpBy: j.pickedUpBy,
+    needsInstaller: needsInstaller(j.ledgerRow?.pickupMethod),
     manager: j.manager,
-    car: jobHeadline({ car: j.car, brand: j.brand, carYear: j.carYear }),
+    car: (() => {
+      const t = carTitle(j.car, j.brand).title;
+      return t ? `${t}${j.carYear ? ` ${j.carYear}` : ""}` : jobHeadline({ car: j.car, brand: j.brand, carYear: j.carYear });
+    })(),
     product: j.product?.trim() || null,
     leather: splitMaterial(j.leatherType)?.name ?? null,
     leatherMeters: j.leatherMeters == null ? null : Number(j.leatherMeters),
