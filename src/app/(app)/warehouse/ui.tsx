@@ -22,6 +22,8 @@ export function Thumb({ name, photo, size = 40 }: { name: string; photo: string 
 
 export const STATUS: Record<StockStatus, { label: string; cls: string }> = {
   ok: { label: "Жеткілікті", cls: "bg-page-bg text-text-secondary" },
+  order: { label: "Заказ беру керек", cls: "bg-[#fff4e0] text-[#b45309]" },
+  urgent: { label: "Шұғыл", cls: "bg-danger/10 text-danger" },
   low: { label: "Аз қалды", cls: "bg-[#fff4e0] text-[#b45309]" },
   out: { label: "Бітті", cls: "bg-danger/10 text-danger" },
   none: { label: "Кіріс болмаған", cls: "bg-page-bg text-text-secondary/70" },
