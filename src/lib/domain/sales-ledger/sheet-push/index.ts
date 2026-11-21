@@ -133,10 +133,16 @@ export async function retryPendingPushes() {
     where: {
       importKey: null,
       createdAt: { gte: cfg.since! },
-      OR: [{ sheetPushedAt: null, updatedAt: { lt: new Date(Date.now() - 60_000) } }, { sheetPushError: { not: null } }],
+      // Қате болса — 10 минуттан кейін ғана қайта (2026-11-21: әр 2 минут сайын 4 жолды қатар жіберу скрипттің құлпын
+      // ұстап, бәрі «Lock timeout»-қа түсті)
+      OR: [
+        { sheetPushedAt: null, sheetPushError: null, updatedAt: { lt: new Date(Date.now() - 60_000) } },
+        { sheetPushError: { not: null }, updatedAt: { lt: new Date(Date.now() - 10 * 60_000) } },
+      ],
     },
     select: { id: true },
-    take: 20,
+    orderBy: { updatedAt: "asc" },
+    take: 3,
   });
   for (const r of rows) await pushRowToSheet(r.id);
   return rows.length;
