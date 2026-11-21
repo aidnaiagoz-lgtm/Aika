@@ -6,7 +6,7 @@ import { fmtQty, parseQty } from "@/lib/domain/warehouse/stock-calc";
 
 const inputCls = "min-h-11 w-full rounded-icon border border-border bg-surface px-3.5 text-[15px] tabular-nums focus:outline-none focus:ring-2 focus:ring-accent/30";
 
-/** Минимум (одан төмен — «Аз қалды») және бағасы — өріс шыққанда өзі сақталады. */
+/** Минимум (осыған жетсе не төмен — «Аз қалды») және бағасы — өріс шыққанда өзі сақталады. */
 export function MaterialSettings({ id, unit, min, price }: { id: string; unit: string; min: number | null; price: number }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -35,7 +35,7 @@ export function MaterialSettings({ id, unit, min, price }: { id: string; unit: s
           }}
           className={inputCls}
         />
-        <span className="mt-1 block text-xs text-text-secondary">Қалдық осыдан төмен түссе — «Аз қалды» болады{min != null ? ` (қазір ${fmtQty(min)} ${unit})` : ""}</span>
+        <span className="mt-1 block text-xs text-text-secondary">Қалдық осыған жетсе не төмен түссе — «Аз қалды» болады{min != null ? ` (қазір ${fmtQty(min)} ${unit})` : ""}</span>
       </label>
       <label>
         <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Бағасы, 1 {unit} үшін (₸)</span>

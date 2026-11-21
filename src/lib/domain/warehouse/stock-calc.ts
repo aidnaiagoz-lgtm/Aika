@@ -51,10 +51,11 @@ export function parseLedgerMaterial(raw: string | null | undefined): CatalogItem
 
 export type StockStatus = "ok" | "low" | "out" | "none";
 
-/** Күйі: кіріс болмаған (none) · бітті (out) · аз қалды (low, минимумнан төмен) · жеткілікті (ok). */
+/** Күйі: кіріс болмаған (none) · бітті (out) · аз қалды (low, минимумға жетті не төмен) · жеткілікті (ok). */
 export function stockStatus(stock: number, min: number | null, everMoved: boolean): StockStatus {
   if (stock <= 0) return everMoved ? "out" : "none";
-  if (min != null && stock < min) return "low";
+  // Минимумға ТЕҢ болса да «Аз қалды» — тапсырыс беру уақыты келді (CEO, 2026-11-21: 800 м / минимум 800 м «Жеткілікті» деп тұрды)
+  if (min != null && min > 0 && stock <= min) return "low";
   return "ok";
 }
 
