@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Sidebar, Header, MobileNav } from "@/lib/ui";
@@ -16,7 +17,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login?expired=1");
 
   const pathname = (await headers()).get("x-pathname") ?? "";
-  if (user.mustChangePassword && pathname !== "/change-password") redirect("/change-password");
+  // Уақытша пароль: бетке бұрмаймыз (CEO, 2026-11-21 — кіргенде бірден Рейтинг ашылсын), жоғарыда ескерту ғана
+  const tempPassword = user.mustChangePassword && pathname !== "/change-password";
 
   // Сатушы-менеджер тек өз бөлімдерін ашады (Рейтинг, Продажи, пароль). Қалғаны — серверде жабық.
   const managerMode = isSalesManagerOnly(user);
@@ -63,7 +65,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           locale={locale}
           onSetLocale={setLocaleAction}
         />
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8">
+          {tempPassword && (
+            <Link
+              href="/change-password"
+              className="mb-4 flex items-center justify-between gap-3 rounded-[14px] border border-[#d6e0fa] bg-[#f5f8ff] px-4 py-2.5 text-sm text-[#1f4fd8]"
+            >
+              <span>{locale === "ru" ? "У вас временный пароль — поставьте свой." : "Сізде уақытша пароль тұр — өз пароліңізді қойыңыз."}</span>
+              <b className="shrink-0">{locale === "ru" ? "Сменить →" : "Ауыстыру →"}</b>
+            </Link>
+          )}
+          {children}
+        </main>
         <MobileNav mode={managerMode ? "manager" : workshopMode ? "workshop" : isLeader(user) ? "leader" : "staff"} />
       </div>
     </div>
