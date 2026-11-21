@@ -560,7 +560,10 @@ function Tip({ data, t }: { data: RatingData; t: T }) {
 }
 
 function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId: string | null; leader: boolean; period: Period; t: T }) {
-  const top = data.board.slice(0, 3);
+  // Сатылымы жоқ менеджер подиумда да, рейтинг кестесінде де орын алмайды (CEO, 2026-11-21) — астында аттары ғана
+  const sold = data.board.filter((r) => r.revenue > 0 || r.items > 0);
+  const idle = data.board.filter((r) => !(r.revenue > 0 || r.items > 0));
+  const top = sold.slice(0, 3);
   const maxRev = Math.max(1, ...data.board.map((r) => r.revenue));
   const podiumOrder = [top[1], top[0], top[2]].filter(Boolean) as BoardRow[];
   const heights: Record<number, number> = { 1: 96, 2: 70, 3: 52 };
@@ -588,6 +591,9 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
       ) : (
         <>
           <div className="flex items-end justify-center gap-5 overflow-hidden rounded-[22px] px-4 pt-7" style={{ background: `linear-gradient(180deg, #12275f 0%, ${NAVY} 100%)` }}>
+            {podiumOrder.length === 0 && (
+              <div className="pb-8 pt-1 text-center text-sm text-[#9fb1e3]">{t("Бұл кезеңде әзірге сатылым жоқ", "За этот период продаж пока нет")}</div>
+            )}
             {podiumOrder.map((r) => {
               const m = MEDAL[r.rank];
               return (
@@ -631,7 +637,7 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
                 </tr>
               </thead>
               <tbody>
-                {data.board.map((r) => {
+                {sold.map((r) => {
                   const isMe = r.employeeId === myId;
                   const medal = MEDAL[r.rank];
                   return (
@@ -672,7 +678,15 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
                 })}
               </tbody>
             </table>
+            {sold.length === 0 && (
+              <div className="py-4 text-center text-sm text-text-secondary">{t("Бұл кезеңде әзірге ешкім сатпады.", "За этот период пока никто не продал.")}</div>
+            )}
           </div>
+          {idle.length > 0 && (
+            <div className="px-1 text-xs text-text-secondary">
+              {t("Әзірге сатылымы жоқ", "Пока без продаж")}: {idle.map((r) => (r.employeeId === myId ? `${r.name} (${t("сіз", "вы")})` : r.name)).join(", ")}
+            </div>
+          )}
         </>
       )}
     </section>
