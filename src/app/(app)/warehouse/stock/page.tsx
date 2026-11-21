@@ -5,12 +5,18 @@ import { ForbiddenError } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
-import { CATEGORY_LABEL, fmtQty } from "@/lib/domain/warehouse/stock-calc";
+import { CATEGORY_LABEL, fmtQty, fmtRolls } from "@/lib/domain/warehouse/stock-calc";
 import { CATEGORY_ORDER, relDay, StatusPill, Thumb } from "../ui";
 
 export const dynamic = "force-dynamic";
 
 /** Қойма → Қалдық (CEO, 2026-11-18): карточкалар (басқанда сүзгі), санаттар, іздеу, кесте. */
+// «Аз қалды» — сары, «Бітті» — қызыл жол: көзге бірден түсу үшін (CEO, 2026-11-21)
+const ROW_TONE: Partial<Record<string, { row: string; stripe: string; card: string }>> = {
+  low: { row: "bg-[#fff8e6] hover:bg-[#fff1cc]", stripe: "shadow-[inset_4px_0_0_#f59e0b]", card: "bg-[#fff8e6] border-l-4 border-[#f59e0b]" },
+  out: { row: "bg-[#fdeeee] hover:bg-[#fbe0e0]", stripe: "shadow-[inset_4px_0_0_#dc2626]", card: "bg-[#fdeeee] border-l-4 border-[#dc2626]" },
+};
+
 const money = (n: number) => (n >= 1_000_000 ? `${fmtQty(Math.round(n / 100_000) / 10)} млн ₸` : `${fmtQty(Math.round(n))} ₸`);
 
 export default async function StockPage({ searchParams }: { searchParams: Promise<{ f?: string; cat?: string; q?: string }> }) {
@@ -43,10 +49,10 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   };
 
   const cards = [
-    { key: null, label: "Қойма құны", value: money(kpi.value), icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: "low", label: "Аз қалды", value: String(kpi.low), icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
-    { key: "out", label: "Бітті", value: String(kpi.out), icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
+    { key: null, label: "Қойма құны", value: money(kpi.value), sub: null, icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
+    { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, sub: kpi.leatherRolls > 0 ? fmtRolls(kpi.leatherRolls) : null, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
+    { key: "low", label: "Аз қалды", value: String(kpi.low), sub: null, icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
+    { key: "out", label: "Бітті", value: String(kpi.out), sub: null, icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
   ] as const;
 
   return (
@@ -72,6 +78,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               <span className="min-w-0">
                 <span className="block text-[13px] text-text-secondary">{c.label}</span>
                 <span className={`block whitespace-nowrap text-[19px] font-bold leading-tight sm:text-[22px] ${c.key === "out" && kpi.out > 0 ? "text-danger" : "text-text-primary"}`}>{c.value}</span>
+                {c.sub && <span className="block text-xs text-text-secondary">{c.sub}</span>}
               </span>
               {active && (
                 <span title="Қайта басса — сүзгі алынады" className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-page-bg text-text-secondary">
@@ -131,8 +138,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-border last:border-0 hover:bg-page-bg/50">
-                    <td className="px-5 py-3">
+                  <tr key={r.id} className={`border-b border-border last:border-0 ${ROW_TONE[r.status]?.row ?? "hover:bg-page-bg/50"}`}>
+                    <td className={`px-5 py-3 ${ROW_TONE[r.status]?.stripe ?? ""}`}>
                       <Link href={`/warehouse/material/${r.id}`} className="flex items-center">
                         <Thumb name={r.name} photo={r.photo} />
                         <span>
@@ -145,8 +152,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     </td>
                     <td className="whitespace-nowrap px-5 py-3 font-semibold tabular-nums">
                       {fmtQty(r.stock)} {r.unit}
+                      {r.rolls != null && <div className="text-xs font-normal text-text-secondary">{fmtRolls(r.rolls)}</div>}
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3 tabular-nums text-text-secondary">{r.min == null ? "—" : `${fmtQty(r.min)} ${r.unit}`}</td>
+                    <td className={`whitespace-nowrap px-5 py-3 tabular-nums ${r.status === "low" ? "font-semibold text-[#b45309]" : "text-text-secondary"}`}>{r.min == null ? "—" : `${fmtQty(r.min)} ${r.unit}`}</td>
                     <td className="px-5 py-3">
                       <StatusPill s={r.status} />
                       {r.days != null && (r.status === "low" || r.status === "ok") && <div className="mt-1 text-xs text-text-secondary">≈ {r.days} күнге жетеді</div>}
@@ -164,7 +172,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           </div>
           <div className="flex flex-col gap-2 md:hidden">
             {rows.map((r) => (
-              <Link key={r.id} href={`/warehouse/material/${r.id}`} className="flex items-center gap-3 rounded-card bg-surface p-4 shadow-card">
+              <Link key={r.id} href={`/warehouse/material/${r.id}`} className={`flex items-center gap-3 rounded-card p-4 shadow-card ${ROW_TONE[r.status]?.card ?? "bg-surface"}`}>
                 <Thumb name={r.name} photo={r.photo} size={44} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold text-text-primary">{r.name}</div>
@@ -176,6 +184,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                   <span className="font-semibold tabular-nums">
                     {fmtQty(r.stock)} {r.unit}
                   </span>
+                  {r.rolls != null && <span className="text-xs text-text-secondary">{fmtRolls(r.rolls)}</span>}
                   <StatusPill s={r.status} />
                 </div>
               </Link>

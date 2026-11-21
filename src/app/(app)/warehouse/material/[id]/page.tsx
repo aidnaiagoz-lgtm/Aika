@@ -5,7 +5,7 @@ import { ForbiddenError } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { materialDetail } from "@/lib/domain/warehouse/stock";
-import { CATEGORY_LABEL, fmtQty, stockStatus } from "@/lib/domain/warehouse/stock-calc";
+import { CATEGORY_LABEL, DEFAULT_ROLL_LENGTH, fmtQty, fmtRolls, rollLengthFor, rollsOf, stockStatus } from "@/lib/domain/warehouse/stock-calc";
 import { Dot, StatusPill } from "../../ui";
 import { MaterialSettings } from "./MaterialSettings";
 import { MaterialPhoto } from "./MaterialPhoto";
@@ -30,6 +30,9 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
   const { material: m, moves, photo, photoBy } = d;
   const stock = Number(m.currentStock);
   const min = m.minStock == null ? null : Number(m.minStock);
+  const ownRoll = m.rollLength == null ? null : Number(m.rollLength);
+  const rollLen = rollLengthFor(m.category, ownRoll);
+  const rolls = rollsOf(stock, rollLen);
 
   return (
     <div className="flex flex-col gap-5">
@@ -65,6 +68,11 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
             <div className="text-[26px] font-bold leading-tight tabular-nums">
               {fmtQty(stock)} {m.unit}
             </div>
+            {rolls != null && (
+              <div className="text-sm text-text-secondary">
+                {fmtRolls(rolls)} <span className="text-xs">(1 рулон = {fmtQty(rollLen!)} {m.unit})</span>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -107,7 +115,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
             </table>
           )}
         </section>
-        <MaterialSettings id={m.id} unit={m.unit} min={min} price={Number(m.costPrice)} />
+        <MaterialSettings id={m.id} unit={m.unit} min={min} price={Number(m.costPrice)} roll={ownRoll} defaultRoll={DEFAULT_ROLL_LENGTH[m.category] ?? null} />
       </div>
     </div>
   );

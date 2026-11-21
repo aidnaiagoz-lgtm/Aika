@@ -4,7 +4,7 @@ import { prisma, PermissionAction } from "@/lib/db";
 import { assertPermission, can } from "@/lib/rbac";
 import { canUseWorkshop } from "@/lib/access";
 import type { ActingUser } from "@/lib/domain/orders";
-import { daysLeft, moySkladCategory, parseLedgerMaterial, stockStatus, type MoySkladRow, type StockStatus } from "./stock-calc";
+import { daysLeft, moySkladCategory, parseLedgerMaterial, rollLengthFor, rollsOf, stockStatus, type MoySkladRow, type StockStatus } from "./stock-calc";
 
 /**
  * Қойма, 1-кезең (CEO, 2026-11-18): каталог (Google/тапсырыс формасындағы кодтар), қалдық, кіріс (накладная), қозғалыс тарихы.
@@ -59,6 +59,8 @@ export interface StockRow {
   unit: string;
   stock: number;
   min: number | null;
+  /** Қалдық неше рулон (рулон ұзындығы белгілі болса) */
+  rolls: number | null;
   price: number;
   status: StockStatus;
   days: number | null;
@@ -106,6 +108,7 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
       unit: m.unit,
       stock,
       min,
+      rolls: rollsOf(stock, rollLengthFor(m.category, m.rollLength == null ? null : Number(m.rollLength))),
       price: Number(m.costPrice),
       status: stockStatus(stock, min, movedSet.has(m.id)),
       days: daysLeft(stock, outBy.get(m.id) ?? 0),
@@ -117,6 +120,7 @@ export async function stockOverview(user: ActingUser, opts: { filter?: StockFilt
   const kpi = {
     value: all.reduce((s, r) => s + Math.max(0, r.stock) * r.price, 0),
     leather: all.filter((r) => r.category === "LEATHER").reduce((s, r) => s + Math.max(0, r.stock), 0),
+    leatherRolls: Math.round(all.filter((r) => r.category === "LEATHER").reduce((s, r) => s + (r.rolls ?? 0), 0)),
     low: all.filter((r) => r.status === "low").length,
     out: all.filter((r) => r.status === "out").length,
   };
@@ -259,7 +263,7 @@ export async function materialDetail(user: ActingUser, id: string) {
 }
 
 /** Минимум қалдық (одан төмен түссе — «Аз қалды») және 1 бірліктің бағасы. */
-export async function updateMaterialStockSettings(user: ActingUser, id: string, patch: { minStock?: number | null; price?: number | null }) {
+export async function updateMaterialStockSettings(user: ActingUser, id: string, patch: { minStock?: number | null; price?: number | null; rollLength?: number | null }) {
   assertEdit(user);
   const data: Prisma.MaterialUpdateInput = {};
   if ("minStock" in patch) {
@@ -269,6 +273,11 @@ export async function updateMaterialStockSettings(user: ActingUser, id: string, 
   if ("price" in patch) {
     if (patch.price != null && !(patch.price >= 0 && patch.price <= 10_000_000)) throw new StockError("Баға дұрыс емес");
     data.costPrice = new Prisma.Decimal(patch.price ?? 0);
+  }
+  if ("rollLength" in patch) {
+    // Бос — санаттың әдепкісі (кожа 50 м, леска 45 м)
+    if (patch.rollLength != null && !(patch.rollLength > 0 && patch.rollLength <= 1000)) throw new StockError("Рулон ұзындығы дұрыс емес");
+    data.rollLength = patch.rollLength == null ? null : new Prisma.Decimal(patch.rollLength);
   }
   return prisma.material.update({ where: { id }, data });
 }
