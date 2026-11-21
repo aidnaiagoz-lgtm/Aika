@@ -565,7 +565,15 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
   const idle = data.board.filter((r) => !(r.revenue > 0 || r.items > 0));
   const top = sold.slice(0, 3);
   const maxRev = Math.max(1, ...data.board.map((r) => r.revenue));
-  const podiumOrder = [top[1], top[0], top[2]].filter(Boolean) as BoardRow[];
+  // Подиум әрқашан 3 орын: бос орын — үзік сызықпен «Бос орын» (CEO, 2026-11-21)
+  const slots: { place: number; row: BoardRow | undefined }[] = [
+    { place: 2, row: top[1] },
+    { place: 1, row: top[0] },
+    { place: 3, row: top[2] },
+  ];
+  const idleText =
+    period === "day" ? t("бүгін әлі сатпады", "сегодня ещё нет продаж") : period === "yesterday" ? t("кеше сатпады", "вчера не было продаж") : t("бұл кезеңде сатылым жоқ", "нет продаж за период");
+  const cols = 7 + (leader ? 2 : 0);
   const heights: Record<number, number> = { 1: 96, 2: 70, 3: 52 };
   const rangeLabel =
     period === "lastMonth"
@@ -591,10 +599,26 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
       ) : (
         <>
           <div className="flex items-end justify-center gap-5 overflow-hidden rounded-[22px] px-4 pt-7" style={{ background: `linear-gradient(180deg, #12275f 0%, ${NAVY} 100%)` }}>
-            {podiumOrder.length === 0 && (
-              <div className="pb-8 pt-1 text-center text-sm text-[#9fb1e3]">{t("Бұл кезеңде әзірге сатылым жоқ", "За этот период продаж пока нет")}</div>
-            )}
-            {podiumOrder.map((r) => {
+            {slots.map(({ place, row: r }) => {
+              if (!r)
+                return (
+                  <div key={`empty-${place}`} className="flex w-[210px] flex-col items-center text-center">
+                    <div
+                      className="flex items-center justify-center rounded-full border-2 border-dashed border-white/25 text-xl font-semibold text-white/35"
+                      style={{ width: place === 1 ? 84 : 66, height: place === 1 ? 84 : 66 }}
+                    >
+                      {place}
+                    </div>
+                    <div className="mt-3 text-sm font-medium text-white/45">{t("Бос орын", "Свободно")}</div>
+                    <div className="text-xs text-white/30">{t(`келесі сатылым — ${place}-орын`, `следующая продажа — ${place} место`)}</div>
+                    <div
+                      className="mt-3 flex w-full justify-center rounded-t-xl border-x border-t border-dashed border-white/10 bg-white/[0.03] pt-2 text-2xl font-semibold text-white/25"
+                      style={{ height: heights[place] }}
+                    >
+                      {place}
+                    </div>
+                  </div>
+                );
               const m = MEDAL[r.rank];
               return (
                 <div key={r.employeeId} className="rating-rise flex w-[210px] flex-col items-center text-center text-white" style={{ animationDelay: `${(r.rank - 1) * 110}ms` }}>
@@ -676,17 +700,33 @@ function Leaderboard({ data, myId, leader, period, t }: { data: RatingData; myId
                     </tr>
                   );
                 })}
+                {idle.length > 0 && (
+                  <tr className="border-t border-border">
+                    <td colSpan={cols} className="pb-1.5 pt-3.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                      {t("Әзірге сатылым жоқ", "Пока без продаж")} · {idle.length}
+                    </td>
+                  </tr>
+                )}
+                {idle.map((r) => {
+                  const isMe = r.employeeId === myId;
+                  return (
+                    <tr key={r.employeeId} className={`border-t border-border/60 text-text-secondary ${isMe ? "bg-[#f5f8ff]" : ""}`}>
+                      <td className="py-2 pr-2 pl-1.5">—</td>
+                      <td className="py-2 pr-2">
+                        <span className="flex items-center gap-2.5 font-medium opacity-70">
+                          <Avatar name={r.name} size={30} me={isMe} />
+                          {isMe ? `${r.name} · ${t("сіз", "вы")}` : r.name}
+                        </span>
+                      </td>
+                      <td colSpan={cols - 2} className="py-2 text-xs text-text-secondary/80">
+                        {idleText}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-            {sold.length === 0 && (
-              <div className="py-4 text-center text-sm text-text-secondary">{t("Бұл кезеңде әзірге ешкім сатпады.", "За этот период пока никто не продал.")}</div>
-            )}
           </div>
-          {idle.length > 0 && (
-            <div className="px-1 text-xs text-text-secondary">
-              {t("Әзірге сатылымы жоқ", "Пока без продаж")}: {idle.map((r) => (r.employeeId === myId ? `${r.name} (${t("сіз", "вы")})` : r.name)).join(", ")}
-            </div>
-          )}
         </>
       )}
     </section>
