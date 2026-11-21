@@ -5,13 +5,13 @@ import { Card } from "@/lib/ui";
 import { getCurrentUser } from "@/lib/auth";
 import { getDictionary } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { canManage, getTrainingFolder, isFileStorageConfigured, type TrainingSection } from "@/lib/domain/training";
+import { canManage, getTrainingFolder, type TrainingSection } from "@/lib/domain/training";
 import { FolderSection } from "./FolderSection";
 import { AddLinkForm, DeleteMaterialButton, FolderHeader, UploadPdfButton } from "./FolderControls";
 
 function formatSize(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
 }
 
 function linkIcon(url: string) {
@@ -73,7 +73,6 @@ export async function FolderPage({ section, folderId }: { section: TrainingSecti
             <UploadPdfButton
               section={section}
               folderId={folder.id}
-              storageReady={isFileStorageConfigured()}
               labels={{
                 upload: t.training.uploadPdf,
                 uploading: t.training.uploading,
