@@ -148,7 +148,8 @@ export function SalesOrderForm({
 }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [city, setCity] = useState("") // CEO (2026-11-21): қала өздігінен толмасын — менеджер өзі таңдайды;
+  // CEO (2026-11-21): қала өздігінен толмасын — менеджер өзі таңдайды
+  const [city, setCity] = useState("");
   const [channel, setChannel] = useState("");
   // Бір клиент 2–3 көлікке алуы мүмкін (CEO, 2026-11-14) — көліктер тізімі
   const [cars, setCars] = useState<CarState[]>([emptyCar()]);
