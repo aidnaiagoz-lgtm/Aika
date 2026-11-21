@@ -43,7 +43,7 @@ export default async function InstallPage({ searchParams }: { searchParams: Prom
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="m-0 text-2xl font-bold text-text-primary">Алып кету</h1>
-          <p className="m-0 mt-1 text-sm text-text-secondary">Цехта дайын тұрған «установка» заказдары</p>
+          <p className="m-0 mt-1 text-sm text-text-secondary">Цехта дайын тұрған заказдар</p>
         </div>
         <PushSetup compact />
       </div>
@@ -113,6 +113,7 @@ function CarName({ j, size }: { j: Job; size: "lg" | "md" }) {
 
 function JobCard({ j }: { j: Job }) {
   const cs = chips(j.product, j.matType);
+  const pickup = j.ledgerRow?.pickupMethod?.trim();
   return (
     <div className="flex flex-col rounded-[16px] border border-border bg-surface p-4">
       <div className="flex items-center justify-between text-xs text-text-secondary">
@@ -124,6 +125,7 @@ function JobCard({ j }: { j: Job }) {
         )}
       </div>
       <CarName j={j} size="lg" />
+      {pickup && <div className="mt-1 text-sm font-semibold text-accent">Алу: {pickup}</div>}
       {cs.length > 0 && (
         <div className="mb-3 mt-2 flex flex-wrap gap-1.5">
           {cs.map((c) => (

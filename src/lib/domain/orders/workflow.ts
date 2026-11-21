@@ -82,7 +82,7 @@ function toRow(j: Prisma.WorkshopJobGetPayload<{ select: typeof SELECT }>): Flow
     product: (j.product ?? "").trim(),
     leather: (j.leatherType ?? "").replace(/^\d+\s*-\s*Кожа\s*-\s*/i, "").trim(),
     remainder: Math.max(0, Number(j.ledgerRow?.remainder ?? 0)),
-    needsInstaller: /установ/i.test(j.ledgerRow?.pickupMethod ?? ""),
+    needsInstaller: true, // CEO 2026-11-21: барлық дайын заказ орнатушы арқылы өтеді
     pickedUpAt: j.pickedUpAt?.toISOString() ?? null,
     pickedUpBy: j.pickedUpBy ?? null,
     handedAt: j.handedAt?.toISOString() ?? null,
