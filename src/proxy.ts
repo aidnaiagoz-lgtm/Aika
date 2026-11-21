@@ -5,7 +5,8 @@ const SESSION_COOKIE = "automax_session";
 const PUBLIC_PATHS = ["/login"];
 const MODE_COOKIE = "automax_mode";
 // access.ts-тегі MANAGER_ALLOWED_PREFIXES-пен бірдей болуы керек
-const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/orders", "/change-password"];
+// "/workshop" — тек тест аккаунтқа (layout.tsx серверде тексереді; басқа менеджер /rating-ке қайтады)
+const MANAGER_ALLOWED = ["/rating", "/departments/sales/almaty", "/orders", "/change-password", "/workshop"];
 // access.ts-тегі WORKSHOP_ALLOWED_PREFIXES-пен бірдей
 const WORKSHOP_ALLOWED = ["/workshop", "/lekala", "/change-password"];
 

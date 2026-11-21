@@ -1,8 +1,8 @@
 import "server-only";
 import { Prisma, type WorkshopJob, type WorkshopJobStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { NOT_TEST_WHERE } from "@/lib/domain/sales-ledger/test-mode";
-import { canUseWorkshop, isLeader, WORKSHOP_ROLES } from "@/lib/access";
+import { isTestName } from "@/lib/domain/sales-ledger/test-mode";
+import { canOpenWorkshop, isLeader, isTestAccount, WORKSHOP_ROLES } from "@/lib/access";
 import { isChecked } from "@/lib/domain/sales-ledger/sheet-layout";
 import type { SessionUser } from "@/lib/session";
 import { sendPushToUsers } from "@/lib/push";
@@ -15,7 +15,23 @@ export class WorkshopError extends Error {}
 const ACTIVE_KEY = "workshop.activeSince";
 
 function assertAccess(user: SessionUser) {
-  if (!canUseWorkshop(user)) throw new WorkshopError("Цех беттері тек цех жауаптысы мен басшыларға ашық");
+  if (!canOpenWorkshop(user)) throw new WorkshopError("Цех беттері тек цех жауаптысы мен басшыларға ашық");
+}
+
+/**
+ * Тест тапсырмалары (менеджері «… тест»): тест аккаунт ТЕК соларды көреді, цех пен басшы оларды көрмейді (CEO, 2026-11-21).
+ */
+const TEST_JOB: Prisma.WorkshopJobWhereInput = {
+  OR: [{ manager: { contains: "тест", mode: "insensitive" } }, { manager: { contains: "test", mode: "insensitive" } }],
+};
+const NOT_TEST_JOB: Prisma.WorkshopJobWhereInput = { NOT: TEST_JOB };
+function jobScope(user: SessionUser): Prisma.WorkshopJobWhereInput {
+  return isTestAccount(user) ? TEST_JOB : NOT_TEST_JOB;
+}
+/** Әрекет алдында: тапсырма осы қолданушының көрінісіне жата ма */
+async function assertJobInScope(user: SessionUser, id: string) {
+  const ok = await prisma.workshopJob.count({ where: { AND: [{ id }, jobScope(user)] } });
+  if (!ok) throw new WorkshopError("Тапсырма табылмады");
 }
 
 // ---------- іске қосу ----------
@@ -118,7 +134,6 @@ export async function syncWorkshopJobs(
     where: {
       ...(ids ? { id: { in: ids } } : {}),
       OR: [{ date: { gte: since } }, { date: null, createdAt: { gte: since } }],
-      ...NOT_TEST_WHERE, // тест аккаунттың заказы цехқа түспейді
       ...(opts.recentDays ? { updatedAt: { gte: new Date(Date.now() - opts.recentDays * 86400_000) } } : {}),
     },
     select: LEDGER_SELECT,
@@ -159,10 +174,13 @@ async function maybeNotify(job: WorkshopJob): Promise<boolean> {
   if (!(job.car || job.brand) || !job.product) return false;
   const claimed = await prisma.workshopJob.updateMany({ where: { id: job.id, notifiedAt: null }, data: { notifiedAt: new Date() } });
   if (claimed.count === 0) return false;
-  const recipients = await prisma.user.findMany({
-    where: { status: "ACTIVE", userRoles: { some: { role: { name: { in: [...WORKSHOP_ROLES] } } } } },
-    select: { id: true },
-  });
+  // Тест тапсырмасы — цехқа (Бекзатқа) хабар бармайды, тек тест аккаунттың өзіне
+  const recipients = isTestName(job.manager)
+    ? await prisma.user.findMany({ where: { status: "ACTIVE", employee: { fullName: { equals: (job.manager ?? "").trim(), mode: "insensitive" } } }, select: { id: true } })
+    : await prisma.user.findMany({
+        where: { status: "ACTIVE", userRoles: { some: { role: { name: { in: [...WORKSHOP_ROLES] } } } } },
+        select: { id: true },
+      });
   const title = `Жаңа тапсырма №${job.orderNo}`;
   const body = jobHeadline(job);
   if (recipients.length) {
@@ -210,7 +228,7 @@ export async function listJobs(user: SessionUser, view: JobView, q?: string) {
       }
     : null;
   return prisma.workshopJob.findMany({
-    where: search ? { AND: [byView, search] } : byView,
+    where: { AND: [byView, jobScope(user), ...(search ? [search] : [])] },
     orderBy: view === "done" ? { doneAt: "desc" } : { receivedAt: "asc" },
     take: 300,
   });
@@ -218,10 +236,10 @@ export async function listJobs(user: SessionUser, view: JobView, q?: string) {
 
 export async function jobCounts(user: SessionUser) {
   assertAccess(user);
-  const rows = await prisma.workshopJob.groupBy({ by: ["status"], _count: { _all: true } });
+  const rows = await prisma.workshopJob.groupBy({ by: ["status"], where: jobScope(user), _count: { _all: true } });
   const c = Object.fromEntries(rows.map((r) => [r.status, r._count._all])) as Partial<Record<WorkshopJobStatus, number>>;
   const doneRecent = await prisma.workshopJob.count({
-    where: { status: "DONE", doneAt: { gte: new Date(Date.now() - DONE_DAYS * 86400_000) }, AND: [notArchived] },
+    where: { status: "DONE", doneAt: { gte: new Date(Date.now() - DONE_DAYS * 86400_000) }, AND: [notArchived, jobScope(user)] },
   });
   return { all: (c.NEW ?? 0) + (c.IN_PROGRESS ?? 0) + doneRecent, new: c.NEW ?? 0, work: c.IN_PROGRESS ?? 0, done: doneRecent };
 }
@@ -261,6 +279,7 @@ export async function updateJob(user: SessionUser, id: string, patch: JobPatch) 
   if ("leatherOwner" in patch) data.leatherOwner = cleanName(patch.leatherOwner);
   if ("matOwner" in patch) data.matOwner = cleanName(patch.matOwner);
   if ("lekalaNote" in patch) data.lekalaNote = cleanName(patch.lekalaNote);
+  await assertJobInScope(user, id);
   const job = await prisma.workshopJob.findUnique({ where: { id } });
   if (!job) throw new WorkshopError("Тапсырма табылмады");
   // Біреу операция белгілесе — тапсырма «жасалып жатыр» болады
@@ -274,6 +293,7 @@ export async function updateJob(user: SessionUser, id: string, patch: JobPatch) 
 /** «Тігуді бастау» — тапсырма «Тігіліп жатыр»-ға өтеді, менеджерге хабар барады. */
 export async function startJob(user: SessionUser, id: string) {
   assertAccess(user);
+  await assertJobInScope(user, id);
   const r = await prisma.workshopJob.updateMany({ where: { id, status: "NEW" }, data: { status: "IN_PROGRESS", startedAt: new Date() } });
   if (r.count === 0) return;
   const job = await prisma.workshopJob.findUnique({ where: { id } });
@@ -293,6 +313,7 @@ export function missingForDone(job: Pick<WorkshopJob, "leatherType" | "leatherMe
 /** «Дайын»: метр мен шеберлер толуы керек; менеджерге хабар (телефонға да). */
 export async function finishJob(user: SessionUser, id: string) {
   assertAccess(user);
+  await assertJobInScope(user, id);
   const job = await prisma.workshopJob.findUnique({ where: { id } });
   if (!job) throw new WorkshopError("Тапсырма табылмады");
   if (job.status === "DONE") return job;
@@ -316,6 +337,7 @@ export async function finishJob(user: SessionUser, id: string) {
 /** Қате басылса: «Дайын»-нан қайтару. */
 export async function reopenJob(user: SessionUser, id: string) {
   assertAccess(user);
+  await assertJobInScope(user, id);
   await prisma.workshopJob.updateMany({ where: { id, status: "DONE" }, data: { status: "IN_PROGRESS", doneAt: null } });
 }
 
@@ -339,8 +361,8 @@ async function notifyManager(job: WorkshopJob, kind: "started" | "done") {
 /** Тапсырманың толық беті: тапсырма + заказдағы алып кету/түсініктеме (клиенттің аты мен телефонынсыз). */
 export async function getJobDetail(user: SessionUser, id: string) {
   assertAccess(user);
-  const job = await prisma.workshopJob.findUnique({
-    where: { id },
+  const job = await prisma.workshopJob.findFirst({
+    where: { AND: [{ id }, jobScope(user)] },
     include: {
       ledgerRow: {
         select: {
@@ -380,7 +402,7 @@ export async function getJobDetail(user: SessionUser, id: string) {
 export async function closeStaleJobs(actor: SessionUser, before: Date) {
   if (!isLeader(actor)) throw new WorkshopError("Тек CEO жаба алады");
   const stale = await prisma.workshopJob.findMany({
-    where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before } },
+    where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before }, ...NOT_TEST_JOB },
     select: { id: true, receivedAt: true },
   });
   const now = new Date();
@@ -402,7 +424,7 @@ export function almatyTodayStart(now = Date.now()) {
 }
 
 export async function staleJobCount(before: Date = almatyTodayStart()) {
-  return prisma.workshopJob.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before } } });
+  return prisma.workshopJob.count({ where: { status: { in: ["NEW", "IN_PROGRESS"] }, receivedAt: { lt: before }, ...NOT_TEST_JOB } });
 }
 
 // ---------- қызметкерлер мен бағалар ----------
@@ -457,7 +479,7 @@ export async function payReport(user: SessionUser, from: Date, to: Date) {
   assertAccess(user);
   const [jobs, rates] = await Promise.all([
     prisma.workshopJob.findMany({
-      where: { status: "DONE", doneAt: { gte: from, lt: to }, AND: [notArchived] },
+      where: { status: "DONE", doneAt: { gte: from, lt: to }, AND: [notArchived, NOT_TEST_JOB] }, // тест тапсырмалары айлыққа кірмейді
       select: { doneAt: true, cutBy: true, joinBy: true, edgeBy: true, bottomBy: true, leatherMeters: true, leatherOwner: true },
     }),
     prisma.workshopRate.findMany(),

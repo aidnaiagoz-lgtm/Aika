@@ -1,3 +1,4 @@
+import { isTestName } from "@/lib/domain/sales-ledger/test-mode";
 // Рөлге байланысты қарапайым тексерулер (бет деңгейі).
 // Деректер деңгейіндегі нақты рұқсат — rbac.ts + domain сервистерінде.
 
@@ -30,6 +31,16 @@ export function isWorkshopOnly(user: RoleCarrier): boolean {
 /** Цех беттерін кім аша алады: цех жауаптысы + басшылар. */
 export function canUseWorkshop(user: RoleCarrier): boolean {
   return isLeader(user) || hasAnyRole(user, WORKSHOP_ROLES);
+}
+
+/** Тест аккаунт (аты-жөнінде «тест»): заказдары тек сайтта, цехты тек өз тест заказдарымен көреді (CEO, 2026-11-21). */
+export function isTestAccount(user: { employee?: { fullName?: string | null } | null }): boolean {
+  return isTestName(user.employee?.fullName);
+}
+
+/** Цех беттерін (Түскен / Тігіліп жатыр / Дайын / тапсырма) ашуға бола ма: цех, басшы, тест аккаунт. */
+export function canOpenWorkshop(user: RoleCarrier & { employee?: { fullName?: string | null } | null }): boolean {
+  return canUseWorkshop(user) || isTestAccount(user);
 }
 
 /** CEO басқаратын қарапайым аккаунттар (менеджер / цех) — паролінің көшірмесі CEO-ға көрінеді. */

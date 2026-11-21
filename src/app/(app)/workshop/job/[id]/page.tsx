@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CarFront, Check, Inbox, Scissors, Handshake } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
-import { canUseWorkshop } from "@/lib/access";
+import { canOpenWorkshop } from "@/lib/access";
 import { getJobDetail, listWorkers, missingForDone } from "@/lib/domain/workshop";
 import { jobHeadline, leatherNorm, splitMaterial, swatchColor } from "@/lib/domain/workshop/calc";
 import { carTitle } from "@/lib/domain/lekala/calc";
@@ -117,7 +117,7 @@ function Section({ title, aside, children }: { title: string; aside?: React.Reac
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!canUseWorkshop(user)) redirect("/dashboard");
+  if (!canOpenWorkshop(user)) redirect("/dashboard");
   const { id } = await params;
   const detail = await getJobDetail(user, id);
   if (!detail) notFound();

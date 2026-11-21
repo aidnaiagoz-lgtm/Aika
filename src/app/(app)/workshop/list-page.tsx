@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { canUseWorkshop, isLeader } from "@/lib/access";
+import { canOpenWorkshop, isLeader } from "@/lib/access";
 import { listJobs, staleJobCount, syncWorkshopJobs, workshopActiveSince } from "@/lib/domain/workshop";
 import { jobHeadline, splitMaterial } from "@/lib/domain/workshop/calc";
 import { carTitle } from "@/lib/domain/lekala/calc";
@@ -41,7 +41,7 @@ const META: Record<ListView, { title: string; sub: string; empty: string; view: 
 export async function WorkshopListPage({ list, q: rawQ }: { list: ListView; q?: string }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (!canUseWorkshop(user)) redirect("/dashboard");
+  if (!canOpenWorkshop(user)) redirect("/dashboard");
 
   const since = await workshopActiveSince();
   if (!since) {
