@@ -6,6 +6,7 @@ import { syncLeadSheets } from "@/lib/domain/sales-leads/sheet-import";
 import { retryPendingPushes } from "./sheet-push";
 import { syncWorkshopJobs } from "@/lib/domain/workshop";
 import { getSalesSource } from "../settings";
+import { detectSheetOrphans } from "./orphans";
 
 // Google Sheets «продажи» → сайт. Таблица "сілтемесі бар адам көре алады" режимінде:
 // CSV экспорты (SALES_SHEET_ID, SALES_SHEET_GID=0) тартылады, соңғы WINDOW_DAYS күн жаңартылады.
@@ -93,10 +94,13 @@ export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promi
   const all = parseCsv(text).slice(1);
   const from = new Date(Date.now() + 5 * 3600_000 - WINDOW_DAYS * 86400_000).toISOString().slice(0, 10);
   const rows: ExcelRow[] = [];
+  // Толтырылған жолдар (менеджер / телефон / тауар / сома бар) — сайттан жіберіліп, кестеде өшірілгендерін табу үшін
+  const filledNos: number[] = [];
   for (const r of all) {
     const day = dayOf(r[3] ?? "");
     if (!day || day < from || !/^\d+$/.test((r[0] ?? "").trim())) continue;
     rows.push(r.slice(0, COLS).map(toCell));
+    if ([4, 5, 15, 25].some((i) => (r[i] ?? "").trim())) filledNos.push(Number(r[0]));
   }
   if (rows.length === 0) throw new Error("Соңғы күндерде жол табылмады — бағандар реті өзгерген бе?");
 
@@ -109,6 +113,11 @@ export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promi
     updated += r.updated;
   }
   const { removed } = await reconcileSyncedWindow(from, rows.map((r) => Number(r[0])));
+  // Сайттан жіберіліп, кестеде өшірілген жолдар — CEO-ға ескерту (өздігінен өшірмейміз)
+  const orphans = await detectSheetOrphans(from, filledNos).catch((e) => {
+    console.error("[sheet-sync] orphans", e instanceof Error ? e.message : e);
+    return null;
+  });
   // Сайттан кестеге жіберілмей қалған жолдарды қайта жіберу
   const pushRetried = await retryPendingPushes().catch(() => 0);
   // Ереже 1: жаңа/өзгерген ОЛХ сатылымдары → лидпен байланыстыру
@@ -122,7 +131,7 @@ export async function syncFromGoogleSheet(opts: { force?: boolean } = {}): Promi
       action: "SYNC",
       entityType: "SalesLedgerRow",
       entityId: "google-sheets",
-      newValue: { from, rows: rows.length, created, updated, removed, linked, leads, pushRetried, workshop } as object,
+      newValue: { from, rows: rows.length, created, updated, removed, orphans, linked, leads, pushRetried, workshop } as object,
     },
   });
   return { rows: rows.length, removed, from };

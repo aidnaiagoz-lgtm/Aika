@@ -22,6 +22,7 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { isLeader } from "@/lib/access";
 import { ledgerDuplicateSummary } from "@/lib/domain/sales-ledger/duplicates";
+import { sheetOrphanSummary } from "@/lib/domain/sales-ledger/orphans";
 import { getRatingData, PERIODS, type Period, type BoardRow, type RatingData } from "@/lib/domain/rating";
 import { getLocale } from "@/lib/locale";
 
@@ -100,10 +101,11 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
   const leader = isLeader(user);
   const locale = await getLocale();
   const t: T = (kk, ru) => (locale === "ru" ? ru : kk);
-  const [data, lastSync, dupes] = await Promise.all([
+  const [data, lastSync, dupes, orphans] = await Promise.all([
     getRatingData({ period, employeeId: user.employee?.id ?? null, locale }),
     lastSheetSyncAt(),
     leader ? ledgerDuplicateSummary().catch(() => null) : null,
+    leader ? sheetOrphanSummary().catch(() => null) : null,
   ]);
   // Google таблицадан жаңарту — жауап жіберілгеннен кейін, 10 минутта ең көбі бір рет
   after(maybeSyncFromGoogleSheet);
@@ -118,6 +120,15 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
         </div>
       )}
 
+      {orphans && orphans.count > 0 && (
+        <Link href="/import#orphans" className="rounded-[14px] border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+          ⚠{" "}
+          {t(
+            `Google кестеде өшірілген ${orphans.count} сатылым сайтта қалып тұр (№${orphans.nos.slice(0, 6).join(", №")}) — айналым ${new Intl.NumberFormat("ru-RU").format(Math.round(orphans.sum))} ₸ артық саналып тұр. Қарау →`,
+            `${orphans.count} продаж удалены в Google, но остались на сайте (№${orphans.nos.slice(0, 6).join(", №")}) — выручка завышена на ${new Intl.NumberFormat("ru-RU").format(Math.round(orphans.sum))} ₸. Открыть →`,
+          )}
+        </Link>
+      )}
       {dupes && dupes.extraRows > 0 && (
         <Link href="/import#dupes" className="rounded-[14px] border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
           ⚠{" "}
