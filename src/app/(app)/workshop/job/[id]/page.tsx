@@ -224,17 +224,14 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         />
         <Line on={!!job.doneAt} />
         <Step icon={Check} title="Дайын" at={job.doneAt ? tm.format(job.doneAt) : "—"} state={job.doneAt ? "done" : job.status === "IN_PROGRESS" ? "cur" : "off"} />
-        {installer && (
-          <>
-            <Line on={!!job.pickedUpAt} />
-            <Step
-              icon={Truck}
-              title={job.pickedUpAt ? `${job.pickedUpBy ?? "Орнатушы"} алды` : "Орнатушы алды"}
-              at={job.pickedUpAt ? tm.format(job.pickedUpAt) : "—"}
-              state={job.pickedUpAt || job.handedAt ? "done" : job.status === "DONE" ? "cur" : "off"}
-            />
-          </>
-        )}
+        {/* Орнатушы қадамы әрқашан көрінеді (CEO, 2026-11-21); «установка» емес заказда — сұр, «өзі алып кетеді» т.б. */}
+        <Line on={installer ? !!job.pickedUpAt : !!job.handedAt} />
+        <Step
+          icon={Truck}
+          title={job.pickedUpAt ? `${job.pickedUpBy ?? "Орнатушы"} алды` : "Орнатушы алды"}
+          at={job.pickedUpAt ? tm.format(job.pickedUpAt) : installer ? "—" : (detail.pickup ?? "орнатушысыз")}
+          state={!installer ? "off" : job.pickedUpAt || job.handedAt ? "done" : job.status === "DONE" ? "cur" : "off"}
+        />
         <Line on={!!job.handedAt} />
         <Step
           icon={Handshake}
