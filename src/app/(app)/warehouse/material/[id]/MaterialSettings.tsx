@@ -3,11 +3,14 @@
 import { useState, useTransition } from "react";
 import { updateMaterialSettingsAction } from "../../actions";
 import { fmtQty, parseQty } from "@/lib/domain/warehouse/stock-calc";
+import type { Locale } from "@/lib/i18n";
+import { WH } from "../../t";
 
 const inputCls = "min-h-11 w-full rounded-icon border border-border bg-surface px-3.5 text-[15px] tabular-nums focus:outline-none focus:ring-2 focus:ring-accent/30";
 
 /** Минимум (осыған жетсе не төмен — «Аз қалды») және бағасы — өріс шыққанда өзі сақталады. */
 export function MaterialSettings({
+  locale,
   id,
   unit,
   min,
@@ -16,6 +19,7 @@ export function MaterialSettings({
   defaultRoll,
   leadDays,
 }: {
+  locale: Locale;
   id: string;
   unit: string;
   min: number | null;
@@ -26,6 +30,7 @@ export function MaterialSettings({
   /** Жеткізу мерзімі, күн (бос — 45) */
   leadDays: number | null;
 }) {
+  const t = WH[locale].set;
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [minV, setMinV] = useState(min == null ? "" : String(min).replace(".", ","));
@@ -36,18 +41,18 @@ export function MaterialSettings({
   const save = (patch: { minStock?: number | null; price?: number | null; rollLength?: number | null; leadDays?: number | null }) =>
     start(async () => {
       const r = await updateMaterialSettingsAction(id, patch);
-      setMsg(r.ok ? { ok: true, text: "Сақталды" } : { ok: false, text: r.error });
+      setMsg(r.ok ? { ok: true, text: WH[locale].saved } : { ok: false, text: r.error });
     });
 
   return (
     <aside className={`flex flex-col gap-4 rounded-card bg-surface p-5 shadow-card ${pending ? "opacity-70" : ""}`}>
-      <h2 className="m-0 text-base font-bold">Баптау</h2>
+      <h2 className="m-0 text-base font-bold">{t.title}</h2>
       <label>
-        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Минимум қалдық, {unit}</span>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">{t.min(unit)}</span>
         <input
           inputMode="decimal"
           value={minV}
-          placeholder="мыс. 30"
+          placeholder={t.minPh}
           onChange={(e) => setMinV(e.target.value)}
           onBlur={() => {
             const n = parseQty(minV);
@@ -55,14 +60,14 @@ export function MaterialSettings({
           }}
           className={inputCls}
         />
-        <span className="mt-1 block text-xs text-text-secondary">Қалдық осыған жетсе не төмен түссе — «Аз қалды» болады{min != null ? ` (қазір ${fmtQty(min)} ${unit})` : ""}</span>
+        <span className="mt-1 block text-xs text-text-secondary">{t.minHint}{min != null ? t.minNow(fmtQty(min), unit) : ""}</span>
       </label>
       <label>
-        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Жеткізу мерзімі, күн</span>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">{t.lead}</span>
         <input
           inputMode="numeric"
           value={leadV}
-          placeholder="әдепкі 45 (Қытай)"
+          placeholder={t.leadPh}
           onChange={(e) => setLeadV(e.target.value.replace(/[^0-9]/g, ""))}
           onBlur={() => {
             const n = leadV.trim() === "" ? null : Number(leadV);
@@ -70,14 +75,14 @@ export function MaterialSettings({
           }}
           className={inputCls}
         />
-        <span className="mt-1 block text-xs text-text-secondary">Заказ бергеннен қоймаға келгенше. Қалдық «осы + 15 күн»-нен аз уақытқа жетсе — «Заказ беру керек».</span>
+        <span className="mt-1 block text-xs text-text-secondary">{t.leadHint}</span>
       </label>
       <label>
-        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">1 рулонда, {unit}</span>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">{t.roll(unit)}</span>
         <input
           inputMode="decimal"
           value={rollV}
-          placeholder={defaultRoll != null ? `әдепкі ${String(defaultRoll).replace(".", ",")}` : "мыс. 50"}
+          placeholder={defaultRoll != null ? t.rollPhDefault(String(defaultRoll).replace(".", ",")) : t.rollPh}
           onChange={(e) => setRollV(e.target.value)}
           onBlur={() => {
             const n = parseQty(rollV);
@@ -87,16 +92,16 @@ export function MaterialSettings({
         />
         <span className="mt-1 block text-xs text-text-secondary">
           {defaultRoll != null
-            ? `Бос болса — ${String(defaultRoll).replace(".", ",")} ${unit}. Бұл рулон басқаша болса (мыс. 48), осында жазыңыз.`
-            : "Жазсаңыз — қалдық рулонмен де көрсетіледі."}
+            ? t.rollHintDefault(String(defaultRoll).replace(".", ","), unit)
+            : t.rollHint}
         </span>
       </label>
       <label>
-        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">Бағасы, 1 {unit} үшін (₸)</span>
+        <span className="mb-1.5 block text-xs font-semibold text-text-secondary">{t.price(unit)}</span>
         <input
           inputMode="decimal"
           value={priceV}
-          placeholder="соңғы кірістен өзі қойылады"
+          placeholder={t.pricePh}
           onChange={(e) => setPriceV(e.target.value)}
           onBlur={() => {
             const n = parseQty(priceV);

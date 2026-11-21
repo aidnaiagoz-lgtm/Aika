@@ -5,7 +5,8 @@ import { ForbiddenError } from "@/lib/rbac";
 import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
-import { CATEGORY_LABEL, fmtQty, fmtRolls } from "@/lib/domain/warehouse/stock-calc";
+import { fmtQty } from "@/lib/domain/warehouse/stock-calc";
+import { WH } from "../t";
 import { CATEGORY_ORDER, StatusPill, Thumb } from "../ui";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,14 @@ const ROW_TONE: Partial<Record<string, { row: string; stripe: string; card: stri
   out: { row: "bg-[#fdeeee] hover:bg-[#fbe0e0]", stripe: "shadow-[inset_4px_0_0_#dc2626]", card: "bg-[#fdeeee] border-l-4 border-[#dc2626]" },
 };
 
-const money = (n: number) => (n >= 1_000_000 ? `${fmtQty(Math.round(n / 100_000) / 10)} млн ₸` : `${fmtQty(Math.round(n))} ₸`);
+const money = (n: number, mln: string) => (n >= 1_000_000 ? `${fmtQty(Math.round(n / 100_000) / 10)} ${mln} ₸` : `${fmtQty(Math.round(n))} ₸`);
 
 export default async function StockPage({ searchParams }: { searchParams: Promise<{ f?: string; cat?: string; q?: string }> }) {
   const user = await getCurrentUser();
   if (!user) return null;
+  const locale = await getLocale();
+  const t = WH[locale];
+  const u = t.unit;
   const sp = await searchParams;
   const filter: StockFilter = sp.f === "low" || sp.f === "out" ? sp.f : "all";
   const cat = CATEGORY_ORDER.find((c) => c === sp.cat);
@@ -33,7 +37,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   try {
     data = await stockOverview(user, { filter, category: cat, q });
   } catch (e) {
-    if (e instanceof ForbiddenError) return <AccessDenied locale={await getLocale()} />;
+    if (e instanceof ForbiddenError) return <AccessDenied locale={locale} />;
     throw e;
   }
   const { rows, kpi, byCategory, total } = data;
@@ -51,21 +55,21 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   };
 
   const cards = [
-    { key: null, label: "Қойма құны", value: money(kpi.value), sub: null, icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, sub: kpi.leatherRolls > 0 ? fmtRolls(kpi.leatherRolls) : null, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: "low", label: "Заказ беру керек", value: String(kpi.low), sub: "60 күннен аз қалды",  icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
-    { key: "out", label: "Шұғыл / бітті", value: String(kpi.out + kpi.urgent), sub: "тауар келгенше бітеді",  icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
+    { key: null, label: t.stock.value, value: money(kpi.value, t.stock.million), sub: null, icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
+    { key: null, label: t.stock.leatherTotal, value: `${fmtQty(Math.round(kpi.leather))} м`, sub: kpi.leatherRolls > 0 ? t.rolls(kpi.leatherRolls) : null, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
+    { key: "low", label: t.stock.needOrder, value: String(kpi.low), sub: t.stock.needOrderSub,  icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
+    { key: "out", label: t.stock.urgent, value: String(kpi.out + kpi.urgent), sub: t.stock.urgentSub,  icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
   ] as const;
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="m-0 text-2xl font-bold text-text-primary">Қалдық</h1>
-          <p className="m-0 mt-1 text-sm text-text-secondary">Қоймада қазір не бар · {total} материал</p>
+          <h1 className="m-0 text-2xl font-bold text-text-primary">{t.stock.title}</h1>
+          <p className="m-0 mt-1 text-sm text-text-secondary">{t.stock.subtitle(total)}</p>
         </div>
         <Link href="/warehouse/receipts/new" className="flex items-center gap-1.5 rounded-pill bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover">
-          <Plus size={16} /> Кіріс
+          <Plus size={16} /> {t.receipt}
         </Link>
       </div>
 
@@ -83,7 +87,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 {c.sub && <span className="block text-xs text-text-secondary">{c.sub}</span>}
               </span>
               {active && (
-                <span title="Қайта басса — сүзгі алынады" className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-page-bg text-text-secondary">
+                <span title={t.stock.clearFilter} className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-page-bg text-text-secondary">
                   <X size={14} />
                 </span>
               )}
@@ -105,11 +109,11 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <nav className="flex gap-1 overflow-x-auto rounded-pill bg-surface p-1 shadow-card">
             <Link href={href({ cat: null })} className={`whitespace-nowrap rounded-pill px-3.5 py-1.5 text-sm font-semibold ${!cat ? "bg-accent/10 text-accent" : "text-text-secondary"}`}>
-              Барлығы · {total}
+              {t.all} · {total}
             </Link>
             {CATEGORY_ORDER.filter((c) => byCategory.some(([k]) => k === c)).map((c) => (
               <Link key={c} href={href({ cat: c })} className={`whitespace-nowrap rounded-pill px-3.5 py-1.5 text-sm font-semibold ${cat === c ? "bg-accent/10 text-accent" : "text-text-secondary"}`}>
-                {CATEGORY_LABEL[c]} · {byCategory.find(([k]) => k === c)?.[1]}
+                {t.category[c]} · {byCategory.find(([k]) => k === c)?.[1]}
               </Link>
             ))}
           </nav>
@@ -117,13 +121,13 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           {filter !== "all" && <input type="hidden" name="f" value={filter} />}
           {cat && <input type="hidden" name="cat" value={cat} />}
           <Search size={16} className="text-text-secondary" />
-          <input name="q" defaultValue={q} placeholder="Код немесе атауы" className="min-h-10 min-w-0 flex-1 bg-transparent text-sm focus:outline-none" />
+          <input name="q" defaultValue={q} placeholder={t.stock.search} className="min-h-10 min-w-0 flex-1 bg-transparent text-sm focus:outline-none" />
         </form>
       </div>
 
       {rows.length === 0 ? (
         <p className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary shadow-card">
-          {filter === "low" ? "Заказ беру керек материал жоқ." : filter === "out" ? "Шұғыл не біткен материал жоқ." : "Ештеңе табылмады."}
+          {filter === "low" ? t.stock.emptyLow : filter === "out" ? t.stock.emptyOut : t.stock.emptyAll}
         </p>
       ) : (
         <>
@@ -131,7 +135,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-page-bg text-left text-xs text-text-secondary">
-                  {["Материал", "Қалдық", "Жұмсалуы", "Жетеді", "Күйі", "Заказ беру", "Минимум", "Бағасы (1 бірлік)"].map((h) => (
+                  {t.stock.cols.map((h) => (
                     <th key={h} className="whitespace-nowrap border-b border-border px-5 py-3 font-semibold">
                       {h}
                     </th>
@@ -147,33 +151,33 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                         <span>
                           <span className="block font-semibold text-text-primary">{r.name}</span>
                           <span className="text-xs text-text-secondary">
-                            {r.sku} · {CATEGORY_LABEL[r.category]}
+                            {r.sku} · {t.category[r.category]}
                           </span>
                         </span>
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-5 py-3 font-semibold tabular-nums">
-                      {fmtQty(r.stock)} {r.unit}
-                      {r.rolls != null && <div className="text-xs font-normal text-text-secondary">{fmtRolls(r.rolls)}</div>}
+                      {fmtQty(r.stock)} {u(r.unit)}
+                      {r.rolls != null && <div className="text-xs font-normal text-text-secondary">{t.rolls(r.rolls)}</div>}
                     </td>
-                    <td className="whitespace-nowrap px-5 py-3 tabular-nums text-text-secondary">{r.perDay != null ? `${fmtQty(Math.round(r.perDay * 10) / 10)} ${r.unit}/күн` : "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 tabular-nums text-text-secondary">{r.perDay != null ? t.perDay(fmtQty(Math.round(r.perDay * 10) / 10), u(r.unit)) : "—"}</td>
                     <td className={`whitespace-nowrap px-5 py-3 font-semibold tabular-nums ${r.status === "urgent" ? "text-danger" : r.status === "order" ? "text-[#b45309]" : "text-text-primary"}`}>
-                      {r.days != null ? `${r.days} күн` : "—"}
+                      {r.days != null ? t.days(r.days) : "—"}
                     </td>
                     <td className="px-5 py-3">
-                      <StatusPill s={r.status} />
+                      <StatusPill s={r.status} locale={locale} />
                     </td>
                     <td className="whitespace-nowrap px-5 py-3 tabular-nums">
                       {r.order > 0 ? (
                         <>
-                          <span className="font-bold text-text-primary">{r.orderRolls != null ? `${r.orderRolls} рулон` : `${fmtQty(Math.ceil(r.order))} ${r.unit}`}</span>
-                          {r.orderRolls != null && <div className="text-xs text-text-secondary">≈ {fmtQty(Math.ceil(r.order))} {r.unit}</div>}
+                          <span className="font-bold text-text-primary">{r.orderRolls != null ? t.rollsExact(r.orderRolls) : `${fmtQty(Math.ceil(r.order))} ${u(r.unit)}`}</span>
+                          {r.orderRolls != null && <div className="text-xs text-text-secondary">≈ {fmtQty(Math.ceil(r.order))} {u(r.unit)}</div>}
                         </>
                       ) : (
                         <span className="text-text-secondary">—</span>
                       )}
                     </td>
-                    <td className={`whitespace-nowrap px-5 py-3 tabular-nums ${r.status === "low" ? "font-semibold text-[#b45309]" : "text-text-secondary"}`}>{r.min == null ? "—" : `${fmtQty(r.min)} ${r.unit}`}</td>
+                    <td className={`whitespace-nowrap px-5 py-3 tabular-nums ${r.status === "low" ? "font-semibold text-[#b45309]" : "text-text-secondary"}`}>{r.min == null ? "—" : `${fmtQty(r.min)} ${u(r.unit)}`}</td>
                     <td className="whitespace-nowrap px-5 py-3 tabular-nums">{r.price > 0 ? `${fmtQty(r.price)} ₸` : "—"}</td>
                   </tr>
                 ))}
@@ -187,18 +191,18 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold text-text-primary">{r.name}</div>
                   <div className="text-xs text-text-secondary">
-                    {r.sku} · {CATEGORY_LABEL[r.category]}
+                    {r.sku} · {t.category[r.category]}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className="font-semibold tabular-nums">
-                    {fmtQty(r.stock)} {r.unit}
+                    {fmtQty(r.stock)} {u(r.unit)}
                   </span>
-                  {r.rolls != null && <span className="text-xs text-text-secondary">{fmtRolls(r.rolls)}</span>}
-                  <StatusPill s={r.status} />
-                  {r.days != null && <span className="text-xs text-text-secondary">{r.days} күнге жетеді</span>}
+                  {r.rolls != null && <span className="text-xs text-text-secondary">{t.rolls(r.rolls)}</span>}
+                  <StatusPill s={r.status} locale={locale} />
+                  {r.days != null && <span className="text-xs text-text-secondary">{t.daysLeft(r.days)}</span>}
                   {r.order > 0 && (
-                    <span className="text-xs font-bold text-text-primary">Заказ: {r.orderRolls != null ? `${r.orderRolls} рулон` : `${fmtQty(Math.ceil(r.order))} ${r.unit}`}</span>
+                    <span className="text-xs font-bold text-text-primary">{t.stock.orderShort}: {r.orderRolls != null ? t.rollsExact(r.orderRolls) : `${fmtQty(Math.ceil(r.order))} ${u(r.unit)}`}</span>
                   )}
                 </div>
               </Link>
