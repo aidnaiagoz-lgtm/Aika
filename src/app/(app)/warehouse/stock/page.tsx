@@ -6,13 +6,15 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { stockOverview, type StockFilter } from "@/lib/domain/warehouse/stock";
 import { CATEGORY_LABEL, fmtQty, fmtRolls } from "@/lib/domain/warehouse/stock-calc";
-import { CATEGORY_ORDER, relDay, StatusPill, Thumb } from "../ui";
+import { CATEGORY_ORDER, StatusPill, Thumb } from "../ui";
 
 export const dynamic = "force-dynamic";
 
 /** Қойма → Қалдық (CEO, 2026-11-18): карточкалар (басқанда сүзгі), санаттар, іздеу, кесте. */
 // «Аз қалды» — сары, «Бітті» — қызыл жол: көзге бірден түсу үшін (CEO, 2026-11-21)
 const ROW_TONE: Partial<Record<string, { row: string; stripe: string; card: string }>> = {
+  order: { row: "bg-[#fff8e6] hover:bg-[#fff1cc]", stripe: "shadow-[inset_4px_0_0_#f59e0b]", card: "bg-[#fff8e6] border-l-4 border-[#f59e0b]" },
+  urgent: { row: "bg-[#fdeeee] hover:bg-[#fbe0e0]", stripe: "shadow-[inset_4px_0_0_#dc2626]", card: "bg-[#fdeeee] border-l-4 border-[#dc2626]" },
   low: { row: "bg-[#fff8e6] hover:bg-[#fff1cc]", stripe: "shadow-[inset_4px_0_0_#f59e0b]", card: "bg-[#fff8e6] border-l-4 border-[#f59e0b]" },
   out: { row: "bg-[#fdeeee] hover:bg-[#fbe0e0]", stripe: "shadow-[inset_4px_0_0_#dc2626]", card: "bg-[#fdeeee] border-l-4 border-[#dc2626]" },
 };
@@ -51,8 +53,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const cards = [
     { key: null, label: "Қойма құны", value: money(kpi.value), sub: null, icon: Wallet, tone: "bg-accent-tint text-accent", ring: "" },
     { key: null, label: "Кожа, барлығы", value: `${fmtQty(Math.round(kpi.leather))} м`, sub: kpi.leatherRolls > 0 ? fmtRolls(kpi.leatherRolls) : null, icon: Ruler, tone: "bg-accent-tint text-accent", ring: "" },
-    { key: "low", label: "Аз қалды", value: String(kpi.low), sub: null, icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
-    { key: "out", label: "Бітті", value: String(kpi.out), sub: null, icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
+    { key: "low", label: "Заказ беру керек", value: String(kpi.low), sub: "60 күннен аз қалды",  icon: AlertTriangle, tone: "bg-[#fff4e0] text-[#b45309]", ring: "outline outline-2 outline-[#f59e0b]" },
+    { key: "out", label: "Шұғыл / бітті", value: String(kpi.out + kpi.urgent), sub: "тауар келгенше бітеді",  icon: ShoppingCart, tone: "bg-danger/10 text-danger", ring: "outline outline-2 outline-danger" },
   ] as const;
 
   return (
@@ -77,7 +79,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               </span>
               <span className="min-w-0">
                 <span className="block text-[13px] text-text-secondary">{c.label}</span>
-                <span className={`block whitespace-nowrap text-[19px] font-bold leading-tight sm:text-[22px] ${c.key === "out" && kpi.out > 0 ? "text-danger" : "text-text-primary"}`}>{c.value}</span>
+                <span className={`block whitespace-nowrap text-[19px] font-bold leading-tight sm:text-[22px] ${c.key === "out" && kpi.out + kpi.urgent > 0 ? "text-danger" : "text-text-primary"}`}>{c.value}</span>
                 {c.sub && <span className="block text-xs text-text-secondary">{c.sub}</span>}
               </span>
               {active && (
@@ -121,7 +123,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
 
       {rows.length === 0 ? (
         <p className="rounded-card bg-surface p-8 text-center text-sm text-text-secondary shadow-card">
-          {filter === "low" ? "Аз қалған материал жоқ. Минимумды материалдың бетінде қоюға болады." : filter === "out" ? "Біткен материал жоқ." : "Ештеңе табылмады."}
+          {filter === "low" ? "Заказ беру керек материал жоқ." : filter === "out" ? "Шұғыл не біткен материал жоқ." : "Ештеңе табылмады."}
         </p>
       ) : (
         <>
@@ -129,7 +131,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-page-bg text-left text-xs text-text-secondary">
-                  {["Материал", "Қалдық", "Минимум", "Күйі", "Бағасы (1 бірлік)", "Соңғы қозғалыс"].map((h) => (
+                  {["Материал", "Қалдық", "Жұмсалуы", "Жетеді", "Күйі", "Заказ беру", "Минимум", "Бағасы (1 бірлік)"].map((h) => (
                     <th key={h} className="whitespace-nowrap border-b border-border px-5 py-3 font-semibold">
                       {h}
                     </th>
@@ -154,17 +156,25 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                       {fmtQty(r.stock)} {r.unit}
                       {r.rolls != null && <div className="text-xs font-normal text-text-secondary">{fmtRolls(r.rolls)}</div>}
                     </td>
-                    <td className={`whitespace-nowrap px-5 py-3 tabular-nums ${r.status === "low" ? "font-semibold text-[#b45309]" : "text-text-secondary"}`}>{r.min == null ? "—" : `${fmtQty(r.min)} ${r.unit}`}</td>
+                    <td className="whitespace-nowrap px-5 py-3 tabular-nums text-text-secondary">{r.perDay != null ? `${fmtQty(Math.round(r.perDay * 10) / 10)} ${r.unit}/күн` : "—"}</td>
+                    <td className={`whitespace-nowrap px-5 py-3 font-semibold tabular-nums ${r.status === "urgent" ? "text-danger" : r.status === "order" ? "text-[#b45309]" : "text-text-primary"}`}>
+                      {r.days != null ? `${r.days} күн` : "—"}
+                    </td>
                     <td className="px-5 py-3">
                       <StatusPill s={r.status} />
-                      {r.days != null && (r.status === "low" || r.status === "ok") && <div className="mt-1 text-xs text-text-secondary">≈ {r.days} күнге жетеді</div>}
                     </td>
+                    <td className="whitespace-nowrap px-5 py-3 tabular-nums">
+                      {r.order > 0 ? (
+                        <>
+                          <span className="font-bold text-text-primary">{r.orderRolls != null ? `${r.orderRolls} рулон` : `${fmtQty(Math.ceil(r.order))} ${r.unit}`}</span>
+                          {r.orderRolls != null && <div className="text-xs text-text-secondary">≈ {fmtQty(Math.ceil(r.order))} {r.unit}</div>}
+                        </>
+                      ) : (
+                        <span className="text-text-secondary">—</span>
+                      )}
+                    </td>
+                    <td className={`whitespace-nowrap px-5 py-3 tabular-nums ${r.status === "low" ? "font-semibold text-[#b45309]" : "text-text-secondary"}`}>{r.min == null ? "—" : `${fmtQty(r.min)} ${r.unit}`}</td>
                     <td className="whitespace-nowrap px-5 py-3 tabular-nums">{r.price > 0 ? `${fmtQty(r.price)} ₸` : "—"}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-[13px] text-text-secondary">
-                      {r.last
-                        ? `${relDay(r.last.at)} · ${r.last.qty > 0 ? "+" : "−"}${fmtQty(Math.abs(r.last.qty))} ${r.unit}${r.last.orderNo ? ` · №${r.last.orderNo}` : r.last.kind === "IN" ? " · кіріс" : ""}`
-                        : "—"}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -186,6 +196,10 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                   </span>
                   {r.rolls != null && <span className="text-xs text-text-secondary">{fmtRolls(r.rolls)}</span>}
                   <StatusPill s={r.status} />
+                  {r.days != null && <span className="text-xs text-text-secondary">{r.days} күнге жетеді</span>}
+                  {r.order > 0 && (
+                    <span className="text-xs font-bold text-text-primary">Заказ: {r.orderRolls != null ? `${r.orderRolls} рулон` : `${fmtQty(Math.ceil(r.order))} ${r.unit}`}</span>
+                  )}
                 </div>
               </Link>
             ))}
