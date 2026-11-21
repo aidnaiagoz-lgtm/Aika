@@ -95,6 +95,8 @@ export async function pushRowToSheet(id: string) {
     const row = await prisma.salesLedgerRow.findUnique({ where: { id } });
     if (!row || row.importKey || row.createdAt < cfg.since!) return; // кестеден келгендер мен ескі жолдар жіберілмейді
     if (isTestName(row.manager)) return; // тест аккаунттың заказы — тек сайтта
+    // Бұрын қатемен біткен жол (кестеде жартылай көшірмесі қалуы мүмкін) — өздігінен қайта жіберілмейді (2026-11-21)
+    if (row.sheetPushError && row.sheetPushError !== PENDING && !row.sheetRow) return;
     if (!row.customerPhone && !row.customerName && !row.product && row.soldFor == null) return; // әлі бос
     // Ұстап алу: басқа жіберу жүріп жатса — сол аяқтағанда соңғы мәнді өзі жібереді
     const claim = await prisma.salesLedgerRow.updateMany({
@@ -136,12 +138,12 @@ export async function retryPendingPushes() {
       importKey: null,
       createdAt: { gte: cfg.since! },
       ...NOT_TEST_WHERE,
-      // Қате болса — 10 минуттан кейін ғана қайта (2026-11-21: әр 2 минут сайын 4 жолды қатар жіберу скрипттің құлпын
-      // ұстап, бәрі «Lock timeout»-қа түсті)
-      OR: [
-        { sheetPushedAt: null, sheetPushError: null, updatedAt: { lt: new Date(Date.now() - 60_000) } },
-        { sheetPushError: { not: null }, updatedAt: { lt: new Date(Date.now() - 10 * 60_000) } },
-      ],
+      // Қатемен аяқталған жол ҚАЙТА ЖІБЕРІЛМЕЙДІ (2026-11-21): скрипт жолды жартылай жазып, содан кейін қате/таймаут
+      // қайтарады — әр қайталау кестеде жаңа жартылай көшірме қалдырды (Аминаның заказы 5+ рет). Тек әлі жіберілмегендер
+      // (заказ толмай тұрғанда өткізіп жіберілген) жіберіледі. Қатемен қалғандары CEO-ға «Excel импорт»-та көрінеді.
+      sheetPushedAt: null,
+      sheetPushError: null,
+      updatedAt: { lt: new Date(Date.now() - 60_000) },
     },
     select: { id: true },
     orderBy: { updatedAt: "asc" },
