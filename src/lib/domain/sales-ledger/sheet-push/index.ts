@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { isLeader } from "@/lib/access";
 import type { SessionUser } from "@/lib/session";
 import { LEDGER_COLUMNS } from "../fields";
-import { toSheetValues, appsScript } from "./format";
+import { toSheetValues, appsScript, htmlErrorText } from "./format";
 import { salesSheetId } from "../normalize/sheet-id";
 
 export { isPushedCopy } from "./format";
@@ -45,13 +45,15 @@ async function call(url: string, body: object) {
     headers: { "Content-Type": "text/plain;charset=utf-8" }, // Apps Script — CORS preflight-сыз
     body: JSON.stringify(body),
     redirect: "follow",
-    signal: AbortSignal.timeout(25_000),
+    signal: AbortSignal.timeout(50_000), // скрипт құлыпты 20 с күтуі мүмкін
   });
   const text = await res.text();
   try {
     return JSON.parse(text) as { ok: boolean; error?: string; row?: number; no?: number | string; sheet?: boolean };
   } catch {
-    throw new Error(res.ok ? "Скрипт JSON қайтармады — «Web app», «Anyone» рұқсатымен деплой жасалды ма?" : `Скрипт жауабы ${res.status}`);
+    // Apps Script қатесі HTML бетпен келеді — себебін сақтаймыз (мыс. «data validation rules» — кестедегі тізімде жоқ мән)
+    const why = htmlErrorText(text);
+    throw new Error(`Скрипт қатесі${res.ok ? "" : ` (${res.status})`}: ${why || "JSON қайтармады — «Web app», «Anyone» рұқсатымен деплой жасалды ма?"}`);
   }
 }
 
