@@ -125,8 +125,8 @@ export default async function RatingPage({ searchParams }: { searchParams: Promi
         <Link href="/import#unpushed" className="rounded-[14px] border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
           ⚠{" "}
           {t(
-            `Сайтта жазылған ${unpushed.count} сатылым Google кестеге түспей тұр (№${unpushed.nos.slice(0, 6).join(", №")}) — сайттағы айналым ${new Intl.NumberFormat("ru-RU").format(Math.round(unpushed.sum))} ₸ көп. Себебі →`,
-            `${unpushed.count} продаж с сайта не попали в Google (№${unpushed.nos.slice(0, 6).join(", №")}) — на сайте выручка больше на ${new Intl.NumberFormat("ru-RU").format(Math.round(unpushed.sum))} ₸. Причина →`,
+            `Сайтта жазылған ${unpushed.count} сатылым Google кестеге түспеген (${new Intl.NumberFormat("ru-RU").format(Math.round(unpushed.sum))} ₸) — рейтингте саналмайды. Қарау →`,
+            `${unpushed.count} продаж с сайта не попали в Google (${new Intl.NumberFormat("ru-RU").format(Math.round(unpushed.sum))} ₸) — в рейтинге не учитываются. Открыть →`,
           )}
         </Link>
       )}

@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { IN_SHEET_WHERE } from "@/lib/domain/sales-ledger/counted";
 import { MANAGER_ROLES } from "@/lib/access";
 
 // Рейтинг — "Продажи" кестесінен (SalesLedgerRow) есептеледі.
@@ -173,7 +174,10 @@ export async function getRatingData(opts: { period: Period; employeeId: string |
     }),
     prisma.salesLedgerRow.findMany({
       where: {
-        OR: [{ date: { gte: new Date(historyFrom + "T00:00:00Z") } }, { date: null, createdAt: { gte: new Date(historyFrom) } }],
+        AND: [
+          { OR: [{ date: { gte: new Date(historyFrom + "T00:00:00Z") } }, { date: null, createdAt: { gte: new Date(historyFrom) } }] },
+          IN_SHEET_WHERE, // қазірше тек Google таблицадағылар (CEO, 2026-11-21)
+        ],
       },
       select: {
         date: true,
