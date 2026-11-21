@@ -19,7 +19,8 @@ const isStandalone = () =>
   window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
 /** Цех бетінің үстінде: телефонға хабарламаны қосу. iPhone-да — алдымен «На экран «Домой»». */
-export function PushSetup() {
+/** compact: хабарлама қосулы болса — кішкене белгі ғана (орнатушы беті, 2026-11-21) */
+export function PushSetup({ compact = false }: { compact?: boolean } = {}) {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -129,6 +130,18 @@ export function PushSetup() {
       </div>
     );
   }
+  if (compact)
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={test}
+        title="Сынақ хабар жіберу"
+        className="inline-flex items-center gap-1.5 rounded-pill bg-[#e7f7ec] px-3 py-1.5 text-xs font-semibold text-[#15803d]"
+      >
+        <Bell size={13} /> {msg ? "Сынақ хабар жіберілді" : "Хабарлама қосулы"}
+      </button>
+    );
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-card bg-[#e7f7ec] px-4 py-3">
       <Bell size={16} className="text-[#15803d]" />
