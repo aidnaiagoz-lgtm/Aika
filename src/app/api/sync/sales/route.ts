@@ -1,8 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { upsertLedgerRows, reconcileSyncedWindow, type ExcelRow } from "@/lib/domain/sales-ledger/import";
 import { linkOlxSales } from "@/lib/domain/sales-leads/rules";
+import { syncWorkshopJobs } from "@/lib/domain/workshop";
 
 // Google Sheets → сайт синхрондауы. Таблицадағы Apps Script (docs/integrations/google-sheets-sync.gs)
 // әр 10 минут сайын соңғы күндердің жолдарын осында жібереді.
@@ -43,6 +45,16 @@ export async function POST(request: Request) {
       Object.assign(result, { imported: up.imported, created: up.created, updated: up.updated, skipped: up.skipped });
       // Ереже 1: ОЛХ сатылымдары → лид
       Object.assign(result, { linked: await linkOlxSales(up.changedIds) });
+      // Цех: «Цех ✓» жолдар → цех тапсырмасы + цехтың телефонына хабар. Бұрын тек сайт ашылғанда
+      // (Рейтинг/цех беті) жасалатын — сондықтан Google-дан толтырылған заказдар телефонға келмейтін.
+      const ids = up.changedIds;
+      if (ids.length) {
+        after(() =>
+          syncWorkshopJobs(ids)
+            .then(() => undefined)
+            .catch((e) => console.error("[sync/sales] workshop", e instanceof Error ? e.message : e)),
+        );
+      }
     }
     if (body.reconcile) {
       const nos = (body.reconcile.nos ?? []).filter((n) => Number.isFinite(n));
