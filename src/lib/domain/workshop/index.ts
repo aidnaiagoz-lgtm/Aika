@@ -526,7 +526,7 @@ async function notifyInstallers(job: WorkshopJob) {
   await sendPushToUsers(recipients.map((u) => u.id), { title, body, url: "/install", tag: `install-${job.id}` });
 }
 
-/** Орнатушының тізімі: цехта дайын, клиентке әлі берілмеген «установка» заказдары. Алынғандары — астында (соңғы 2 күн). */
+/** Орнатушының тізімі: цехта дайын, клиентке әлі берілмеген «установка» заказдары + бүгін алынғандары. */
 export async function listInstallJobs(user: SessionUser) {
   assertInstallAccess(user);
   const since = new Date(Date.now() - INSTALL_DAYS * 86400_000);
@@ -537,8 +537,9 @@ export async function listInstallJobs(user: SessionUser) {
         INSTALL_WHERE,
         scope,
         notArchived,
-        { status: "DONE", handedAt: null, doneAt: { gte: since } },
-        { OR: [{ pickedUpAt: null }, { pickedUpAt: { gte: new Date(Date.now() - 2 * 86400_000) } }] },
+        { status: "DONE", doneAt: { gte: since } },
+        // күтіп тұрғандар (әлі ешкім алмаған, клиентке берілмеген) + бүгін алынғандар (клиентке берілсе де)
+        { OR: [{ pickedUpAt: null, handedAt: null }, { pickedUpAt: { gte: almatyTodayStart() } }] },
       ],
     },
     orderBy: { doneAt: "desc" },
